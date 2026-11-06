@@ -5,13 +5,13 @@ Remotely — a remote control and remote scripting solution built with .NET 10 (
 ## Setup commands
 
 - Restore deps: `dotnet restore Remotely.sln`
-- Build:        `dotnet build Remotely.sln`
-- Test:         `dotnet test`   # MSTest; CI runs exactly this at repo root on push/PR to `master`. **Currently cannot execute here** — see Testing instructions.
+- Build:        `dotnet build Remotely.sln` — **fails here (`NETSDK1045`)**; use `& "$env:USERPROFILE\.dotnet\dotnet.exe" build Remotely.sln` (SDK 10.0.403) until the machine-level install lands. Last recorded result: **0 errors, 44 warnings** (T-11).
+- Test:         `& "$env:USERPROFILE\.dotnet\dotnet.exe" test Remotely.sln`   # MSTest; CI runs `dotnet test` at repo root on push/PR to `master`. **Locally executable only via the explicit user-profile SDK path** — see Testing instructions.
 - Run server:   `dotnet run --project Server/Server.csproj`   # ASP.NET Core + Blazor + SignalR
 - Run desktop:  `dotnet run --project Desktop.Linux/Desktop.Linux.csproj` (Linux) or `Desktop.Win/Desktop.Win.csproj` (Windows)
 - Publish:      `Utilities/Publish.ps1`  ·  migrations: `Utilities/Add-Migration.ps1` / `Update-Database.ps1`
 - Docker:       `docker-compose/docker-compose.yml`  # single service `immybot/remotely:latest`, port 5000 (HTTP), volume `/var/www/remotely` → `/app/AppData`. **No Caddyfile exists in the repo** — Caddy is the only supported reverse proxy (per README) but must be supplied separately.
-- There is no npm step: the browser client in `Server/wwwroot/src` is TypeScript compiled by `Microsoft.TypeScript.MSBuild` during `dotnet build`. Third-party browser libs come from **LibMan** (`Server/libman.json`), not npm. **The compiled `.js`/`.js.map` are committed** — regenerate and commit them with any `.ts` change, or the shipped client stays stale. **Known build blocker (2026-11-06):** `Microsoft.Web.LibraryManager.Build` 2.1.175 fails with `error LIB002` for the two `unpkg`-provider libraries (`@msgpack/msgpack@3.0.0-beta2`, `@microsoft/signalr-protocol-msgpack@8.0.7`), which breaks the `Server` build. The assets themselves resolve fine (HTTP 200) — the failure is in the LibMan client, not the provider. See `EVIDENCE-MAP.md` GAP-14.
+- There is no npm step: the browser client in `Server/wwwroot/src` is TypeScript compiled by `Microsoft.TypeScript.MSBuild` during `dotnet build`. Third-party browser libs come from **LibMan** (`Server/libman.json`), not npm. **The compiled `.js`/`.js.map` are committed** — regenerate and commit them with any `.ts` change, or the shipped client stays stale. **LIB002 no longer reproduces (as of 2026-11-06):** the earlier `Microsoft.Web.LibraryManager.Build` 2.1.175 failure on the two `unpkg` libraries was removed from the build path by external commit `71b890b9` (“remove libman restore”), while the `PackageReference` itself remains at `Server.csproj:41` and `wwwroot/lib/*` stays committed. Assets resolve over HTTP independently. See `EVIDENCE-MAP.md` GAP-14 and E-44.
 
 ## Project layout
 
