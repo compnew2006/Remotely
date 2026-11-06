@@ -25,7 +25,7 @@
 | **بناء الحل كاملًا** | ✅ **نجح** (`dotnet build Remotely.sln`) |
 | **بوابات اجتازت** | **0 من 7** — لم تُنفَّذ فحوص بوابات في هذه الجلسة |
 | **كود إنتاج معدَّل** | ملفان إنشائيان (build-only): `Server/libman.json` · `.github/workflows/run_tests.yml` — بتفويض المالك للمرحلة صفر (ADR-P00-09) |
-| **استنتاجات مسنَدة** | **45** (39 أصلي + E-36…E-41) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
+| **استنتاجات مسنَدة** | **46** (39 أصلي + E-36…E-42) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
 
 > ⚠️ **الخلاصة التي يجب أن تسبق كل شيء آخر (محدَّثة في المرحلة صفر):** خط الأساس الاختباري **أصبح قابلًا للتنفيذ جزئيًا** — 19/19 تعمل بـroll-forward (T-07) — لكنه **غير مُستوفى كاملًا**: لا runtime 8.0 أصلي مثبَّت، وشرط Execution-Environment-Uniformity الدستوري لم يُستوفَ بعد، وCI لم يُسجَّل أخضر. أي ادعاء `[TEST-EVIDENCE]` يجب أن يذكر شرط الـroll-forward صراحةً. (كانت الصيغة الأصلية: "لا خط أساس إطلاقًا" — انظر سجل التغيير §11.)
 
@@ -87,7 +87,7 @@
 
 | # | الاستنتاج | التصنيف | الدليل |
 |---|---|---|---|
-| E-23 | **ثغرات عالية الخطورة** في الحزم المستعملة | `[SOURCE-VERIFIED]` (تنبيه `NU1903` أثناء الاستعادة) | `NU1903` (high): `MessagePack 2.5.187` · `Microsoft.AspNetCore.SignalR.Protocols.MessagePack 8.0.10`. `NU1902` (moderate): `MailKit 4.8.0` · نفس حزم SignalR |
+| E-23 | **ثغرات عالية الخطورة** في الحزم المستعملة | `[SOURCE-VERIFIED]` (تنبيه `NU1903` أثناء الاستعادة) | `NU1903` (high): `MessagePack 2.5.187` · `Microsoft.AspNetCore.SignalR.Protocols.MessagePack 8.0.10`. `NU1902` (moderate): `MailKit 4.8.0` · نفس حزم SignalR ⇒ **عُولجت في المرحلة 3** (راجع E-42/GAP-13) |
 | E-24 | **بناء `Server` مكسور**: LibMan يفشل في استرجاع مكتبتين | `[SOURCE-VERIFIED]` | `Microsoft.Web.LibraryManager.Build` **2.1.175** في `Server/Server.csproj` · `error LIB002` لـ`@msgpack/msgpack@3.0.0-beta2` و`@microsoft/signalr-protocol-msgpack@8.0.7` (مزوّد `unpkg`) |
 | E-25 | **الأصول موجودة** على unpkg ⇒ العطل في عميل LibMan لا في المزوّد | `[RUNTIME-VERIFIED]` | كل روابط الملفات الثمانية + `?meta` تُرجع HTTP 200 من هذا الجهاز؛ و`cdnjs` ones نجحت. ⇒ لا انقطاع شبكة ولا حزمة مفقودة |
 | E-26 | **لا يوجد .NET 8 runtime** على جهاز التقييم | `[RUNTIME-VERIFIED]` | `dotnet --list-runtimes` ⇒ 6.0.11 / 9.0.17 / 10.0.14 فقط · `dotnet --list-sdks` ⇒ 9.0.315 فقط |
@@ -113,7 +113,8 @@
 | E-36 | قالب Docker يضبط `Remotely_ApplicationOptions__DockerGateway` بينما الكود يقرأ `DockerGatewayIp` ⇒ **لا يربط إطلاقًا** في النشر الحاوي | `[SOURCE-VERIFIED]` | `docker-compose/docker-compose.yml:38` مقابل `Server/Options/ApplicationOptions.cs` (`DockerGatewayIp`) و`Server/appsettings.json:25` | قراءة الملفين؛ سلوك runtime غير مُنفَّذ |
 | E-37 | Swagger مكشوف في الإنتاج بلا شرط بيئي | `[SOURCE-VERIFIED]` | `Server/Program.cs:293-294` (`UseSwagger/UseSwaggerUI` خارج `IsDevelopment`) | قراءة مباشرة |
 | E-38 | SQLite يسجّل KnownProxy `0.0.0.0/0` افتراضيًا + ترحيل تلقائي عند كل إقلاع | `[SOURCE-VERIFIED]` | `Server/Data/SqliteDbContext.cs:27` · `Server/Program.cs:88` (`MigrateAsync`) | ظهر في تحذير build + قراءة مباشرة |
-| E-39 | تحذيرات MailKit 4.8.0 وSignalR.Protocols.MessagePack 8.0.10 (NU1902/NU1903) — **أُعيد التحقق منها هذه الجلسة** | `[RUNTIME-VERIFIED]` | مخرج `dotnet build Server` الحرفي: GHSA-9j88-vvj5-vhgr (MailKit) · GHSA-86xp-94pg-8r6r + GHSA-f8h2-vmm9-qhj6 (SignalR msgpack) | تنفيذ build في هذه الجلسة |
+| E-39 | تحذيرات MailKit 4.8.0 وSignalR.Protocols.MessagePack 8.0.10 (NU1902/NU1903) — **أُعيد التحقق منها هذه الجلسة** | `[RUNTIME-VERIFIED]` | مخرج `dotnet build Server` الحرفي: GHSA-9j88-vvj5-vhgr (MailKit) · GHSA-86xp-94pg-8r6r + GHSA-f8h2-vmm9-qhj6 (SignalR msgpack) | تنفيذ build في هذه الجلسة ⇒ **أُغلقت بالترقية في المرحلة 3** |
+| E-42 | ثغرات سلسلة التوريد عبر `dotnet list --vulnerable --include-transitive`: **كل High/Moderate أُغلقت**؛ بقي **Low ×2** (`NuGet.Packaging`/`Protocol` 6.11.0، GHSA-g4vj) عابِرة من أداة scaffolding تصميمية (`CodeGeneration.Design`) — ليست في سطح تشغيل السيرفر الحي | `[RUNTIME-VERIFIED]` | قبل/بعد (هذه الجلسة): SignalR `8.0.10→8.0.33` · MailKit `4.8.0→4.18.2` · MessagePack `2.5.187→2.5.307` · pins للـAgent: `System.IO.Packaging 8.0.1` / `Cryptography.Pkcs 8.0.2` / `Cryptography.Xml 8.0.5` (سلسلة GHSA-846f/37gx/cvvh/r955) · `CodeGeneration.Design 8.0.6→8.0.23` (أزال `Microsoft.Build` High) · `Server.Tests` EF `8.0.10→8.0.33` (تفادي NU1605) |
 | E-40 | LibMan restore يعيد كتابة الأصول الملتزَمة بنهايات LF عند كل بناء على Windows ⇒ **شجرة git متسخة بعد كل بناء** (~37 ملفًا، محتوى متطابقًا — فروق أسطر فقط) | `[RUNTIME-VERIFIED]` | بعد بناء ناجح: `git status` أظهر 37 ملف M تحت `wwwroot/lib/fontawesome` + `microsoft-signalr`؛ `git diff --ignore-cr-at-eol --name-only` = **صفر** ⇒ أسطر فقط. أُصلح بإزالة **كل** إدخالات libman (وليس unpkg وحدها) | بناءان متكرران في نفس الجلسة + مقارنة diffs |
 | E-41 | فلتر التفويض ي**فشل مفتوحًا** (fail-open) — لو رمى `Authorize()` استثناءً (عطل DB في `ValidateApiKey`/`GetUserByName`) يُبتلع في `catch` ولا يُضبط `context.Result` ⇒ MVC ينفّذ الـ action **بلا مصادقة**، فيقوّض كل نقطة تُعتَبر محميّة | `[SOURCE-VERIFIED]` | `Server/Auth/ApiAuthorizationFilter.cs:24-31` و`Server/Auth/ExpiringTokenFilter.cs:28-35` (قبل الإصلاح) — أُصلح بإسناد `context.Result = new UnauthorizedResult()` داخل `catch` (fail-closed) في المرحلة 2 |
 
@@ -152,6 +153,7 @@
 | T-05b | **(المرحلة صفر)** إزالة **كل** إدخالات libman (E-40: cdnjs كان يلوث الشجرة) ثم بناء متكرر: `Build succeeded · 0 Error` + `git status` نظيفة على `wwwroot` | `[RUNTIME-VERIFIED]` |
 | T-06 | **(جلسة المرحلة صفر)** `dotnet build Remotely.sln` كاملًا | **نجح — Build succeeded** | `[RUNTIME-VERIFIED]` |
 | T-07 | **(جلسة المرحلة صفر)** `DOTNET_ROLL_FORWARD=Major` + `dotnet test` المشروعين | **19/19 نجحت** (Shared.Tests 1/1 · Server.Tests 18/18 · exit 0) — على runtime 10.0.14 بالـroll-forward، لا على .NET 8 أصلي | `[TEST-EVIDENCE]` (بشرط roll-forward الموثق هنا) |
+| T-08 | **(المرحلة 3)** بعد ترقيات الحزم: `dotnet build Remotely.sln` + `DOTNET_ROLL_FORWARD=Major dotnet test` + `dotnet list --vulnerable` على المشاريع الأربعة | **build 0 Error · 19/19 · صفر High/Moderate** (Agent/Shared/Desktop.Shared نظيفة تمامًا؛ Server به Low ×2 NuGet تصميمي) | `[RUNTIME-VERIFIED]` + `[TEST-EVIDENCE]` (بشرط roll-forward) |
 
 ### 3.2 سلسلة الفشل كما سُجِّلت حرفياً
 
@@ -206,10 +208,10 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | GAP-07 | **P1** | إنشاء جهاز بلا مصادقة | E-16 | G4 · شرط إضافي | إغلاق أو قبول خطي من المالك | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة `ApiAuthorizationFilter` إلى `Create` (`DevicesController.cs:125`). لا مستهلك في المستودع (التسجيل عبر SignalR `AddOrUpdateDevice`) |
 | GAP-08 | **P1** | تنزيل مثبّت بلا مصادقة | E-17 | شرط إضافي | إغلاق المسار `:117` | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة الفلتر إلى `:117` و`GetDesktop :35/:71`. **تنزيل العام للمثبّت** (`/Content/*.zip` + `AgentUpdate/DownloadPackage`) قُبل **خطيًا** مع التخفيف — راجع DECISION-LOG / PC-1 |
 | GAP-09 | **P1** | تنزيل ثنائيات مخصّصة بلا مصادقة | E-18 | شرط إضافي | إضافة `ApiAuthorizationFilter` | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة الفلتر إلى `CustomBinariesController` (`:16` و`:27`)؛ المستهلك `Deploy.razor:200-201` عبر كوكي الأدمن فلا يكسر التنزيل |
-| GAP-10 | **P1** | تحديث العميل بلا توقيع/هاش | E-22 | G2 | توقيع + هاش مثبَّت | مفتوحة |
+| GAP-10 | **P1** | تحديث العميل بلا توقيع/هاش | E-22 | G2 | توقيع + هاش مثبَّت | مفتوحة — **بوابة قرار (OD-9)**: G2 تتطلب إدارة مفاتيح توقيع معتمدة من المالك؛ الوكيل لا يصادقها لنفسه. ترقية الحزم (R-07/GAP-13) تمت، لكن التوقيع/التحقق لم تُنفَّذ له أي شيفرة |
 | GAP-11 | **P1** | اجتياز مسار في نقل الملفات + صلاحية `BuiltinUsersSid` واسع | E-19 · E-20 | G3 | canonicalisation + أقل امتياز | مفتوحة |
 | GAP-12 | **P1** | Named pipe بلا مصادقة | E-21 | G5 | ACL + تحقّق من العميل | مفتوحة |
-| GAP-13 | **P1** | ثغرات `NU1903` عالية الخطورة في الحزم | E-23 · **E-39 (أُعيد التحقق هذه الجلسة)** | Principle VIII | ترقية الحزم | مفتوحة |
+| GAP-13 | **P1** | ثغرات `NU1903` عالية الخطورة في الحزم | E-23 · **E-39** · **E-42 (المرحلة 3)** | Principle VIII | ترقية الحزم | ✅ **مغلقة (2026-11-06 المرحلة 3)** — صفر High/Moderate عبر كل المشاريع (T-08)؛ متبقٍّ Low ×2 (`NuGet.*` أداة تصميمية) مقبولة كبقايا — راجع E-42 |
 | GAP-14 | **P1** | **بناء `Server` مكسور** ⇒ `Server.Tests` لا يُبنى | E-24 · E-25 · **E-40** | Principle X | ADR-04 (§6) | ✅ **مغلقة (2026-11-06 المرحلة صفر)** — إزالة كل إدخالات `libman.json` (الأصول ملتزَمة أصلًا؛ cdnjs كان يلوث الشجرة LF) · T-05/T-05b/T-06/T-07 |
 | GAP-15 | **P1** | ~~مسار مكتبة الواجهة مكسور~~ | E-29 | Principle X | — | ❌ **ملغاة — false positive** (E-29 صُحح؛ المسار مطابق للموجود على القرص) |
 | GAP-16 | **P1** | تصنيف الأدلة يخلو من طبقة `SOURCE-CAPABILITY` | §2 | Principle XIII | تعديل دستور v2.1.0 (§6) | مفتوحة — **تحتاج تصريح المالك** |
@@ -290,7 +292,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | البوابة | الحالة | السبب |
 |---|---|---|
 | G1 — Server-enforced View Only | ❌ **FAIL** | لا فحص على السيرفر ولا على الجهاز (GAP-01…GAP-05) |
-| G2 — Signed and verified client updates | ❌ **FAIL** | E-22 |
+| G2 — Signed and verified client updates | ❌ **FAIL** | E-22 — التوقيع بوابة قرار (OD-9)؛ الرُّزمة (R-07/GAP-13) تمت لكن التحقق من سلامة التحديث لم يُبنَ |
 | G3 — Safe file paths and transfer boundaries | ❌ **FAIL** | E-19 · E-20 |
 | G4 — Authenticated and authorized device actions | ❌ **FAIL** | E-16 · E-07 · E-18 |
 | G5 — Authenticated local IPC | ❌ **FAIL** | E-21 |
@@ -337,3 +339,4 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | 2026-11-06 (P00) | إنشاء الخريطة — 39 استنتاجًا مُصنفًا + مصفوفة فجوات P0/P1/P2 |
 | 2026-11-06 (المرحلة صفر) | تصحيح C-08: E-29/GAP-15 **false positive** · إضافة E-36…E-39 وGAP-23…GAP-25 · إغلاق GAP-14 (شطب unpkg من libman.json، T-05/T-06) · تنفيذ T-07: **19/19** بـ`DOTNET_ROLL_FORWARD=Major` · GAP-06 مغلقة جزئيًا · GAP-19 مُصلَحة المصدر (لم تُسجَّل CI green بعد) |
 | 2026-11-06 (المرحلة 2 — R-04/PC-1) | حماية `DevicesController.Create` + `ClientDownloadsController` (`GetDesktop :35/:71` و`GetInstaller :117`) + `CustomBinariesController` بـ`ApiAuthorizationFilter` ⇒ **إغلاق GAP-07/08/09** · اكتشاف **E-41/GAP-26** (فلاتر fail-open) وإصلاحها fail-closed · **القبول الخطي** لتنزيل المثبّت العام (`/Content/*.zip` + `DownloadPackage`) مع التخفيفات — راجع DECISION-LOG (AD وD) وGATE-REGISTER PC-1 · بناء `Server` ناجح 0 أخطاء · لا تغيير على حالة بوابات G1–G7 |
+| 2026-11-06 (المرحلة 3 — R-07/GAP-13) | **ترقيات سلسلة التوريد** (وكيلة قابلة للتنفيذ): SignalR `8.0.10→8.0.33` · MailKit `4.8.0→4.18.2` · MessagePack `2.5.187→2.5.307` · pins للـAgent (IO.Packaging/Pkcs/Xml) · CodeGeneration.Design→8.0.23 (أزال Microsoft.Build High) · محاذاة Server.Tests EF (NU1605). **النتيجة: صفر High/Moderate · build 0 أخطاء · 19/19** · متبقٍّ Low ×2 (NuGet تصميمي) — راجع E-42/T-08. **أمّا R-03/G2 (توقيع التحديثات) فبوابة قرار (OD-9)** — لم تُنفَّذ أي شيفرة توقيع (تحتاج إدارة مفاتيح معتمدة) |

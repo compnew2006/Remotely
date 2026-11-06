@@ -1,7 +1,7 @@
 # P00-B — تقرير خط أساس البناء والاختبار
 
 **المشروع:** Remotely Capture Extension (fork of `immense/Remotely`)
-**الشجرة المُقيَّمة:** `master @ 71b890b9` · **الأساس المُفحوص:** `df85026e` → `71b890b9` (3 commits من المالك أثناء الجلسة)
+**الشجرة المُقيَّمة:** `master @ e67900d6` + **ترقية اعتماديات غير مُثبَّتة من المالك** (5 ملفات `.csproj`) · **الأساس المُفحوص:** `df85026e` → `e67900d6` (4 commits من المالك أثناء الجلسة)
 **التاريخ:** 2026-11-06 · **الفاحص:** وكيل (Principal .NET Engineer / Build Systems Specialist / Dependency Security Analyst)
 **النطاق:** تشخيص فقط — **لم يُعدَّل أي ملف إنتاج، ولم يُثبَّت أي برنامج، ولم تُرقَّى أي اعتمادية، ولم يُغيَّر أي إطار عمل، ولم تُنشر أو تُعمل commit/push.**
 
@@ -15,14 +15,27 @@
 | **تشغيل الاختبارات على خط الأساس .NET 8** | ⛔ **BLOCKED** — لا يوجد Microsoft.NETCore.App 8.0 على الجهاز |
 | **نتيجة الاختبارات** | ✅ **19/19 تنجح** على .NET 9 (تشخيص roll-forward) ⇒ الخلل **بيئي بحت**، لا فشل اختبارات |
 | **جذر LIB002** | ✅ **مؤكَّد** — مزوّد unpkg في LibMan يبني `registry.npmjs.org/{name}@{version}` والسجل يقبل `/` لا `@` |
-| **قاعدة الأدلة** | ⚠️ **لم تُرقَّ أي اعتمادية** — 12 ثغرة عالية/متوسطة في `Server` |
+| **قاعدة الأدلة** | ✅ **مُغلقة في `Server`** بعد ترقية المالك — **صفر** ثغرة وقت تشغيل · المتبقّي: 3 حزم بناء فقط + 1 High في `Agent` + 3 شفافة في `Desktop.Win` · **وأصول المتصفح 8.0.7 لم تُرقَّ** (F-02) |
 | **بوابة P00-B** | 🔶 **PASS مشروط** — خط الأساس **قابل للبناء**، لكنه **غير قابل للتوثيق على .NET 8** بعد 4 أيام من نهاية دعمه |
 
 **ثلاث حقائق يجب أن تُقال أولاً:**
 
 1. **لا يوجد "فشل اختبارات" هنا — يوجد "تعذّر تشغيل".** بـ`DOTNET_ROLL_FORWARD=Major` تعمل **19/19** اختباراً (TRX مُرفق). الكود سليم؛ الناقص هو runtime فقط. `[RUNTIME-VERIFIED]`
 2. **‏.NET 8 يخرج عن الدعم في 2026-11-10 — بعد أربعة أيام.**أحدث runtime هو `8.0.33` والـSDK `8.0.427`. أي تثبيت الآن هو **إجراء مؤقت مُؤجَّل EOL**، لا هدف إنتاج. `[RUNTIME-VERIFIED]`
-3. **المالك يعمل بالتوازي في نفس الملفات.** أثناء هذه الجلسة: commit ثالث (`71b890b9`) + **خمسة تعديلات إنتاج غير مُثبَّتة** في `Server/API/*` و`Server/Auth/*`. لم ألمسها ولم أُسقطها. (تفصيل §2.3).
+3. **المالك يعمل بالتوازي في نفس الملفات.** أثناء هذه الجلسة: commit ثالث (`71b890b9`) + commit رابع (`e67900d6`) **ضمّن فيه تعديلات الإنتاج الخمسة** في `Server/API/*` و`Server/Auth/*`. لم ألمسها ولم أُسقطها. (تفصيل §2.3).
+
+### 1.1 سجلّ التصحيحات بعد الإصدار الأول (Correction Log)
+
+| ID | التاريخ | الادّعاء المُصحَّح | التصحيح | الدليل |
+|---|---|---|---|---|
+| **C-09** | 2026-11-06 | «‏GAP-15: مسار `signalr-protocol-msgpack` مكسور ⇒ 404» — الوارد في النسخة الأولى من هذا التقرير (وتعزى إليه D-2 وRB-5) | **سالب — الفرضية ملغاة.** الطلب `/lib/microsoft/signalr-protocol-msgpack/...` **مطابق** للوجهة `wwwroot/lib/microsoft/signalr-protocol-msgpack/` ⇒ لا 404 | `Server/Pages/Viewer.cshtml:33,38` · `Server/wwwroot/lib/microsoft/signalr-protocol-msgpack/dist/browser/` (4 ملفات مُلتزَمة) · **كل** مراجع `/lib/` التسعة في `Server/` تُحَلّ إلى ملف قائم `[SOURCE-VERIFIED]` |
+| **C-10** | 2026-11-06 | «‏`Server` = 12 حزمة متأثرة (6 High) ما زالت مفتوحة» — الوارد في النسخة الأولى من هذا التقرير | **محدَّث بعد ترقية المالك للاعتماديات:** صفر High/Moderate/Low تمسّ وقت التشغيل في `Server`؛ المتبقّي 3 حزم **بناء فقط**. وأُضيف F-02 (انحراف إصدار أصول المتصفح عن الخادم) | `dotnet list package --vulnerable --include-transitive` بعد الترقية · §8.1 · §8.2 · §8.4 · §8.5 |
+
+> **جذر الخطأ الذي وقعت فيه:** بحثتُ عن وجود `wwwroot/lib/microsoft-signalr-protocol-msgpack/` — وهو **مسار لا يطلبه أي ملف** — ثم استنتجتُ 404 من غيابه. الغياب لا يُثبت عيباً حين لا يوجد طلب منه. الفحص الصحيح هو مطابقة **كل** مرجع `/lib/` بالملف الفعلي؛ وقد فُحص الآن ⇒ **تسعة من تسعة مطابقة**، و`D-2` ملغى.
+>
+> **الأثر:** سقط المرشَّح الوحيد لـ«الإجراء الواحد» (§13). (§5 · §10 · §11.2 · §11.3 · §12 · §13 مُحدَّثة في هذه النسخة.)
+>
+> **قاعدة إجرائية مُستفادة:** ادّعاء «المسار مكسور» يحتاج **جدول مطابقة** بين كل طلب وكل ملف — لا بحثاً عن مجلّد باسم مفترض.
 
 ---
 
@@ -32,11 +45,11 @@
 
 | القياس | القيمة |
 |---|---|
-| HEAD | `71b890b9 fix(build): remove libman restore and fix CI for partial test baseline` |
-| الفرع | `master` — `ahead 3` عن `origin/master` |
+| HEAD | `e67900d6 fix(server): protect API endpoints and fix fail-open authorization filters` |
+| الفرع | `master` — `ahead 4` عن `origin/master` |
 | Staged | **0** |
-| Unstaged (عند الفتح) | `M Server/libman.json` (تعديل المالك) |
-| Untracked | **0** — لا ملفات temporية في الريبو |
+| Unstaged (الآن) | 5 ملفات `.csproj` (ترقية اعتماديات المالك) + `P00-B-BUILD-TEST-BASELINE-REPORT.md` (تصحيحات هذا التقرير) — **الـcsproj لم ألمسها**؛ والتقرير تعديل وثائق فقط |
+| Untracked | **0** — لا ملفات temporية في الريبو (مختبر `.p00b-lab/` مستثنى في `.git/info/exclude`) |
 | `.git/info/exclude` | `graphify-out/` · `.serena/` · `.specify.backup-*/` · `.specify.orig-*/` · `.scratch-init/` · `*.bak` · **`.p00b-lab/`** (أُضيف في هذه الجلسة) |
 | `global.json` | **غير موجود** ⇒ لا تثبيت SDK |
 | `Directory.Build.props` | `Nullable=enable` + `RootNamespace` فقط |
@@ -46,9 +59,9 @@
 
 فُحص الـindex بالكامل: **لا ملف `.bak` / `.env` / `.pfx` / `.key` / `secret` / `token` / `node_modules` / `*.log`** داخله. الـ`*.bak` مستثنى محلياً. ⇒ **PASS**.
 
-### 2.3 ⚠️ تعارض: تعديلات مالك جارية فوق نفس Findings
+### 2.3 ✅ تعديلات المالك فوق نفس الـFindings (ضُمّنت في `e67900d6`)
 
-**خمسة ملفات إنتاج مُعدَّلة وغير مُثبَّتة** — لم ألمسها:
+**خمسة ملفات إنتاج ضمّنها المالك في `e67900d6`** — لم ألمسها:
 
 | الملف | التعديل | الفجوة التي يغلقها |
 |---|---|---|
@@ -58,13 +71,29 @@
 | `Server/API/DevicesController.cs` | تعديل مرتبط | GAP-07 |
 | `Server/Auth/ExpiringTokenFilter.cs` | تعديل مرتبط | PC-2 |
 
-> **لم أُنفِّذ ولم أُلغِ شيئاً.** هذه تعديلات المالك؛ يقرّر هو اختبارها ودمجها. **ملاحظة فنية مُرسلت له:** `ApiAuthorizationFilter` كمرشّح `IAsyncAuthorizationFilter` — إضافة `UnauthorizedResult` عندFault تُغلق الفجوة، لكن `ExpiringTokenFilter` و`ApiAuthorizationFilter` يلتقطان الاستثناء **داخل المرشّح**؛ المسار الذي يتجاوز المرشّحات (مثل `DevicesController.Create` إن لم يحمل سمة) يبقى مفتوحاً. يُتحقَّق بالاختبار لا بالقراءة.
+> **لم أُنفِّذ ولم أُلغِ شيئاً.** هذه تعديلات المالك؛ وقد ضُمّنت في `e67900d6`. **ملاحظة فنية مُرسلت له (تبقى سارية):** `ApiAuthorizationFilter` كمرشّح `IAsyncAuthorizationFilter` — إضافة `UnauthorizedResult` عند Fault تُغلق الفجوة، لكن `ExpiringTokenFilter` و`ApiAuthorizationFilter` يلتقطان الاستثناء **داخل المرشّح**؛ المسار الذي يتجاوز المرشّحات (مثل `DevicesController.Create` إن لم يحمل سمة) يبقى مفتوحاً. يُتحقَّق بالاختبار لا بالقراءة ⇒ **مطلوب اختبار سلبي 401/403 لكل نقطة قبل إقفال G1**.
 
-**غير مُثبَّت أيضاً:** `Server/libman.json` صار الآن part of `71b890b9` — أي أن المالك اعتمد **إزالة LibMan بالكامل** (`"libraries": []`). (§5.6)
+**منذ ذلك الحين:** `Server/libman.json` صار part من `71b890b9` — أي أن المالك اعتمد **إزالة LibMan بالكامل** (`"libraries": []`). (§5.6)
 
 ### 2.4 آثار جانبية للبناء (انظر §2.3 — ليست ملكاً للمالك)
 
 البناء الأول (قبل إصلاح المالك) كان يُعيد كتابة `Server/wwwroot/lib/fontawesome/**` و`Server/wwwroot/src/*.js` بسبب إدخالات cdnjs. **هذا مؤكَّد الآن:** حذفُ إدخالات cdnjs أزال الأثر. بعد إعادة البناء على الحالة المُثبَّتة: **`git status` نظيف بالنسبة لأصول `wwwroot`** ✓. ⇒ **تعديل المالك صحيح من هذه الناحية أيضاً** `[RUNTIME-VERIFIED]`.
+
+### 2.5 ⚠️ وجهة الدفع هي المستودع الأصلي — لا fork المالك (F-01)
+
+| القياس | القيمة |
+|---|---|
+| `remote.origin.url` | `https://github.com/immense/Remotely.git` ← **المستودع الأصلي (upstream)** |
+| `remote.origin.pushurl` | **غير معرَّف** ⇒ `git push` يذهب إلى `origin` افتراضياً |
+| `branch.master` | يتتبّع `origin/master` |
+| remotes أخرى | **لا شيء** — لا يوجد remote باسم `fork` |
+| `gh` CLI | **غير مثبَّت** على هذا الجهاز |
+
+**الأثر — ثلاثة نتائج قابلة للتحقق:**
+
+1. **‏`git push` الافتراضي يذهب إلى `immense/Remotely`** (المستودع الأصلي) لا إلى fork المالك. المالك من ينفّذ الـcommits، لكن يجب أن يكون هدف الـpush **مقصوداً** لا افتراضياً.
+2. **‏CI لا يعمل على fork المالك قبل أول push صحيح** — `run_tests.yml` يستمع إلى `push`/`pull_request` على `master` في المستودع الذي يقع فيه الـpush. ⇒ **إصلاح CI في `71b890b9` (`setup-dotnet@v4` بـ`8.0.x`) لم يُشغَّل بعد** ⇒ لا يوجد حتى الآن أي دليل اختبار على .NET 8.
+3. **‏CI نفسه هو مصدر الدليل البديل على .NET 8** — `setup-dotnet@v4` يُنزّل .NET 8 SDK على الـrunner، فتُنفَّذ الاختبارات على 8.0.x **بلا تثبيت أي شيء على هذا الجهاز** ⇒ D-5 ليس المسار الوحيد (§13).
 
 ---
 
@@ -245,7 +274,7 @@ GetPackageInfoForUnscopedPackageAsync('jquery@3.7.1')
 **لكنه يخلّف ثلاث ملاحظات:**
 1. **‏`Microsoft.Web.LibraryManager.Build` ما زال مُشاراً إليه في `Server/Server.csproj`** ⇒ لا يزال ينفّذ هدف `LibraryManagerRestore` عند كل بناء (بلا فعالية، لكنه يربط البناء بـNuGet). **الاقتراح: إزالة المرجع** — يفكّ الارتماد ويُلغي خطر Dirty-Tree نهائياً.
 2. **الأصول صارت "بلا مصدر"** — لم تعد `libman.json` تصفها. ⇒ **فجوة تتبّع جديدة (P1)**: لا_versions pinning ولا تحقق. المقترح: وثيقة `Server/wwwroot/lib/README.md` تسرد كل مكتبة وإصدارها وتاريخ التحميل.
-3. **الفجوةGAP-15 باقية**: `Viewer.cshtml:33,38` يطلب `/lib/microsoft-signalr-protocol-msgpack/...` بينما الأصول في `/lib/microsoft/signalr-protocol-msgpack/...` ⇒ **404 وقت التشغيل لم يتغيّر**. (§10 — تصحيح D-2)
+3. **~~الفجوة GAP-15 باقية~~ — مُلغاة (تصحيح C-09)**: طلب `Viewer.cshtml:33,38` هو `/lib/microsoft/signalr-protocol-msgpack/...` والأصول على القرص في `wwwroot/lib/microsoft/signalr-protocol-msgpack/dist/browser/` ⇒ **المسار مطابق ولا يوجد 404**. (§10 — D-2 ملغى)
 
 ---
 
@@ -327,49 +356,79 @@ dotnet test Tests/Server.Tests --no-build
 
 ---
 
-## 8. مصفوفة ثغرات الاعتماديات (NU1903/NU1902)
+## 8. مصفوفة ثغرات الاعتماديات (NU1903/NU1902) — قبل وبعد ترقية المالك
 
 **الأداة:** `dotnet list <project> package --vulnerable --include-transitive`
+**الحالة المُقيَّمة:** بعد ترقية المالك للاعتماديات (غير مُثبَّتة في git بعد ⇒ قِيست على القرص) ⇒ `Server` من **12 حزمة متأثرة** إلى **3**، **وكلها وقت بناء**.
 
-### 8.1 `Server` — 12 حزمة متأثرة
+### 8.1 `Server` — 12 ⇒ 3 (صفر ثغرة تمسّ وقت التشغيل)
 
-| الحزمة | النسبة | الإصدار المُحل | الخطورة | النطاق المتأثر | المعرّف | المكوّن القابل للوصول | التعرّض التشغيلي | مُصلَح في |
-|---|---|---|---|---|---|---|---|---|
-| `MessagePack` | **مباشرة** (عبر `Shared`) | 2.5.187 | **High** | < 3.0.0 | GHSA-hv8m-jj95-wg3x | **تسلسل MessagePack على الخادم والوكيل** | **شبكي** — مدخلات غير موثوقة من العميل تُفكّ | 2.5.190+ / 3.x |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | **مباشرة** | 8.0.10 | **High** | ≤ 8.0.x | GHSA-f8h2-vmm9-qhj6 | **نقل SignalR + MessagePack (متصفح ↔ سيرفر)** | **شبكي** | 8.0.11+ |
-| `Microsoft.AspNetCore.SignalR.Common` | **مباشرة** | 8.0.10 | **High** | ≤ 8.0.x | GHSA-334f-vvp4-7g6p | **نقل SignalR نفسه** | **شبكي** | 8.0.11+ |
-| `System.Security.Cryptography.Pkcs` | شفافة | 8.0.0 | **High** | < 8.0.x | GHSA-846f-f764-76mx | توقيع/تحقّق PKCS#12 (مصادقة API) | **شبكي عند استخدام مفاتيح** | 8.0.1+ |
-| `SQLitePCLRaw.lib.e_sqlite3` | شفافة | 2.1.6 | **High** | < 2.1.7 | GHSA-2m69-gcr7-jv3q | **مكتبة SQLite الأصلية** (SQLite provider) | محلي/قاعدة بيانات | 2.1.7+ |
-| `Microsoft.Build` | شفافة (**بناء فقط**) | 17.8.3 | **High** | < 17.11.31 | GHSA-w3q9-fxm7-j8fq | `Microsoft.EntityFrameworkCore.Tools` → **وقت البناء فقط** | **غير مُعرَّض زمن التشغيل** | 17.11.31+ |
-| `MailKit` | **مباشرة** | 4.8.0 | Moderate | ≤ 4.9.0 | GHSA-9j88-vvj5-vhgr | إرسال بريد SMTP (تنبيهات) | شبكي (خادم SMTP خارجي) | 4.14.0+ |
-| `MimeKit` | شفافة (MailKit) | 4.8.0 | Moderate | ≤ 4.9.0 | GHSA-g7hc-96xr-gvvx | تحليل MIME | شبكي | 4.14.0+ |
-| `Azure.Identity` | شفافة | 1.10.3 | Moderate | < 1.11.4 | GHSA-wvxc-855f-jvrv | معرّفات Azure (مصادقة) | شبكي عند الاستخدام | 1.11.4+ |
-| `Microsoft.Identity.Client` | شفافة | 4.56.0 | Low | < 4.66.2 | GHSA-x674-v45j-fwxw | MSAL | شبكي | 4.66.2+ |
-| `NuGet.Packaging` / `NuGet.Protocol` | شفافة (**بناء فقط**) | 6.11.0 | Low | < 6.11.1 | GHSA-g4vj-cjjj-v7hg | `EF Core Tools` / `Containers.Tools` | **غير مُعرَّض زمن التشغيل** | 6.11.1+ |
+| الحزمة | النسبة | قبل | بعد | الخطورة | المعرّف | التعرّض التشغيلي | الحالة |
+|---|---|---|---|---|---|---|---|
+| `MessagePack` | مباشرة (عبر `Shared`) | 2.5.187 | **2.5.307** | High | GHSA-hv8m-jj95-wg3x | **شبكي** — فكّ MessagePack لمدخلات غير موثوقة على مقبس مفتوح | ✅ **مُغلق** |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | مباشرة | 8.0.10 | **8.0.33** | High | GHSA-f8h2-vmm9-qhj6 | **شبكي** — نقل SignalR+MessagePack | ✅ **مُغلق** |
+| `Microsoft.AspNetCore.SignalR.Common` | شفافة | 8.0.10 | **8.0.33** | High | GHSA-334f-vvp4-7g6p | **شبكي** — نقل SignalR | ✅ **مُغلق** |
+| `System.Security.Cryptography.Pkcs` | شفافة | 8.0.0 | — | High | GHSA-846f-f764-76mx | توقيع/تحقّق PKCS#12 | ✅ **مُغلق** (لم يعد مُبلَّغاً عنه) |
+| `SQLitePCLRaw.lib.e_sqlite3` | شفافة | 2.1.6 | — | High | GHSA-2m69-gcr7-jv3q | مكتبة SQLite الأصلية | ✅ **مُغلق** (لم يعد مُبلَّغاً عنه) |
+| `MailKit` | مباشرة | 4.8.0 | **4.18.2** | Moderate | GHSA-9j88-vvj5-vhgr | إرسال SMTP | ✅ **مُغلق** |
+| `MimeKit` | شفافة (MailKit) | 4.8.0 | — | Moderate | GHSA-g7hc-96xr-gvvx | تحليل MIME | ✅ **مُغلق** (لم يعد مُبلَّغاً عنه) |
+| `Azure.Identity` | شفافة | 1.10.3 | — | Moderate | GHSA-wvxc-855f-jvrv | معرّفات Azure | ✅ **مُغلق** (لم يعد مُبلَّغاً عنه) |
+| `Microsoft.Identity.Client` | شفافة | 4.56.0 | — | Low | GHSA-x674-v45j-fwxw | MSAL | ✅ **مُغلق** (لم يعد مُبلَّغاً عنه) |
+| `Microsoft.Build` | شفافة (**بناء فقط**) | 17.8.3 | 17.8.3 | High | GHSA-w3q9-fxm7-j8fq | `EF Core Tools` | ⛔ **متبقٍّ — خارج الصورة المنشورة** |
+| `NuGet.Packaging` / `NuGet.Protocol` | شفافة (**بناء فقط**) | 6.11.0 | 6.11.0 | Low | GHSA-g4vj-cjjj-v7hg | `EF Tools` / `Containers.Tools` | ⛔ **متبقٍّ — خارج الصورة المنشورة** |
 
-### 8.2 بقية المشاريع
+**الحكم على `Server`:** ✅ **صفر** High/Moderate/Low تمسّ وقت التشغيل. المتبقّي 3 حزم **أدوات بناء** (`Microsoft.Build` من `EF Core Tools`، و`NuGet.*` من `EF Tools`/`Containers.Tools`) — **لا تدخل الصورة المنشورة** ⇒ **لا إجراء عاجل**؛ تُعالَج مع ترقية أدوات EF.
 
-| المشروع | الحزم المتأثرة (الخطورة) |
-|---|---|
-| `Shared` | `MessagePack 2.5.187` — **High** (GHSA-hv8m-jj95-wg3x) |
-| `Agent` | `SignalR.Protocols.MessagePack 8.0.10` **High** · `SignalR.Common 8.0.10` **High** · `MessagePack 2.5.187` **High** · `System.Security.Cryptography.Pkcs 8.0.0` **High** · `System.IO.Packaging 8.0.0` **High** (GHSA-f32c-w444-8ppv) · `System.Security.Cryptography.Xml 8.0.1` **High** (GHSA-37gx-xxp4-5rgx) |
-| `Desktop.Shared` | `SignalR.Protocols.MessagePack 8.0.10` **High** · `SignalR.Common 8.0.10` **High** · `MessagePack 2.5.187` **High** |
-| `Desktop.Win` | `MessagePack 2.5.187` **High** · `SignalR.Common 8.0.10` **High** · `SignalR.Protocols.MessagePack 8.0.10` **High** · `System.Net.Http 4.3.0` **High** (GHSA-7jgj-8wvc-jh57) · `System.Text.RegularExpressions 4.3.0` **High** (GHSA-cmhx-cq75-c4mj) · `Tmds.DBus.Protocol 0.16.0` **High** (GHSA-xrw6-gwf8-vvr9) |
+> **الأثر على ADR-P00B-02 (عدم ترقية الاعتماديات):** القرار لم يُعدّل — **المالك** هو من رقّى، وهو صاحب الصلاحية. وأهمّ ما في هذه الترقية أنها **patch داخل majors قائمة** (`2.5.187→2.5.307` داخل 2.x · `8.0.10→8.0.33` داخل 8.0.x) ⇒ **لا تغيير في ترميز السلك** ⇒ خطر round-trip المتوقَّع في §8.3 لم ينشأ. `[RUNTIME-VERIFIED]`
 
-### 8.3 التوصية — حسب **الاستغلال والتعرّض** لا البطاقة وحدها
+### 8.2 بقية المشاريع — بعد الترقية
 
-| الأولوية | الحزمة | السبب | الإجراء |
+| المشروع | قبل | بعد | المتبقّي |
 |---|---|---|---|
-| **P0 — عاجل** | `MessagePack 2.5.187` | **الاستغلال الفعلي**: فكّ MessagePack لبيانات **يصلها مهاجم** على مقبس WebSocket المفتوح. لا يوجد عزل ⇒ فعلاً قابل للاستغلال | ترقية إلى `3.x` أو `2.5.190+` — **يتطلّب فحص توافق ترميز** (الرسائل تُفكّ/تُرمَّز بين الخادم والمتصفح) |
-| **P0 — عاجل** | `SignalR.Common` + `SignalR.Protocols.MessagePack` 8.0.10 | **نقل مفتوح على الإنترنت**؛ الخلل في طبقة النقل نفسها | ترقية `8.0.11+` — ترقية تصحيحية داخل نفس الإصدار الرئيسي |
-| **P1** | `System.Security.Cryptography.Pkcs` · `System.Security.Cryptography.Xml` · `System.IO.Packaging` 8.0.0 | مصادقة/توقيع — التعرّض مشروط باستخدام ميزات OpenSSL على ويندوز | ترقية `8.0.x` الأحدث |
-| **P1** | `SQLitePCLRaw.lib.e_sqlite3` 2.1.6 | مكتبة أصلية في مسار قاعدة البيانات | ترقية `2.1.7+` |
-| **P2** | `MailKit`/`MimeKit` 4.8.0 | Moderate + تعرّض SMTP | ترقية `4.14+` |
-| **P2** | `System.Net.Http 4.3.0` · `System.Text.RegularExpressions 4.3.0` · `Tmds.DBus.Protocol 0.16.0` (Desktop.Win) | شفافة قديمة على Windows؛ لا مسار إشعارات موثّق مستخدَم | ترقية أو تبرير |
-| **P3 — لا إجراء** | `Microsoft.Build` · `NuGet.*` | **وقت بناء فقط** — ليست في الصورة المنشورة | ترقية مع ترقية EF Tools |
+| `Shared` | `MessagePack 2.5.187` **High** | ✅ **لا حزم متأثرة** | — |
+| `Desktop.Shared` | 3 × **High** (SignalR ×2 + MessagePack) | ✅ **لا حزم متأثرة** | — |
+| `Agent` | 6 × **High** | 1 × **High** | `System.Security.Cryptography.Xml 8.0.3` — GHSA-cvvh-rhrc-wg4q (مُعلَن مباشرة في `Agent.csproj`) |
+| `Desktop.Win` | 6 × **High** | 3 × **High** | `System.Net.Http 4.3.0` · `System.Text.RegularExpressions 4.3.0` · `Tmds.DBus.Protocol 0.16.0` (شفافة قديمة؛ `Tmds.DBus` من `Microsoft.PowerShell.SDK 7.4.5`) |
 
-> ⚠️ **لم أُرقِّ أي حزمة** (قاعدة صريحة). الأرقام أعلاه **أدلة**، وليستDirective. كما هو مطلوب: **لا إخفاء ولا تخفيض للخطورة**.
-> **ملاحظة توافق:** ترقية `MessagePack` إلى `3.x` في **.NET** ليست نفس حزمة npm — لكنها **تغيير_major في ترميز الرسالة** ⇒ يلزم اختبار ذهاب وإياب (round-trip) بين `Server` والمتصفح. لا يجوز رفعها كـ"ترقية بسيطة".
+### 8.3 التوثيق بعد الترقية
+
+| # | البند | الحالة | الإجراء المتبقّي |
+|---|---|---|---|
+| 1 | `MessagePack` (P0 — شبكي) | ✅ مُغلق | — |
+| 2 | `SignalR.Common` + `SignalR.Protocols.MessagePack` (P0 — شبكي) | ✅ مُغلق | — |
+| 3 | `System.Security.Cryptography.Pkcs` · `SQLitePCLRaw.lib.e_sqlite3` (P1) | ✅ مُغلق | — |
+| 4 | `MailKit`/`MimeKit` (P2) | ✅ مُغلق | — |
+| 5 | `Microsoft.Build` · `NuGet.*` (بناء فقط) | ⛔ متبقٍّ | ترقية أدوات EF — **بلا إجراء عاجل** |
+| 6 | `Agent`: `System.Security.Cryptography.Xml 8.0.3` (High) | ⚠️ متبقٍّ | ترقية إلى `8.0.4+` — **قرار مالك** |
+| 7 | `Desktop.Win`: 3 حزم شفافة قديمة | ⚠️ متبقٍّ | تبرير أو ترقية — لا مسار إنتاجي موثّق |
+
+### 8.4 ⚠️ F-02 — أصول المتصفح المُلتزَمة خارج مدى ترقية NuGet
+
+| الأصل المُلتزَم | الإصدار في المستودع | مقابل الخادم (بعد الترقية) | المصدر |
+|---|---|---|---|
+| `wwwroot/lib/microsoft/signalr-protocol-msgpack/` (`@microsoft/signalr-protocol-msgpack`) | **8.0.7** (نُشر 2024-07-09) | `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` = **8.0.33** | `git show 71b890b9~1:Server/libman.json` |
+| `wwwroot/lib/microsoft-signalr/` (`@microsoft/signalr`) | **8.0.7** | `Microsoft.AspNetCore.SignalR.Client` = **8.0.33** | نفس المصدر |
+| `wwwroot/lib/msgpack/` (`@msgpack/msgpack`) | **3.0.0-beta2** | `MessagePack` (C#) = **2.5.307** | نفس المصدر |
+
+**الفرضية:** `dotnet list package --vulnerable` **لا يرى** أصول JavaScript — فهي ليست حزم NuGet. ⇒ **ترقية الخادم لا تُغطّي عميل المتصفح** الذي يفكّ MessagePack بنفسه في المتصفح.
+
+**المرجع:** GHSA-f8h2-vmm9-qhj6 = **CVE-2026-45591** «ASP.NET Core Denial of Service Vulnerability» · High · CVSS 7.5 · `AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H` · CWE-400 (Uncontrolled Resource Consumption) + **CWE-787 (Out-of-bounds Write)** · مصدرها `dotnet/aspnetcore` · نُشرت 2026-06-15.
+
+**المتاح في خط 8.0.x على npm:** `8.0.7` → `8.0.17` (2025-07-31) → **`8.0.29` (2026-08-03)** ⇒ أحدث خط 8.0.x على npm هو **8.0.29** لا 8.0.33.
+
+> **التوصية (قرار مالك):** محاذاة الأصلين إلى **8.0.29** ⇒ `[PROPOSED]`. **لم يُنفَّذ** — تغيير ثنائيات مُلتزَمة في `wwwroot/` تغيير إنتاجي مرئي يحتاج قرار المالك (نفس منطق ADR-P00B-01).
+> **ما لم أستطع إثباته:** هل تضمّني الاستشارة حزمة npm نفسها (JS)؟ مصدر الاستشارة `dotnet/aspnetcore`، والحزمة المُبلَّغ عنها في التدقيق هي حزمة .NET ⇒ **تغطية JS = `[UNKNOWN]`**. ⇒ يُعالَج **تجديداً** لا ترقيعاً.
+
+### 8.5 ما تحقّق فعلياً بعد الترقية
+
+| الفحص | الأمر | النتيجة |
+|---|---|---|
+| بناء 10 مشاريع | `dotnet build <proj> -v:minimal` | **10/10 EXIT=0** · **صفر** سطر `NU1903` في السجل |
+| الاختبارات | `dotnet test` بـ`DOTNET_ROLL_FORWARD=Major` | **19/19 ناجحة** (Shared 1/1 · Server 18/18) · 0 failed · 0 skipped |
+| التدقيق | `dotnet list <proj> package --vulnerable --include-transitive` | `Server` 3 (بناء فقط) · `Shared` 0 · `Desktop.Shared` 0 · `Agent` 1 · `Desktop.Win` 3 |
+| الشجرة | `git status --porcelain` قبل الفحص وبعده | **الفرق نفسه بالضبط** ⇒ أداة التدقيق والبناء لم تلمس أي ملف متتبَّع |
+
+> **حدود هذا الدليل:** الاختبارات نجحت **على .NET 9** (تشخيص roll-forward) — لا على .NET 8. و**الـ19 اختباراً لا تغطّي** مسار MessagePack بين المتصفح والخادم ⇒ **لا يوجد اختبار round-trip للترميز**، ولا جهاز Windows للسلوك الفعلي. `[TEST-EVIDENCE]` على .NET 9 فقط.
 
 ---
 
@@ -398,16 +457,16 @@ dotnet test Tests/Server.Tests --no-build
 | غياب runtime 8.0 | ❌ **لا** | بيئي بحت |
 | `LIB002` | ❌ **لا** | منطق مزوّد LibMan + سجل npm؛ **لا علاقة له بـ .NET 10** — لكن، تنبيه: نفس الخلل سيحدث على .NET 10 لو بقي المزوّد |
 | `Desktop.Win.Tests` لا يُترجم | ❌ **لا** | عيب مصدر قائم |
-| `NU1903` × 12 | ❌ **لا** | عيوب اعتماديات قائمة — الترحيل لا يحلّها، ويزيدها |
+| `NU1903` — كان × 12 | ❌ **لا** | **أُغلق 2026-11-06**: صفر ثغرة وقت تشغيل في `Server` بعد ترقية المالك (§8.1) — الترحيل لا يرثها؛ المتبقّي أدوات بناء فقط |
 | CI بـSDK 7 | ❌ **لا** | مُصحَّح في `71b890b9` |
-| `MessagePack 2.5.187` | ⚠️ **نعم** | الترحيل إلى SignalR 10 يجرّ `MessagePack 3.x` ⇒ فرصة Kill-Two-Birds: يُغلق فجوة `NU1903` ويُزيح مقصد الترحيل |
+| `MessagePack` | ⚠️ **لا** | **أُغلق** على `2.5.307` **داخل 2.x** ⇒ **لا تغيّر في ترميز السلك** ولا حاجة للقفزة إلى `3.x`. الترحيل إلى SignalR 10 ما زال يجرّ `3.x` — قرار منفصل |
 
 ### 9.2 تسلسل ترحيل مقترح (بعد تثبيت خط الأساس)
 
 | # | الخطوة | لماذا أول |
 |---|---|---|
 | 0 | تثبيت خط الأساس على .NET 8.0.33 (§3.2) | بلا خط أساس، لا معنى للترحيل |
-| 1 | إغلاق `NU1903` P0/P1 (§8.3) | أمان قبل масс |
+| 1 | **إغلاق `NU1903` P0/P1 — أُنجز جزئياً 2026-11-06**: صفر ثغرة وقت تشغيل في `Server`؛ المتبقّي بناء فقط (§8.1) | الأمان قبل الكتلة |
 | 2 | `Server` + `Shared` + `Agent` → `net10.0` | قلّة الحزم |
 | 3 | `Desktop.*` + Avalonia ≥ 11.3 | أكبر اعتماد أصلي |
 | 4 | حاوية `aspnet:10.0` + CI على `10.0.x` | نشر |
@@ -417,9 +476,9 @@ dotnet test Tests/Server.Tests --no-build
 
 ## 10. الإصلاحات الدنيا المقترحة مع فروق الملفات بالضبط
 
-**لا شيء ممّا يلي مُطبَّق.** كل فِرق точّي ومُراجَع. `D-1` مُنفَّذ من المالك بالفعل ⇒ مُوثَّق للمراجعة فقط.
+**لا شيء ممّا يلي مُطبَّق.** كل فِرق точّي ومُراجَع. `D-0` مُنفَّذ من المالك (`71b890b9` + `e67900d6`) ⇒ مُوثَّق للمراجعة فقط. `D-2` **ملغى** بتصحيح C-09.
 
-### D-0 — مُنفَّذ من المالك في `71b890b9` (للمراجعة)
+### D-0 — مُنفَّذ من المالك في `71b890b9` و`e67900d6` (للمراجعة)
 
 ```diff
 --- a/Server/libman.json
@@ -460,25 +519,21 @@ dotnet test Tests/Server.Tests --no-build
 -    <PackageReference Include="Microsoft.Web.LibraryManager.Build" Version="2.1.175" />
 ```
 **السبب:** الحزمة لم تعد تفعل شيئاً (`"libraries": []`) لكنها ما زالت تُشدّ هدف `LibraryManagerRestore` في كل بناء وتربطه بـNuGet. إزالتها تُنهي الاعتماد على `Microsoft.Web.LibraryManager.Build` (حزمة متروكة منذ 2019) نهائياً.
-**المخاطرة:** لو أُعيد أي إدخال لـ`libman.json` فلن يُسترجَع تلقائياً ⇒ يُقابله D-2 (توثيق الأصول).
+**المخاطرة:** لو أُعيد أي إدخال لـ`libman.json` فلن يُسترجَع تلقائياً ⇒ يُقابله D-3 (توثيق الأصول).
 **التراجع:** `git checkout -- Server/Server.csproj`.
 
-### D-2 — إغلاق فجوة المسار GAP-15 (مقترح — الأهم Remaining)
+### D-2 — ~~إغلاق فجوة المسار GAP-15~~ **ملغى (تصحيح C-09)**
 
-```diff
---- a/Server/Pages/Viewer.cshtml
-+++ b/Server/Pages/Viewer.cshtml
-@@
--                src="/lib/microsoft-signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack.js"></script>
-+                src="/lib/microsoft/signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack.js"></script>
-@@
--                src="/lib/microsoft-signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack.min.js"></script>
-+                src="/lib/microsoft/signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack.min.js"></script>
-```
-**الأساس:** الأصول المُلتزَمة في `Server/wwwroot/lib/microsoft/signalr-protocol-msgpack/dist/browser/` (4 ملفات، مُتحقَّق منها بـ`git ls-files`) ⇒ الطلب الحالي `/lib/microsoft-signalr-protocol-msgpack/...` ⇒ **404**.
-**بديل مكافئ:** `git mv Server/wwwroot/lib/microsoft Server/wwwroot/lib/microsoft-signalr-protocol-msgpack` (تصحيح في المصدر لا في الطلب).
-**التراجع:** `git checkout -- Server/Pages/Viewer.cshtml`.
-**لم يُطبَّق:** لأن `Viewer.cshtml` ملف إنتاج.
+**لم يُطبَّق ولن يُطبَّق.** الفرضية التي بُني عليها هذا التصحيح — «‏`Viewer.cshtml` يطلب مساراً غير موجود ⇒ 404» — **سالبة**.
+
+| الفحص | النتيجة |
+|---|---|
+| الطلب في `Server/Pages/Viewer.cshtml:33,38` | `/lib/microsoft/signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack{,.min}.js` |
+| الموجود على القرص | `Server/wwwroot/lib/microsoft/signalr-protocol-msgpack/dist/browser/` — 4 ملفات (`.js` · `.min.js` · `.js.map` · `.min.js.map`) |
+| المطابقة | ✅ **مطابقة تامة** |
+| كل مراجع `/lib/` في `Server/` (تسعة) | ✅ **تسعة من تسعة تُحَلّ إلى ملف قائم** |
+
+> **الخطر من تطبيق تصحيحٍ خاطئ:** لو طُبِّق هذا التصحيح لكان **كسر مساراً صحيحاً** — يُخرج `Viewer.cshtml` عن `microsoft/signalr-protocol-msgpack/` ويحوّله إلى `microsoft-signalr-protocol-msgpack/` غير الموجود ⇒ 404 **حقيقي** في المتصفح ⇒ كسر بروتوكول MessagePack عند العميل. أخطاء التصحيح هنا ليست تجميلية؛ كانت ستُنشئ عطلاً جديداً.
 
 ### D-3 — توثيق الأصول المُلتزَمة (مقترح — يعالج فجوة التتبّع P1)
 
@@ -545,18 +600,19 @@ Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile "$dir\in
 | ID | الخطر | الاحتمال | الأثر | التخفيف |
 |---|---|---|---|---|
 | RB-1 | **تثبيت .NET 8 ثم اكتشاف أن EOL خلال 4 أيام** ⇒ إعادة العمل مرتين | عالٍ | متوسط | ADR-P00B-03: تثبيت معزول ومؤقّت + CI على 8.0.x أولاً (وهو المُصحَّح فعلاً) |
-| RB-2 | **‏`MessagePack 2.5.187` قابل للاستغلال على مقبس مفتوح** | متوسط | **عالٍ** | P0 في §8.3 — يُعالَج بترقية مُنسَّقة مع اختبار round-trip |
+| RB-2 | ~~**‏`MessagePack 2.5.187` قابل للاستغلال على مقبس مفتوح**~~ | — | — | ✅ **مُغلق 2026-11-06** — ترقية المالك إلى `2.5.307` (patch **داخل 2.x** ⇒ لا تغيير في ترميز السلك) · 10/10 بناء و19/19 اختبار بعد الترقية (§8.1) |
 | RB-3 | **إعادة إدخال LibMan** لاحقاً ⇒ Dirty-Tree من جديد | متوسط | متوسط | D-1 (إزالة المرجع) + D-3 (توثيق) |
-| RB-4 | **تعديلات المالك الخمسة تدخل بلا اختبار** ⇒ كسر المصادقة | متوسط | عالٍ | اقتراح: اختبار 401/403 لكل نقطة قبل الدمج |
-| RB-5 | **‏GAP-15 (404) يبقى** ⇒ العميل MessagePack لا يعمل في الإنتاج | **عالٍ** | عالٍ | D-2 — تصحيح سطرين |
+| RB-4 | **تعديلات المالك الخمسة ضُمّنت في `e67900d6` بلا دليل اختبار سلبي** ⇒ كسر محتمل في المصادقة | متوسط | **عالٍ** | مطلوب: اختبار 401/403 لكل نقطة نهاية قبل إقفال G1 |
+| RB-5 | **‏`origin` يشير إلى المستودع الأصلي `immense/Remotely` لا إلى fork المالك** ⇒ الـpush الافتراضي يذهب إلى الأصلي، وCI لا يعمل على fork | متوسط | **عالٍ** | F-01 — إضافة remote باسم `fork` قبل أول push (§2.5) |
 | RB-6 | **‏`Desktop.Win.Tests` يبقى متروكاً** ⇒ تغطية Windows = صفر | عالٍ | متوسط | D-4 — قرار |
+| RB-7 | **أصول المتصفح المُلتزَمة ما زالت 8.0.7** ⇒ إصلاح الخادم وحده لا يغطي عميل MessagePack في المتصفح | متوسط | **عالٍ** | F-02 (§8.4) — محاذاة الأصل إلى 8.0.29 (أحدث 8.0.x على npm) |
 
 ### 11.3 التراجع
 
 | التغيير | التراجع |
 |---|---|
 | D-1 (إزالة مرجع LibMan) | `git checkout -- Server/Server.csproj` |
-| D-2 (مسار Viewer.cshtml) | `git checkout -- Server/Pages/Viewer.cshtml` |
+| ~~D-2 (مسار Viewer.cshtml)~~ | **ملغى** — فرضية C-09 سالبة ⇒ لا تعديل على `Viewer.cshtml` |
 | D-3 (README) | `git rm Server/wwwroot/lib/README.md` |
 | D-5 (runtime معزول) | `rm -- C:\Users\Administrator\Documents\smacc_TEST\dotnet8` (إلى سلة المحذوفات) |
 | كل تعديلات المالك | **لا تراجع** — لا يملكها الوكيل |
@@ -571,12 +627,16 @@ Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile "$dir\in
 | **اختبارات على خط الأساس .NET 8** | ⛔ **BLOCKED** | لا Microsoft.NETCore.App 8.0.x |
 | **اكتشاف الاختبارات** | ✅ **PASS** | 19 مُكتشَف في الحل · 7 خارج الحل (لا تُترجم) |
 | **نتيجة الاختبارات (تشخيص .NET 9)** | ✅ **PASS** (تشخيص) | 19/19 ناجحة · TRX مُرفق |
-| **قاعدة الأدلة** | ⛔ **BLOCKED** | 12 حزمة متأثرة (6 High) في `Server` |
+| **قاعدة الأدلة — `Server`** | ✅ **PASS** | بعد ترقية المالك: **صفر** High/Moderate/Low تمسّ وقت التشغيل · المتبقّي 3 حزم **بناء فقط** (§8.1) |
+| **قاعدة الأدلة — باقي المشاريع** | ⚠️ **متبقٍّ** | `Agent`: `System.Security.Cryptography.Xml 8.0.3` High · `Desktop.Win`: 3 High شفافة قديمة (§8.2) |
+| **أصول المتصفح المُلتزَمة** | ⛔ **UNKNOWN** | أصل JS `signalr-protocol-msgpack` ما زال **8.0.7** مقابل خادم **8.0.33** — تدقيق NuGet لا يرى أصول JS (§8.4 · F-02) |
 | **LIB002** | ✅ **PASS** (بعد `71b890b9`) | الجذر مؤكَّد (§5.4) والإصلاح مُنفَّذ ومُتحقَّق |
-| **CI** | ✅ **PASS** | `setup-dotnet@v4` بـ`8.0.x` ⇒ `NETSDK1045` مُغلق |
+| **‏CI — إصلاح المصدر** | ✅ **PASS** | `setup-dotnet@v4` بـ`8.0.x` ⇒ `NETSDK1045` مُغلق (التشغيل الفعلي: ⛔ UNKNOWN — انظر «CI على .NET 8» أدناه) |
 | **Dirty-Tree من البناء** | ✅ **PASS** | شجرة نظيفة بعد البناء |
 | **جاهزية .NET 10** | ⛔ **UNKNOWN** | تقييم فقط (§9) — لا SDK 10، لا ترحيل |
 | **سلوك Windows الحقيقي** | ⛔ **UNKNOWN** | لا جهاز Windows ممثّل في هذه البيئة |
+| **‏CI على .NET 8 (تشغيل فعلي)** | ⛔ **UNKNOWN** | إصلاح المصدر مُنفَّذ (`71b890b9`) ولم يُشغَّل بعد؛ و`origin` = المستودع الأصلي ⇒ يلزم remote للـfork (F-01 · §2.5) |
+| **‏GAP-15 / مسار `signalr-protocol-msgpack`** | ✅ **PASS** | **false positive** — مطابقة تامة (تصحيح C-09) |
 
 ### 12.1 بوابة مرحلة P00-B
 
@@ -586,23 +646,31 @@ Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile "$dir\in
 | جذر مؤكَّد أو موسوم `UNKNOWN` | ✅ **PASS** — LIB002 **مؤكَّد** (§5.4) |
 | خط أساس بناء ناجح | ✅ **PASS** |
 | أدلة اختبار آلية (TRX) | ✅ **PASS** — 19/19 على .NET 9 (تشخيص) |
-| خط أساس .NET 8 قابل للتنفيذ | ⛔ **BLOCKED** — يحتاج تثبيتاً (D-5) |
-| لا كود إنتاج مُعدَّل | ✅ **PASS** — تعديلات المالك الخمسة لم تُلمس |
+| أدلة بناء واختبار **بعد** ترقية الاعتماديات | ✅ **PASS** — 10/10 مشروعاً · 19/19 اختباراً · صفر `NU1903` (§8.5) |
+| خط أساس .NET 8 قابل للتنفيذ | ⛔ **BLOCKED** — لا runtime 8 محلياً؛ **ومساران**: CI (§13) أو تثبيت معزول (D-5) |
+| لا كود إنتاج مُعدَّل **بواسطة الوكيل** | ✅ **PASS** — تعديلات المالك الخمسة لم تُلمس (ضمّنها المالك في `e67900d6`) |
 
 ### 🔶 **حالة بوابة P00-B: PASS مشروط**
 
-> **ما لا يقوله هذا PASS:** البناء يعمل، والاختبارات تنجح عند roll-forward — لكن **على .NET 9، لا .NET 8**. و**لا** يمكن اعتماد "الاختبارات ناجحة" بوصفها إثباتاً لخط الأساس التاريخي. و**‏12 ثغرة عالية الخطورة ما زالت مفتوحة**. البوابات المستقلة (G1–G7 في `GATE-REGISTER.md`) لم تتغيّر.
+> **ما لا يقوله هذا PASS:** البناء يعمل، والاختبارات تنجح عند roll-forward — لكن **على .NET 9، لا .NET 8**. و**لا** يمكن اعتماد "الاختبارات ناجحة" بوصفها إثباتاً لخط الأساس التاريخي. و**صفر** ثغرة وقت تشغيل في `Server` بعد ترقية المالك — لكن **أصول المتصفح المُلتزَمة ما زالت 8.0.7** (F-02 · خارج مدى ترقية NuGet) و`Agent` ما زال فيه High واحد. البوابات المستقلة (G1–G7 في `GATE-REGISTER.md`) لم تتغيّر.
 
 ---
 
 ## 13. الإجراء التالي الموصى به (واحد)
 
-> **إغلاق فجوة مسار الأصل `signalr-protocol-msgpack` (D-2): تصحيح سطرين في `Server/Pages/Viewer.cshtml`.**
+> **إضافة remote للـfork المالك ثم push واحد مقصود إلى CI — لتوليد أول دليل اختبار على خط أساس .NET 8.**
 >
-> **لماذا هو الواحد:** هو العيب الوحيد في القائمة الذي (أ) **مُثبَت بالدليل** — الأصول في `wwwroot/lib/microsoft/signalr-protocol-msgpack/…` والطلب في `/lib/microsoft-signalr-protocol-msgpack/…` ⇒ 404 مؤكد؛ (ب) **لا يحتاج تثبيتاً ولا شبكة ولا اعتماديات** — لا `.NET 8` ولا تفاعل مع MALL؛ (ج) **يُغلق مساراً وظيفياً مكسوراً الآن** (بروتوكول MessagePack لا يُحمَّل في المتصفح)؛ (د) **خطره صفري** (سطران، تراجع بـ`git checkout`).
+> **الشكل المحدد:** remote جديد باسم `fork` يشير إلى fork المالك على GitHub ⇒ push الـcommit `e67900d6` (+ تصحيحات هذا التقرير) إليه ⇒ `run_tests.yml` يعمل على `windows-latest` بـ`setup-dotnet@v4` و`8.0.x` ⇒ `dotnet test` على الحل (19 اختباراً) ⇒ **ملف TRX على .NET 8** ⇒ يُرفق بـ`EVIDENCE-MAP.md` ويُغلق GAP-06 جزئياً.
 >
-> **بقية القائمة تحتاج ب-owner قراراً أو تصريحاً** — تثبيت runtime (D-5) وانتظار التصريح · ترقيات `NU1903` (تحتاج اختبار round-trip) · مصير `Desktop.Win.Tests` (قرار) · توثيق الأصول (D-3، بعد تثبيت D-1).
+> **لماذا هو الواحد — وليس D-5 (تثبيت runtime معزول):**
+> - **لا يحتاج تثبيت أي برنامج** ⇒ لا تصريح تثبيت، ولا تغيير نظامي، ولا مسار EOL على هذا الجهاز (ADR-P00B-03 يبقى نافذاً بلا استثناء).
+> - **يُنتج الدليل نفسه** (اختبارات على 8.0.x) ⇒ D-5 وCI طريقان لنفس النتيجة، والطريق الذي لا يلمس الجهاز هو الأصح.
+> - **يُغلق أخطر ادّعاء متبقٍّ**: إصلاح CI في `71b890b9` مُصنَّف في `EVIDENCE-MAP.md` (GAP-19) بأنّه **مُصلَّح في المصدر ولم يُشغَّل بعد** ⇒ أول push هو ما يحوّله من ادّعاء إلى دليل.
+> - **يكشف F-01 قبل أن يكلّف**: أي push بلا remote صحيح يذهب إلى المستودع الأصلي — خطأ حقيقي ومكلف.
+> - **لا يمسّ كود الإنتاج** · قابل للتراجع بـ`git remote remove fork`.
+>
+> **ما يبقى خلفه ويحتاج قراراً لاحقاً (ليس جزءاً من هذا الإجراء):** محاذاة أصول المتصفح مع الخادم — أصل JS `signalr-protocol-msgpack` ما زال **8.0.7** مقابل خادم **8.0.33** (F-02 · §8.4) · `Agent`: `System.Security.Cryptography.Xml 8.0.3` High (§8.2) · مصير `Tests/Desktop.Win.Tests` (D-4 · قرار) · D-1 وD-3 (إزالة ارتباط LibMan وتوثيق الأصول) · قرار وجهة خط الأساس بعد EOL.
 
 ---
 
-*لم يُعدَّل أي ملف إنتاج · لم يُثبَّت أي برنامج · لم تُرقَ أي اعتمادية · لم يُغيَّر أي إطار عمل · لم تُعدَّل الـconstitution · لم يبدأ تنفيذ SPEC-001 · لا نشر ولا commit ولا push · لم يُستخدم `git add -A` · كل تعديلات المالك محفوظة.*
+*لم يُعدَّل أي ملف إنتاج · لم يُثبَّت أي برنامج · **لم أُرقِ أي اعتمادية** (ترقية الاعتماديات نفّذها المالك بنفسه) · لم يُغيَّر أي إطار عمل · لم تُعدَّل الـconstitution · لم يبدأ تنفيذ SPEC-001 · لا نشر ولا commit ولا push · لم يُستخدم `git add -A` · كل تعديلات المالك محفوظة.*
