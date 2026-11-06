@@ -32,18 +32,44 @@ export class ViewerHubConnection {
         this.Connection = new signalR.HubConnectionBuilder()
             .withUrl("/hubs/viewer")
             .withHubProtocol(new signalR.protocols.msgpack.MessagePackHubProtocol())
+            .withAutomaticReconnect([0, 2, 5, 10, 30])
             .configureLogging(signalR.LogLevel.Information)
             .build();
 
         this.ApplyMessageHandlers(this.Connection);
 
         this.Connection.start().then(async () => {
-            this.SendScreenCastRequestToDevice();
+            await this.SendScreenCastRequestToDevice();
         }).catch(err => {
             console.error(err.toString());
             console.log("Connection closed.");
             UI.StatusMessage.innerHTML = `Connection error: ${err.message}`;
             UI.ToggleConnectUI(true);
+        });
+
+        this.Connection.onreconnecting(async (error) => {
+            console.warn("Connection lost.  Reconnecting.", error);
+            UI.SetStatusMessage("Connection lost.  Reconnecting...");
+        });
+
+        this.Connection.onreconnected(async (connectionId) => {
+            // The transport was re-established under a new connection ID.  The
+            // server issues a new stream for every attach, so the desktop
+            // stream has to be requested again instead of leaving the viewer
+            // with a dead screen.
+            console.log("Reconnected.  Restoring the desktop stream.");
+            UI.SetStatusMessage("Reconnected.  Restoring the desktop stream...");
+            try {
+                await this.SendScreenCastRequestToDevice();
+                // Clear the transient message so that a later stream failure
+                // is still reported as "Stream ended.".
+                UI.SetStatusMessage("");
+            }
+            catch (err) {
+                console.error("Error while restoring the desktop stream.", err);
+                UI.SetStatusMessage("Stream ended.");
+                UI.ToggleConnectUI(true);
+            }
         });
 
         this.Connection.onclose(() => {

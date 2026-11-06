@@ -19,90 +19,90 @@ public class ClientDownloadsController : ControllerBase
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private readonly IWebHostEnvironment _hostEnv;
     private readonly ILogger<ClientDownloadsController> _logger;
+    private readonly ApiAuthorizationFilter _apiAuthorizationFilter;
 
     public ClientDownloadsController(
         IWebHostEnvironment hostEnv,
         IEmbeddedServerDataProvider embeddedDataSearcher,
         IDataService dataService,
-        ILogger<ClientDownloadsController> logger)
+        ILogger<ClientDownloadsController> logger,
+        ApiAuthorizationFilter apiAuthorizationFilter)
     {
         _hostEnv = hostEnv;
         _embeddedDataSearcher = embeddedDataSearcher;
         _dataService = dataService;
         _logger = logger;
+        _apiAuthorizationFilter = apiAuthorizationFilter;
     }
 
-    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("desktop/{platformID}")]
     public async Task<IActionResult> GetDesktop(string platformID)
     {
-        switch (platformID)
-        {
-            case "WindowsDesktop-x64":
-                {
-                    var filePath = Path.Combine("Content", "Win-x64", "Remotely_Desktop.exe");
-                    return await GetDesktopFile(filePath);
-                }
-            case "WindowsDesktop-x86":
-                {
-                    var filePath = Path.Combine("Content", "Win-x86", "Remotely_Desktop.exe");
-                    return await GetDesktopFile(filePath);
-                }
-            case "UbuntuDesktop":
-                {
-                    var filePath = Path.Combine("Content", "Linux-x64", "Remotely_Desktop");
-                    return await GetDesktopFile(filePath);
-                }
-            case "MacOS-x64":
-                {
-                    var filePath = Path.Combine("Content", "MacOS-x64", "Remotely_Desktop");
-                    return await GetDesktopFile(filePath);
-                }
-            case "MacOS-arm64":
-                {
-                    var filePath = Path.Combine("Content", "MacOS-arm64", "Remotely_Desktop");
-                    return await GetDesktopFile(filePath);
-                }
-            default:
-                return NotFound();
-        }
+        return await GetDesktopInternal(platformID, null);
     }
 
-
-    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("desktop/{platformId}/{organizationId}")]
     public async Task<IActionResult> GetDesktop(string platformId, string organizationId)
     {
-        switch (platformId)
+        return await GetDesktopInternal(platformId, organizationId);
+    }
+
+    private async Task<IActionResult> GetDesktopInternal(string platformID, string? organizationId)
+    {
+        var filePath = GetDesktopPath(platformID);
+
+        if (filePath is null)
         {
-            case "WindowsDesktop-x64":
-                {
-                    var filePath = Path.Combine("Content", "Win-x64", "Remotely_Desktop.exe");
-                    return await GetDesktopFile(filePath, organizationId);
-                }
-            case "WindowsDesktop-x86":
-                {
-                    var filePath = Path.Combine("Content", "Win-x86", "Remotely_Desktop.exe");
-                    return await GetDesktopFile(filePath, organizationId);
-                }
-            case "UbuntuDesktop":
-                {
-                    var filePath = Path.Combine("Content", "Linux-x64", "Remotely_Desktop");
-                    return await GetDesktopFile(filePath, organizationId);
-                }
-            case "MacOS-x64":
-                {
-                    var filePath = Path.Combine("Content", "MacOS-x64", "Remotely_Desktop");
-                    return await GetDesktopFile(filePath);
-                }
-            case "MacOS-arm64":
-                {
-                    var filePath = Path.Combine("Content", "MacOS-arm64", "Remotely_Desktop");
-                    return await GetDesktopFile(filePath);
-                }
-            default:
-                return NotFound();
+            return NotFound();
         }
+
+        // Quick Support clients are downloadable without an account. Anonymous
+        // browser downloads redirect to the raw file; API/automation clients
+        // still get 401 unless they authenticate or supply an API key.
+        if (!await _apiAuthorizationFilter.IsAuthorizedAsync(HttpContext))
+        {
+            if (IsBrowserDownloadRequest())
+            {
+                var fullPath = Path.Combine(_hostEnv.WebRootPath, filePath);
+                if (!FileIO.Exists(fullPath))
+                {
+                    return NotFound();
+                }
+
+                return Redirect("/" + filePath);
+            }
+
+            return Unauthorized();
+        }
+
+        return organizationId is null
+            ? await GetDesktopFile(filePath)
+            : await GetDesktopFile(filePath, organizationId);
+    }
+
+    private static string? GetDesktopPath(string platformID)
+    {
+        return platformID switch
+        {
+            "WindowsDesktop-x64" => "Content/Win-x64/Remotely_Desktop.exe",
+            "WindowsDesktop-x86" => "Content/Win-x86/Remotely_Desktop.exe",
+            "UbuntuDesktop" => "Content/Linux-x64/Remotely_Desktop",
+            "MacOS-x64" => "Content/MacOS-x64/Remotely_Desktop",
+            "MacOS-arm64" => "Content/MacOS-arm64/Remotely_Desktop",
+            _ => null
+        };
+    }
+
+    private bool IsBrowserDownloadRequest()
+    {
+        var accept = Request.Headers.Accept.ToString();
+        var fetchMode = Request.Headers["Sec-Fetch-Mode"].ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+
+        return accept.Contains("text/html", StringComparison.OrdinalIgnoreCase) ||
+               accept.Contains("application/xhtml+xml", StringComparison.OrdinalIgnoreCase) ||
+               fetchMode.Equals("navigate", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
     }
 
     [ServiceFilter(typeof(ApiAuthorizationFilter))]

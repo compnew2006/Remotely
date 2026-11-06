@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
+using Remotely.Server.Components.ModalContents;
 using Remotely.Server.Enums;
 using Remotely.Server.Hubs;
 using Remotely.Server.Models.Messages;
@@ -305,6 +306,26 @@ public partial class DeviceCard : AuthComponentBase
 
         session.IsExpanded = true;
         Messenger.Send(new ChatSessionsChangedMessage(), CircuitConnection.ConnectionId);
+    }
+
+    private async Task ShowTaskManager()
+    {
+        if (!ServiceSessionCache.TryGetConnectionId(Device.ID, out _))
+        {
+            ToastService.ShowToast("Device connection not found", classString: "bg-danger");
+            return;
+        }
+
+        void showModal(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<TaskManagerModal>(0);
+            builder.AddAttribute(1, "DeviceId", Device.ID);
+            builder.AddAttribute(2, "DeviceName", Device.DeviceName);
+            builder.AddAttribute(3, "Platform", Device.Platform);
+            builder.CloseComponent();
+        }
+
+        await ModalService.ShowModal($"Task Manager - {Device.DeviceName}", showModal, size: "lg");
     }
 
     private async Task StartRemoteControl(bool viewOnly)

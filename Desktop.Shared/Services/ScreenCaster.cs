@@ -4,6 +4,7 @@ using Remotely.Desktop.Shared.Enums;
 using Remotely.Shared.Models;
 using Microsoft.Extensions.Logging;
 using Remotely.Shared.Helpers;
+using Remotely.Shared.Extensions;
 using Remotely.Shared.Models.Dtos;
 using Remotely.Shared.Services;
 using Microsoft.IO;
@@ -248,8 +249,24 @@ internal class ScreenCaster : IScreenCaster
 
     private Task HandleWindowsSessionSwitchedMessage(object subscriber, WindowsSessionSwitchedMessage arg)
     {
-        _logger.LogInformation("Windows session switched.  Stopping screen cast.");
-        _isWindowsSessionEnding = true;
+        if (arg.Reason.IsTerminalSessionSwitch())
+        {
+            _logger.LogInformation(
+                "Windows session logged off.  Stopping screen cast.  Reason: {reason}",
+                arg.Reason);
+            _isWindowsSessionEnding = true;
+            return Task.CompletedTask;
+        }
+
+        // A session switch (lock/unlock, RDP connect/disconnect, console
+        // connect/disconnect) does not end the Windows session - the desktop
+        // and its session keep running.  Stopping the cast here used to tear
+        // down every active remote control session as soon as the local RDP
+        // session locked, the screen saver kicked in, or the console was
+        // detached.
+        _logger.LogInformation(
+            "Windows session switched.  Reason: {reason}.  Continuing screen cast.",
+            arg.Reason);
         return Task.CompletedTask;
     }
 

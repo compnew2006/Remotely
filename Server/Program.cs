@@ -219,6 +219,14 @@ services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     options.MaximumReceiveMessageSize = 100_000;
+
+    // A browser tab that is not in the foreground has its timers throttled by
+    // the browser, so the SignalR keep-alive can arrive far less often than
+    // every 15 seconds.  The default 30 second client timeout disconnected
+    // the viewer and killed the remote control stream.  Two minutes tolerates
+    // the throttling; the client's automatic reconnect covers the rest.
+    options.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
 })
     .AddJsonProtocol(options =>
     {
@@ -337,7 +345,8 @@ app.UseCors("TrustedOriginPolicy");
 app.UseAntiforgery();
 
 
-app.MapRazorPages();
+app.MapRazorPages()
+    .WithStaticAssets();
 app.MapHub<DesktopHub>("/hubs/desktop");
 app.MapHub<ViewerHub>("/hubs/viewer");
 app.MapHub<AgentHub>("/hubs/service");
@@ -368,7 +377,7 @@ void ConfigureStaticFiles()
     provider.Mappings[".appimage"] = "application/octet-stream";
     provider.Mappings[".zip"] = "application/octet-stream";
     provider.Mappings[".config"] = "application/octet-stream";
-    app.UseStaticFiles();
+    app.MapStaticAssets();
     var contentPath = Path.Combine(app.Environment.WebRootPath, "Content");
 
     if (Directory.Exists(contentPath))

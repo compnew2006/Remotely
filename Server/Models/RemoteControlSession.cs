@@ -28,6 +28,14 @@ public class RemoteControlSession : IDisposable
     public string DesktopConnectionId { get; internal set; } = string.Empty;
     public string DeviceId { get; set; } = string.Empty;
     public DateTimeOffset LastStateChange { get; private set; } = DateTimeOffset.Now;
+
+    /// <summary>
+    /// The last time a viewer attached to or detached from this session.
+    /// The session cache uses this - not the creation time - to decide
+    /// whether an unattended session with no viewers is really abandoned, so
+    /// a viewer that briefly drops its connection does not lose the session.
+    /// </summary>
+    public DateTimeOffset LastActivity { get; internal set; } = DateTimeOffset.Now;
     public string MachineName { get; internal set; } = string.Empty;
     public RemoteControlMode Mode { get; internal set; }
 
@@ -61,6 +69,14 @@ public class RemoteControlSession : IDisposable
     /// before the view can connect.
     /// </summary>
     public bool RequireConsent { get; set; }
+
+    /// <summary>
+    /// Whether consent has been granted at least once for this session, either
+    /// because the end user accepted the prompt or because attended access is
+    /// not enforced.  Once this is true, the session survives a restart of the
+    /// device's desktop process instead of being deleted from the cache.
+    /// </summary>
+    public bool ConsentGranted { get; set; }
 
     public DateTimeOffset StartTime { get; internal set; }
 
@@ -143,13 +159,21 @@ public class RemoteControlSession : IDisposable
 
     internal void SetSessionReadyState(bool isReady)
     {
-        if (isReady)
+        try
         {
-            _sessionReadySignal.Set();
+            if (isReady)
+            {
+                _sessionReadySignal.Set();
+            }
+            else
+            {
+                _sessionReadySignal.Reset();
+            }
         }
-        else
+        catch (ObjectDisposedException)
         {
-            _sessionReadySignal.Reset();
+            // The session was removed from the cache and disposed while the
+            // device was disconnecting.  There is nothing left to signal.
         }
     }
 

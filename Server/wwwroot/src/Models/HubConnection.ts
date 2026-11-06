@@ -4,6 +4,8 @@ import { IStreamResult } from "../Stream.js";
 export type HubConnection = {
     start: () => Promise<any>;
     onclose: (callback: () => any) => any;
+    onreconnecting: (callback: (error?: Error) => any) => any;
+    onreconnected: (callback: (connectionId?: string) => any) => any;
     state: HubConnectionState;
     invoke<T = void>(...rest): Promise<T>;
     send(...rest): Promise<void>;

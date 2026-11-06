@@ -2,6 +2,7 @@ using Remotely.Server.Enums;
 using Remotely.Server.Models;
 using Remotely.Server.Services;
 using Remotely.Shared.Enums;
+using Remotely.Shared.Extensions;
 using Remotely.Shared.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 
@@ -109,6 +110,20 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public async Task NotifySessionChanged(SessionSwitchReasonEx reason, int currentSessionId)
     {
+        if (!reason.IsTerminalSessionSwitch())
+        {
+            // A lock/unlock, an RDP connect/disconnect, or a console
+            // connect/disconnect does not end the Windows session.  The device
+            // keeps capturing the same desktop, so the viewer must not be
+            // interrupted and the screen caster must not be restarted -
+            // restarting it kills the running capture and drops the stream.
+            _logger.LogInformation(
+                "Windows session switch detected on the device.  Reason: {reason}.  " +
+                "The screen cast is unaffected.",
+                reason);
+            return;
+        }
+
         SessionInfo.StreamerState = StreamerState.ChangingSessions | StreamerState.DisconnectExpected;
         await _viewerHub.Clients.Clients(ViewerList).ShowMessage("Changing sessions");
         await NotifySessionChangedImpl(reason, currentSessionId);
@@ -166,7 +181,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
             !SessionInfo.StreamerState.HasFlag(StreamerState.DisconnectExpected))
         {
             // Don't restart if consent wasn't granted on the first request.
-            if (ViewerList.Count > 0 && SessionInfo.RequireConsent)
+            if (ViewerList.Count > 0 && SessionInfo.ConsentGranted)
             {
                 await RestartScreenCaster();
             }

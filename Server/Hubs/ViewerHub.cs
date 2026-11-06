@@ -244,6 +244,7 @@ public class ViewerHub : Hub<IViewerHubClient>
         }
 
         SessionInfo.ViewerList.Remove(Context.ConnectionId);
+        SessionInfo.LastActivity = DateTimeOffset.Now;
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -430,6 +431,7 @@ public class ViewerHub : Hub<IViewerHubClient>
 
         SessionInfo = session;
         SessionInfo.ViewerList.Add(Context.ConnectionId);
+        SessionInfo.LastActivity = DateTimeOffset.Now;
         SessionInfo.StreamId = Guid.NewGuid();
         RequesterDisplayName = requesterName;
 
@@ -479,6 +481,7 @@ public class ViewerHub : Hub<IViewerHubClient>
             }
 
             SessionInfo.RequireConsent = false;
+            SessionInfo.ConsentGranted = true;
 
             await _desktopHub.Clients
                 .Client(SessionInfo.DesktopConnectionId)
@@ -492,6 +495,7 @@ public class ViewerHub : Hub<IViewerHubClient>
         else
         {
             SessionInfo.Mode = RemoteControlMode.Attended;
+            SessionInfo.ConsentGranted = true;
 
             // SPEC-001: attended sessions are consent-gated on the device (the
             // employee shares the session ID and accepts the connection prompt),

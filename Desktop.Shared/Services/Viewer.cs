@@ -45,6 +45,18 @@ public class Viewer : IViewer
 {
     public const int DefaultQuality = 80;
 
+    /// <summary>
+    /// The number of consecutive failed latency checks that are tolerated
+    /// before the viewer is even considered for the unresponsive check.
+    /// </summary>
+    private const int MaxConsecutivePingFailures = 10;
+
+    /// <summary>
+    /// How long the viewer has to be completely silent before the session is
+    /// torn down.  This gives a reconnecting browser time to come back.
+    /// </summary>
+    private static readonly TimeSpan ViewerUnresponsiveTimeout = TimeSpan.FromSeconds(60);
+
     private readonly IAudioCapturer _audioCapturer;
     private readonly IClipboardService _clipboardService;
     private readonly IDesktopHubConnection _desktopHubConnection;
@@ -56,6 +68,7 @@ public class Viewer : IViewer
     private volatile int _framesSentSinceLastReceipt;
     private DateTimeOffset _lastFrameReceived = DateTimeOffset.Now;
     private DateTimeOffset _lastFrameSent = DateTimeOffset.Now;
+    private DateTimeOffset _lastSuccessfulPing = DateTimeOffset.Now;
     private int _pingFailures;
 
     public Viewer(
@@ -319,13 +332,23 @@ public class Viewer : IViewer
         if (latencyResult.IsSuccess)
         {
             _pingFailures = 0;
+            _lastSuccessfulPing = _systemTime.Now;
             IsResponsive = true;
             RoundTripLatency = latencyResult.Value;
         }
         else
         {
             _pingFailures++;
-            if (_pingFailures > 3)
+
+            // A failed ping does not mean the viewer is gone.  A browser tab
+            // that is not in the foreground is throttled and its connection
+            // can be dropped by the server, and the viewer then reconnects on
+            // its own.  Tearing the session down after a handful of quick
+            // failures killed working remote control sessions; the viewer is
+            // only declared unresponsive when it has been silent for a full
+            // minute.
+            if (_pingFailures > MaxConsecutivePingFailures &&
+                _systemTime.Now - _lastSuccessfulPing > ViewerUnresponsiveTimeout)
             {
                 IsResponsive = false;
                 _logger.LogWarning("Failed to check roundtrip latency: {reason}", latencyResult.Reason);

@@ -7,6 +7,8 @@
 @inject UserManager<RemotelyUser> UserManager
 @inject IWebHostEnvironment HostEnv
 @inject NavigationManager NavManager
+@inject IJsInterop JsInterop
+@inject IToastService Toasts
 @inject ILogger<Downloads> Logger 
 
 @if (_isAuthenticated)
@@ -201,9 +203,103 @@
 
 </div>
 
+<div class="row mt-4">
+    <h4>Helper Scripts</h4>
+
+    <p class="text-info col-sm-12 mb-3">
+        Copy-and-paste commands for this server. Run them in an elevated PowerShell window on the target Windows machine.
+    </p>
+
+    <div class="col-sm-12 mb-4">
+        <div class="d-flex align-items-center mb-2">
+            <strong>1. Install the Windows agent (no account required)</strong>
+            <button class="btn btn-sm btn-primary ms-3" type="button" @onclick="() => CopyScript(_installAgentScript)">Copy</button>
+        </div>
+        <pre style="white-space: pre-wrap; word-break: break-word; background-color: #1e1e1e; color: #e6e6e6; padding: 12px; border-radius: 4px; font-size: 13px;">@_installAgentScript</pre>
+        <div class="small text-info">
+            Downloads the installer for this server, installs the persistent agent, and registers Remotely_Service.
+        </div>
+    </div>
+
+    <div class="col-sm-12 mb-4">
+        <div class="d-flex align-items-center mb-2">
+            <strong>2. Protect the agent service (watchdog)</strong>
+            <button class="btn btn-sm btn-primary ms-3" type="button" @onclick="() => CopyScript(_protectServiceScript)">Copy</button>
+        </div>
+        <pre style="white-space: pre-wrap; word-break: break-word; background-color: #1e1e1e; color: #e6e6e6; padding: 12px; border-radius: 4px; font-size: 13px;">@_protectServiceScript</pre>
+        <div class="small text-info">
+            Gives the service a clear name, restarts it automatically when it fails, registers a SYSTEM watchdog
+            that restarts it within a minute, and parks a stray portable Quick Support copy.  It never touches
+            <code>Remotely\Desktop\Remotely_Desktop.exe</code>, which the agent needs for unattended control.
+        </div>
+    </div>
+
+    <div class="col-sm-12 mb-4">
+        <div class="d-flex align-items-center mb-2">
+            <strong>3. Undo the service protection</strong>
+            <button class="btn btn-sm btn-secondary ms-3" type="button" @onclick="() => CopyScript(_undoProtectionScript)">Copy</button>
+        </div>
+        <pre style="white-space: pre-wrap; word-break: break-word; background-color: #1e1e1e; color: #e6e6e6; padding: 12px; border-radius: 4px; font-size: 13px;">@_undoProtectionScript</pre>
+        <div class="small text-info">
+            Removes the watchdog and restores the original service name and the Quick Support executable.
+        </div>
+    </div>
+</div>
+
 @code {
+    private const string InstallAgentScriptTemplate = """
+        $script = "$env:TEMP\Install-Remotely.ps1"
+        irm '__SERVER_URL__/Content/Install-Remotely.ps1' -OutFile $script
+        powershell.exe -ExecutionPolicy Bypass -File $script `
+          -ServerUrl '__SERVER_URL__' `
+          -OrganizationId '__ORGANIZATION_ID__'
+        """;
+
+    private const string ProtectServiceScript = """
+        $serviceName = 'Remotely_Service'
+        $displayName = 'Arkan Remote Support - DO NOT STOP'
+
+        # Start automatically and give the service an unmistakable name.
+        sc.exe config $serviceName start= auto
+        sc.exe config $serviceName DisplayName= "$displayName"
+
+        # Restart the service on failure.
+        sc.exe failure $serviceName reset= 900 actions= restart/5000/restart/10000/restart/30000
+
+        # Watchdog: restart within a minute if anything stops the service.
+        $cmd = "if ((Get-Service $serviceName -ErrorAction SilentlyContinue).Status -ne 'Running') { Start-Service $serviceName -ErrorAction SilentlyContinue }"
+        $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"$cmd`""
+        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+        $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+        Register-ScheduledTask -TaskName 'Remotely Service Watchdog' -Action $action -Trigger $trigger -Principal $principal -Force
+
+        # Make sure it is running now.
+        Start-Service $serviceName -ErrorAction SilentlyContinue
+
+        # Park a stray portable "Quick Support" copy, if one was placed in the
+        # install folder.  This is NOT the unattended app: the agent launches
+        # "$env:ProgramFiles\Remotely\Desktop\Remotely_Desktop.exe" for every
+        # remote control session, so that file must never be moved or renamed.
+        $portableExe = Join-Path $env:ProgramFiles 'Remotely\Remotely_Desktop.exe'
+        if (Test-Path $portableExe) { Move-Item $portableExe "$portableExe.disabled" -Force }
+
+        Get-Service $serviceName | Format-List Name, DisplayName, Status, StartType
+        """;
+
+    private const string UndoProtectionScript = """
+        Unregister-ScheduledTask -TaskName 'Remotely Service Watchdog' -Confirm:$false
+
+        $portableExe = Join-Path $env:ProgramFiles 'Remotely\Remotely_Desktop.exe'
+        if (Test-Path "$portableExe.disabled") { Move-Item "$portableExe.disabled" $portableExe -Force }
+
+        sc.exe config Remotely_Service DisplayName= "Remotely Service"
+        """;
+
     private string? _organizationId;
     private bool _isAuthenticated;
+    private string _installAgentScript = string.Empty;
+    private string _protectServiceScript = ProtectServiceScript;
+    private string _undoProtectionScript = UndoProtectionScript;
 
     protected override async Task OnInitializedAsync()
     {
@@ -226,6 +322,29 @@
             }
         }
 
+        var serverUrl = NavManager.BaseUri.TrimEnd('/');
+        _installAgentScript = InstallAgentScriptTemplate
+            .Replace("__SERVER_URL__", serverUrl)
+            .Replace("__ORGANIZATION_ID__", _organizationId ?? string.Empty);
+
         await base.OnInitializedAsync();
+    }
+
+    private async Task CopyScript(string script)
+    {
+        try
+        {
+            if (await JsInterop.SetClipboardText(script))
+            {
+                Toasts.ShowToast2("Script copied to clipboard", ToastType.Success);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error while copying script to clipboard.");
+        }
+
+        Toasts.ShowToast2("Failed to set clipboard content", ToastType.Error);
     }
 }

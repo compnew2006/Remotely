@@ -23,9 +23,6 @@ param (
 
 
 $ErrorActionPreference = "Stop"
-$InstallerDir = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
-$VsWhere = "$InstallerDir\vswhere.exe"
-$MSBuildPath = (&"$VsWhere" -latest -products * -find "\MSBuild\Current\Bin\MSBuild.exe").Trim()
 $Root = (Get-Item -Path $PSScriptRoot).Parent.FullName
 $SignAssemblies = $false
 
@@ -75,15 +72,8 @@ function Wait-ForExists($FilePath) {
 }
 #endregion
 
-if ([string]::IsNullOrWhiteSpace($MSBuildPath) -or !(Test-Path -Path $MSBuildPath)) {
-    Write-Host
-    Write-Host "ERROR: Unable to find the path to MSBuild.exe." -ForegroundColor Red
-    Write-Host
-    pause
-    return
-}
+# Publish uses dotnet publish; MSBuild is not required.
 
-    
 # Clear publish folders.
 if ((Test-Path -Path "$Root\Agent\bin\publish\win-x64") -eq $true) {
     Get-ChildItem -Path "$Root\Agent\bin\publish\win-x64" | Remove-Item -Force -Recurse

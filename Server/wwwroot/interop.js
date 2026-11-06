@@ -49,8 +49,31 @@ window.scrollToElement = (element) => {
  */
 window.setClipboardText = async (text) => {
     try {
-        await navigator.clipboard.writeText(text);
-        return true;
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    }
+    catch (ex) {
+        console.error(ex);
+    }
+
+    // navigator.clipboard is only available in secure contexts (HTTPS or
+    // localhost).  Fall back to the legacy command so copy still works when
+    // the server is reached over plain HTTP on a LAN address.
+    try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.setAttribute("readonly", "");
+        textArea.style.position = "fixed";
+        textArea.style.top = "-1000px";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        textArea.setSelectionRange(0, textArea.value.length);
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        return copied;
     }
     catch (ex) {
         console.error(ex);

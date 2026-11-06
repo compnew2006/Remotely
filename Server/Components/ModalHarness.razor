@@ -3,11 +3,11 @@
 @inject IJSRuntime JsRuntime
 
 <div @ref="_modalRef" id="defaultModal" class="modal fade" style="background-color: rgba(0,0,0,0.35)">
-    <div class="modal-dialog modal-dialog-scrollable" role="document" @onclick:stopPropagation>
+    <div class="modal-dialog modal-dialog-scrollable @DialogSizeClass" role="document" @onclick:stopPropagation>
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">@ModalService.Title</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" @onclick="HideModal"></button>
             </div>
             <div class="modal-body" >
                 @if (ModalService.RenderBody is not null)
@@ -30,7 +30,7 @@
                 {
                     <button @key="button" type="button" data-bs-dismiss="modal" class="@button.Class" @onclick="() => ExecuteButtonAction(button.OnClick)">@button.Text</button>
                 }
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="HideModal">Close</button>
             </div>
         </div>
     </div>
@@ -39,15 +39,22 @@
 @code {
     private IJSObjectReference? _module;
     private ElementReference _modalRef;
+    private DotNetObjectReference<ModalHarness>? _dotNetRef;
+
+    private string DialogSizeClass =>
+        string.IsNullOrWhiteSpace(ModalService.Size) ?
+            string.Empty :
+            $"modal-{ModalService.Size}";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/ModalHarness.razor.js");
+            _dotNetRef = DotNetObjectReference.Create(this);
             ModalService.ModalShown += async (sender, args) =>
             {
-                await _module.InvokeVoidAsync("showModal", _modalRef);
+                await _module.InvokeVoidAsync("showModal", _modalRef, _dotNetRef);
                 await InvokeAsync(StateHasChanged);
             };
         }
@@ -58,5 +65,23 @@
     {
         onclick.Invoke();
         return Task.CompletedTask;
+    }
+
+    private void HideModal()
+    {
+        ModalService.Hide();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Called by the browser when the modal is dismissed by any means.  The
+    /// content is cleared so that the content component is disposed and stops
+    /// whatever it was doing in the background.
+    /// </summary>
+    [JSInvokable]
+    public void OnModalHidden()
+    {
+        ModalService.Hide();
+        InvokeAsync(StateHasChanged);
     }
 }

@@ -10,8 +10,10 @@ public interface IModalService
     string[]? Body { get; }
     RenderFragment? RenderBody { get; }
     string Title { get; }
-    Task ShowModal(string title, string[] body, ModalButton[]? buttons = null);
-    Task ShowModal(string title, RenderFragment body, ModalButton[]? buttons = null);
+    string? Size { get; }
+    void Hide();
+    Task ShowModal(string title, string[] body, ModalButton[]? buttons = null, string? size = null);
+    Task ShowModal(string title, RenderFragment body, ModalButton[]? buttons = null, string? size = null);
 }
 
 public class ModalService : IModalService
@@ -25,7 +27,14 @@ public class ModalService : IModalService
     public RenderFragment? RenderBody { get; private set; }
     public bool ShowInput { get; private set; }
     public string Title { get; private set; } = string.Empty;
-    public async Task ShowModal(string title, string[] body, ModalButton[]? buttons = null)
+
+    /// <summary>
+    /// The Bootstrap size modifier of the modal dialog (for example "lg" or
+    /// "xl").  Null keeps the default width.
+    /// </summary>
+    public string? Size { get; private set; }
+
+    public async Task ShowModal(string title, string[] body, ModalButton[]? buttons = null, string? size = null)
     {
         try
         {
@@ -33,6 +42,7 @@ public class ModalService : IModalService
             Title = title;
             Body = body;
             RenderBody = null;
+            Size = size;
             Buttons.Clear();
             if (buttons is not null)
             {
@@ -46,7 +56,7 @@ public class ModalService : IModalService
         }
     }
 
-    public async Task ShowModal(string title, RenderFragment body, ModalButton[]? buttons = null)
+    public async Task ShowModal(string title, RenderFragment body, ModalButton[]? buttons = null, string? size = null)
     {
         try
         {
@@ -54,6 +64,7 @@ public class ModalService : IModalService
             Title = title;
             RenderBody = body;
             Body = null;
+            Size = size;
             Buttons.Clear();
             if (buttons is not null)
             {
@@ -65,5 +76,18 @@ public class ModalService : IModalService
         {
             _modalLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Clears the modal's content.  This disposes the content component, which
+    /// stops anything it was doing in the background (timers, script polling).
+    /// </summary>
+    public void Hide()
+    {
+        Title = string.Empty;
+        Body = null;
+        RenderBody = null;
+        Size = null;
+        Buttons.Clear();
     }
 }

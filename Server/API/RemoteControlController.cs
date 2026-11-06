@@ -167,6 +167,8 @@ public class RemoteControlController : ControllerBase
             deviceID,
             User.Identity?.IsAuthenticated == true ? User.Identity.Name : "api-key");
 
+        var settings = await _dataService.GetSettings();
+
         var session = new RemoteControlSession()
         {
             UnattendedSessionId = sessionId,
@@ -174,7 +176,13 @@ public class RemoteControlController : ControllerBase
             AgentConnectionId = serviceConnectionId,
             DeviceId = deviceID,
             OrganizationId = orgId,
-            AccessMode = appliedAccessMode
+            AccessMode = appliedAccessMode,
+
+            // Honor the same global settings the dashboard path uses
+            // (CircuitConnection.StartRemoteControl), so a session started
+            // through the API behaves identically on the device.
+            RequireConsent = settings.EnforceAttendedAccess,
+            NotifyUserOnStart = settings.RemoteControlNotifyUser
         };
 
         _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session, (k, v) =>

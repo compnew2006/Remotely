@@ -33,6 +33,15 @@ internal class RemoteControlSessionCache : IRemoteControlSessionCache
     // so we need to use an outer lock.
     private readonly object _sessionsLock = new();
 
+    /// <summary>
+    /// How long an unattended session survives without any viewer attached.
+    /// A browser tab that is left in the background gets throttled, frozen, or
+    /// discarded by the browser, which drops its SignalR connection.  The
+    /// session has to outlive that, otherwise the viewer comes back to a
+    /// "session not found" error and has to start over from the dashboard.
+    /// </summary>
+    private const int SessionViewerGracePeriodMinutes = 10;
+
     private readonly ILogger<RemoteControlSessionCache> _logger;
     private readonly ISystemTime _systemTime;
 
@@ -95,7 +104,7 @@ internal class RemoteControlSessionCache : IRemoteControlSessionCache
             {
                 if (session.Value.Mode is RemoteControlMode.Unattended or RemoteControlMode.Unknown &&
                     session.Value.ViewerList.Count == 0 &&
-                    session.Value.Created < _systemTime.Now.AddMinutes(-1))
+                    session.Value.LastActivity < _systemTime.Now.AddMinutes(-SessionViewerGracePeriodMinutes))
                 {
                     _logger.LogWarning("Removing expired session: {session}", JsonSerializer.Serialize(session.Value));
                     if (_sessions.TryRemove(session.Key, out var expiredSession))
