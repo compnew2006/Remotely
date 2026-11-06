@@ -7,7 +7,7 @@
   The operator works in a browser. The device runs a background agent.</p>
 
   <p>
-    <a href="https://github.com/compnew2006/Remotely/actions/workflows/run_tests.yml"><img alt="Tests" src="https://github.com/compnew2006/Remotely/actions/workflows/run_tests.yml/badge.svg?branch=master"></a>
+    <a href="https://github.com/compnew2006/Remotely/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/compnew2006/Remotely/actions/workflows/ci.yml/badge.svg?branch=master"></a>
     <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white">
     <img alt="Windows and Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-0078D6">
     <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
