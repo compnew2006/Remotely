@@ -36,13 +36,19 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore Tests/Server.Tests/Server.Tests.csproj Tests/Shared.Tests/Shared.Tests.csproj
+        run: |
+          dotnet restore Server/Server.csproj
+          dotnet restore Tests/Server.Tests/Server.Tests.csproj
+          dotnet restore Tests/Shared.Tests/Shared.Tests.csproj
 
       - name: Build server
         run: dotnet build Server/Server.csproj -c Release --no-restore
 
-      - name: Test
-        run: dotnet test Tests/Server.Tests/Server.Tests.csproj Tests/Shared.Tests/Shared.Tests.csproj -c Release --logger "console;verbosity=normal"
+      - name: Test server
+        run: dotnet test Tests/Server.Tests/Server.Tests.csproj -c Release --no-restore
+
+      - name: Test shared
+        run: dotnet test Tests/Shared.Tests/Shared.Tests.csproj -c Release --no-restore
 
   desktop:
     name: Desktop clients
