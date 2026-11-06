@@ -4,7 +4,9 @@
 
 **Created**: 2026-11-06
 
-**Status**: Draft — implementation and local x64/AnyCPU builds plus 106 unit tests verified; camera capture has not been exercised on a device with a camera, and the feature is **not formally accepted** (no `[RELEASE-GATE]` or CI run)
+**Status**: Draft — implementation and local x64/AnyCPU builds plus 146 unit tests verified; camera capture has not been exercised on a device with a camera, and the feature is **not formally accepted** (no `[RELEASE-GATE]` or CI run)
+
+**Amendment 2026-11-07 (AD-20)** — the feature was extended to record **the desktop of the device** next to its cameras, and to put **the system audio or a microphone** into the recording. The amendment is described at the end of this document; the original text below is kept unchanged.
 
 **Input**: SPEC-003: Camera Capture. An administrator opens the camera of a connected device — the same way the "Screenshots" action opens the periodic screenshot monitor — and receives a short video clip recorded from one of the device's cameras, at a chosen quality level. The administrator may also start a recurring schedule. Clips are recorded on the device, sent to the server, stored with per-device settings and retention limits, and played back in the browser.
 
@@ -237,3 +239,34 @@ Required by the constitution §Compliance. This review covers the specification 
 | G6 — Consent and privacy | **In scope and NOT met.** The recording happens without a consent prompt, without a notification, and without a local pause. The owner chose this explicitly (AD-18). | ⛔ Not passed — recorded deviation, G6 stays UNKNOWN |
 | G7 — Privileged process isolation | **Unchanged.** The capture runs in the desktop client, which is still SYSTEM (E-43 / AD-14). The camera makes the same gap more sensitive, but the feature does not close it. | ⛔ Still FAIL — SPEC-002 (capture helper) is still not implemented |
 | G1…G4 | Independent — unaffected by this feature. | Out of scope here |
+
+---
+
+## Amendment 2026-11-07 — desktop recording and audio in the recording (AD-20)
+
+**Owner decision.** The owner asked for the video source to be *the camera **or** the desktop*, and for the audio of the recording to come from *the microphone **or** the system*, and chose to have it implemented with the system audio inside the recording.
+
+**Why the original feature could not do this.** The recording engine of the camera feature only asked for `VideoCaptureRecordingSource` (cameras), and it always recorded without audio (`AudioOptions { IsAudioEnabled = false }`). The engine itself was never the limitation: ScreenRecorderLib 7.0.1 also has `DisplayRecordingSource` for displays and `LoopbackAudioSource` / `CaptureAudioSource` for the audio, and the P08 PoC had already recorded the primary display to MP4 on .NET 10 x64 (E-49).
+
+**What changed.**
+
+| Area | Before | After |
+|---|---|---|
+| Video source | Cameras only | Cameras **and** the displays of the device (`DisplaysEnumerationHelper.GetDisplays()`), picked in the same selector |
+| Audio | Always off | Off, **system audio** (loopback), or a **microphone**, picked in a second selector |
+| Device report | `CameraDeviceInfo[]` | `CameraDeviceInfo[]` (with a kind) **and** `CameraAudioDeviceInfo[]` |
+| Request | id, quality, duration | id, kind, quality, duration, audio source, audio device id |
+| Storage | Unchanged | Unchanged — the same clips, the same retention, the same schedule |
+
+**Added requirements.**
+
+- **FR-040**: The device MUST report the cameras and the displays that it has, and the administrator MUST be able to pick one of them.
+- **FR-041**: The video source MUST be a camera or a display, and the two MUST be told apart by the request, so a display is never recorded as a camera.
+- **FR-042**: The audio source MUST be selectable: no audio, the system audio of the device, or one of its microphones, and the choice MUST be part of the request.
+- **FR-043**: When a display is recorded and its device name cannot be used, the primary display MUST be used instead, and the recording MUST still succeed.
+- **FR-044**: When the chosen audio device is not available anymore, the default device of its kind MUST be used, and when there is none, the recording MUST continue without audio.
+- **FR-045**: The source selection MUST survive a round trip through the browser, so a camera and a display with the same name can never be mixed up.
+
+**Consequences for the gates.** The recorded deviation of AD-18 (no consent, no notification) now covers **the desktop of the employee and the audio of the room**, which is more sensitive than the camera alone: a scheduled recording now captures everything that is on the screen and everything that is said or played. G6 stays UNKNOWN and G7 stays FAIL, and the deviation is recorded as **AD-20** in `DECISION-LOG.md`.
+
+**Not verified.** The screen path and the audio path have not been exercised on a device: this host has no camera and no sound device (E-49), so the runtime recording of a display and the muxing of the audio into the MP4 are **not** verified. The unit tests cover the selection logic, the request, and the parsing of the source values (12 new tests, 146/146 in total).

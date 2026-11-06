@@ -15,6 +15,11 @@ internal sealed class UnavailableCameraCapturer : ICameraCapturer
         return Array.Empty<CameraDeviceInfo>();
     }
 
+    public IReadOnlyList<CameraAudioDeviceInfo> GetAudioDevices()
+    {
+        return Array.Empty<CameraAudioDeviceInfo>();
+    }
+
     public Task<Result<string>> RecordAsync(
         CameraCaptureRequest request,
         CancellationToken cancellationToken)

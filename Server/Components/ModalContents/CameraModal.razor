@@ -2,28 +2,44 @@
 
 <div class="row mb-3 g-2">
     <div class="col-sm-4">
-        <label class="form-label mb-1" for="cameraSelect">Camera</label>
-        <select id="cameraSelect" class="form-select form-select-sm" @bind="_selectedCameraId" disabled="@_isBusy">
-            @if (_cameras.Count == 0)
+        <label class="form-label mb-1" for="cameraSelect">Video source</label>
+        <select id="cameraSelect" class="form-select form-select-sm" @bind="_selectedSource" disabled="@_isBusy">
+            @if (_videoSources.Count == 0)
             {
-                <option value="">No cameras have been reported yet</option>
+                <option value="">No cameras or screens have been reported yet</option>
             }
             else
             {
-                @foreach (var camera in _cameras)
+                @foreach (var source in _videoSources)
                 {
-                    <option value="@camera.Id">@camera.Name</option>
+                    <option value="@GetSourceValue(source)">@GetSourceLabel(source)</option>
                 }
             }
         </select>
-        @if (_cameras.Count == 0)
+        @if (_videoSources.Count == 0)
         {
             <div class="form-text">
-                No cameras have been reported yet. Press 'Refresh cameras' to ask the device.
+                No cameras or screens have been reported yet. Press 'Refresh sources' to ask the device.
             </div>
         }
     </div>
     <div class="col-sm-3">
+        <label class="form-label mb-1" for="cameraAudioSelect">Audio</label>
+        <select id="cameraAudioSelect" class="form-select form-select-sm" @bind="_selectedAudio" disabled="@_isBusy">
+            <option value="@GetAudioValue(null)">No audio</option>
+            @foreach (var device in _audioDevices)
+            {
+                <option value="@GetAudioValue(device)">@GetAudioLabel(device)</option>
+            }
+        </select>
+        @if (_audioDevices.Count == 0)
+        {
+            <div class="form-text">
+                The device has not reported an audio device yet.
+            </div>
+        }
+    </div>
+    <div class="col-sm-2">
         <label class="form-label mb-1" for="cameraQuality">Quality</label>
         <select id="cameraQuality" class="form-select form-select-sm" @bind="_quality" disabled="@_isBusy">
             @foreach (var option in _qualityOptions)
@@ -32,13 +48,13 @@
             }
         </select>
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-2">
         <label class="form-label mb-1" for="cameraDuration">Duration (seconds)</label>
         <input id="cameraDuration" type="number" class="form-control form-control-sm" min="5" max="300"
                @bind="_durationSeconds" disabled="@_isBusy" />
     </div>
-    <div class="col-sm-2">
-        <label class="form-label mb-1" for="cameraInterval">Every (minutes)</label>
+    <div class="col-sm-1">
+        <label class="form-label mb-1" for="cameraInterval">Every (min)</label>
         <input id="cameraInterval" type="number" class="form-control form-control-sm" min="1" max="30"
                @bind="_intervalMinutes" disabled="@_isBusy" />
     </div>
@@ -56,7 +72,7 @@
         {
             <button class="btn btn-outline-primary btn-sm me-2" @onclick="StartMonitoring" disabled="@_isBusy">Start schedule</button>
         }
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshCameras" disabled="@_isBusy">Refresh cameras</button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshSources" disabled="@_isBusy">Refresh sources</button>
         <button class="btn btn-secondary btn-sm" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
     </div>
 </div>

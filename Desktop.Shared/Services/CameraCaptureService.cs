@@ -97,7 +97,8 @@ internal class CameraCaptureService : ICameraCaptureService
         try
         {
             var cameras = _cameraCapturer.GetCameras();
-            await _desktopHubConnection.SendCameraDevices(cameras.ToArray());
+            var audioDevices = _cameraCapturer.GetAudioDevices();
+            await _desktopHubConnection.SendCameraDevices(cameras.ToArray(), audioDevices.ToArray());
         }
         catch (Exception ex)
         {
@@ -150,25 +151,32 @@ internal class CameraCaptureService : ICameraCaptureService
             var cameras = _cameraCapturer.GetCameras();
             if (cameras.Count == 0)
             {
-                return Result.Fail("This device does not have a camera that can be used.");
+                return Result.Fail("This device does not have a camera or a screen that can be recorded.");
             }
 
-            var camera = SelectCamera(cameras, request.CameraId);
+            var camera = SelectCamera(cameras, request);
             if (camera is null)
             {
-                return Result.Fail("The selected camera is not available on this device.");
+                return Result.Fail("The selected source is not available on this device.");
             }
 
             var durationSeconds = CameraQualityPresets.ClampDurationSeconds(request.DurationSeconds);
 
             _logger.LogInformation(
-                "Recording a camera clip.  Camera: {camera}.  Quality: {quality}.  Duration: {duration} seconds.",
+                "Recording a video clip.  Source: {source}.  Audio: {audio}.  Quality: {quality}.  Duration: {duration} seconds.",
                 camera.Name,
+                request.AudioSource,
                 request.Quality,
                 durationSeconds);
 
             var recordResult = await _cameraCapturer.RecordAsync(
-                new CameraCaptureRequest(camera.Id, request.Quality, durationSeconds),
+                new CameraCaptureRequest(
+                    camera.Id,
+                    request.Quality,
+                    durationSeconds,
+                    camera.Kind,
+                    request.AudioSource,
+                    request.AudioDeviceId),
                 captureToken);
 
             if (!recordResult.IsSuccess)
@@ -224,17 +232,28 @@ internal class CameraCaptureService : ICameraCaptureService
         }
     }
 
+    /// <summary>
+    /// Finds the video source that was picked.  The source kind decides
+    /// whether a camera or a display is looked for, and the first source of
+    /// that kind is used when nothing was picked.
+    /// </summary>
     private static CameraDeviceInfo? SelectCamera(
         IReadOnlyList<CameraDeviceInfo> cameras,
-        string cameraId)
+        CameraCaptureRequest request)
     {
-        if (string.IsNullOrWhiteSpace(cameraId))
+        if (!string.IsNullOrWhiteSpace(request.CameraId))
         {
-            return cameras.FirstOrDefault();
+            var selected = cameras.FirstOrDefault(x =>
+                string.Equals(x.Id, request.CameraId, StringComparison.OrdinalIgnoreCase) &&
+                x.Kind == request.VideoSource);
+
+            if (selected is not null)
+            {
+                return selected;
+            }
         }
 
-        return cameras.FirstOrDefault(x =>
-            string.Equals(x.Id, cameraId, StringComparison.OrdinalIgnoreCase));
+        return cameras.FirstOrDefault(x => x.Kind == request.VideoSource);
     }
 
     /// <summary>

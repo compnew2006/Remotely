@@ -1,4 +1,5 @@
 using Remotely.Desktop.Shared.Abstractions;
+using Remotely.Desktop.Win.Helpers;
 using Remotely.Shared.Models;
 using Remotely.Shared.Primitives;
 using Remotely.Shared.Utilities;
@@ -7,11 +8,19 @@ using System.IO;
 namespace Remotely.Desktop.Win.Services;
 
 /// <summary>
-/// Records video clips from the cameras of this device with Media
-/// Foundation, through ScreenRecorderLib.
+/// Records video clips from the cameras or the displays of this device with
+/// Media Foundation, through ScreenRecorderLib.  The audio of the recording
+/// comes from the system audio or from a microphone.
 /// </summary>
 internal class CameraCapturerWin : ICameraCapturer
 {
+    private readonly ILogger<CameraCapturerWin> _logger;
+
+    public CameraCapturerWin(ILogger<CameraCapturerWin> logger)
+    {
+        _logger = logger;
+    }
+
 #if SCREEN_RECORDER_LIB
 
     /// <summary>
@@ -25,19 +34,81 @@ internal class CameraCapturerWin : ICameraCapturer
 
     public IReadOnlyList<CameraDeviceInfo> GetCameras()
     {
+        var result = new List<CameraDeviceInfo>();
+
         try
         {
-            return ScreenRecorderLib.Recorder
+            result.AddRange(ScreenRecorderLib.Recorder
                 .GetSystemVideoCaptureDevices()
-                .Select(x => new CameraDeviceInfo(x.DeviceName, x.FriendlyName))
-                .ToList();
+                .Select(x => new CameraDeviceInfo(
+                    x.DeviceName,
+                    x.FriendlyName,
+                    CameraDeviceKind.Camera)));
         }
         catch (Exception)
         {
-            // The cameras can't be listed, so the device is treated as if it
-            // doesn't have one.
-            return Array.Empty<CameraDeviceInfo>();
+            // The cameras can't be listed, so only the displays are offered.
         }
+
+        try
+        {
+            var index = 1;
+
+            foreach (var display in DisplaysEnumerationHelper.GetDisplays())
+            {
+                var size = $"{display.ScreenSize.X}x{display.ScreenSize.Y}";
+
+                result.Add(new CameraDeviceInfo(
+                    display.DeviceName,
+                    $"Screen {index} ({size}){(display.IsPrimary ? " - primary" : "")}",
+                    CameraDeviceKind.Display));
+
+                index++;
+            }
+        }
+        catch (Exception)
+        {
+            // The displays can't be listed, so only the cameras are offered.
+        }
+
+        return result;
+    }
+
+    public IReadOnlyList<CameraAudioDeviceInfo> GetAudioDevices()
+    {
+        var result = new List<CameraAudioDeviceInfo>();
+
+        try
+        {
+            result.AddRange(ScreenRecorderLib.Recorder
+                .GetSystemAudioLoopbackDevices()
+                .Select(x => new CameraAudioDeviceInfo(
+                    x.DeviceName,
+                    x.FriendlyName,
+                    CameraAudioSource.SystemAudio,
+                    x.IsDefaultDevice)));
+        }
+        catch (Exception)
+        {
+            // The system audio devices can't be listed.
+        }
+
+        try
+        {
+            result.AddRange(ScreenRecorderLib.Recorder
+                .GetSystemAudioCaptureDevices()
+                .Select(x => new CameraAudioDeviceInfo(
+                    x.DeviceName,
+                    x.FriendlyName,
+                    CameraAudioSource.Microphone,
+                    x.IsDefaultDevice)));
+        }
+        catch (Exception)
+        {
+            // The microphones can't be listed.
+        }
+
+        return result;
     }
 
     public async Task<Result<string>> RecordAsync(
@@ -46,26 +117,19 @@ internal class CameraCapturerWin : ICameraCapturer
     {
         try
         {
-            var cameras = ScreenRecorderLib.Recorder.GetSystemVideoCaptureDevices();
+            var cameras = GetCameras();
             if (cameras.Count == 0)
             {
-                return Result.Fail<string>("This device does not have a camera that can be used.");
+                return Result.Fail<string>("This device does not have a camera or a screen that can be recorded.");
             }
 
-            var camera = SelectCamera(cameras, request.CameraId);
-            if (camera is null)
+            var source = SelectSource(cameras, request);
+            if (source is null)
             {
-                return Result.Fail<string>("The selected camera is not available on this device.");
+                return Result.Fail<string>("The selected source is not available on this device.");
             }
 
             var preset = CameraQualityPresets.GetPreset(request.Quality);
-            var format = SelectFormat(
-                ScreenRecorderLib.Recorder.GetSupportedVideoCaptureFormatsForDevice(camera.DeviceName),
-                preset);
-
-            var source = format is null ?
-                new ScreenRecorderLib.VideoCaptureRecordingSource(camera.DeviceName) :
-                new ScreenRecorderLib.VideoCaptureRecordingSource(camera.DeviceName, format);
 
             var options = new ScreenRecorderLib.RecorderOptions
             {
@@ -80,10 +144,7 @@ internal class CameraCapturerWin : ICameraCapturer
                     Quality = 70,
                     IsMp4FastStartEnabled = true
                 },
-                AudioOptions = new ScreenRecorderLib.AudioOptions
-                {
-                    IsAudioEnabled = false
-                }
+                AudioOptions = BuildAudioOptions(request)
             };
 
             Directory.CreateDirectory(_tempDirectory);
@@ -103,7 +164,7 @@ internal class CameraCapturerWin : ICameraCapturer
             {
                 completion.TrySetResult(Result.Fail<string>(
                     string.IsNullOrWhiteSpace(args.Error) ?
-                        "The camera recording failed." :
+                        "The recording failed." :
                         args.Error));
             };
 
@@ -140,71 +201,153 @@ internal class CameraCapturerWin : ICameraCapturer
             var recordedPath = result.Value;
             if (string.IsNullOrWhiteSpace(recordedPath) || !File.Exists(recordedPath))
             {
-                return Result.Fail<string>("The camera clip was not recorded.");
+                return Result.Fail<string>("The recording was not made.");
             }
 
             return Result.Ok(recordedPath);
         }
         catch (OperationCanceledException)
         {
-            return Result.Fail<string>("The camera recording was canceled.");
+            return Result.Fail<string>("The recording was canceled.");
         }
         catch (Exception ex)
         {
-            return Result.Fail<string>($"The camera recording failed: {ex.Message}");
+            _logger.LogError(ex, "Error while recording a video clip.");
+            return Result.Fail<string>($"The recording failed: {ex.Message}");
         }
-    }
-
-    private static ScreenRecorderLib.RecordableCamera? SelectCamera(
-        IReadOnlyList<ScreenRecorderLib.RecordableCamera> cameras,
-        string cameraId)
-    {
-        if (string.IsNullOrWhiteSpace(cameraId))
-        {
-            return cameras.FirstOrDefault();
-        }
-
-        return cameras.FirstOrDefault(x =>
-            string.Equals(x.DeviceName, cameraId, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
-    /// Picks the capture format that matches the quality preset the closest.
-    /// The largest available format is used when the camera doesn't support
-    /// the requested resolution.
+    /// Builds the source of the video, which is either a camera or a display.
     /// </summary>
-    private static ScreenRecorderLib.VideoCaptureFormat? SelectFormat(
-        IReadOnlyList<ScreenRecorderLib.VideoCaptureFormat> formats,
-        CameraQualityPreset preset)
+    private static ScreenRecorderLib.RecordingSourceBase? SelectSource(
+        IReadOnlyList<CameraDeviceInfo> sources,
+        CameraCaptureRequest request)
     {
-        if (formats.Count == 0)
+        CameraDeviceInfo? source = null;
+
+        if (!string.IsNullOrWhiteSpace(request.CameraId))
+        {
+            source = sources.FirstOrDefault(x =>
+                string.Equals(x.Id, request.CameraId, StringComparison.OrdinalIgnoreCase) &&
+                x.Kind == request.VideoSource);
+        }
+
+        source ??= sources.FirstOrDefault(x => x.Kind == request.VideoSource);
+        source ??= sources.FirstOrDefault();
+
+        if (source is null)
         {
             return null;
         }
 
-        var exact = formats.FirstOrDefault(x =>
-            Math.Abs(x.FrameSize.Width - preset.Width) < 1 &&
-            Math.Abs(x.FrameSize.Height - preset.Height) < 1);
-
-        if (exact is not null)
+        if (source.Kind == CameraDeviceKind.Display)
         {
-            return exact;
+            try
+            {
+                return new ScreenRecorderLib.DisplayRecordingSource(source.Id);
+            }
+            catch (Exception)
+            {
+                // The display can't be recorded by its device name, so the
+                // primary display is used instead.
+                return ScreenRecorderLib.DisplayRecordingSource.MainMonitor;
+            }
         }
 
-        // The format that is the closest to the requested resolution, but
-        // never larger than it.
-        var smaller = formats
-            .Where(x => x.FrameSize.Width <= preset.Width && x.FrameSize.Height <= preset.Height)
-            .OrderByDescending(x => x.FrameSize.Width * x.FrameSize.Height)
-            .FirstOrDefault();
+        return new ScreenRecorderLib.VideoCaptureRecordingSource(source.Id);
+    }
 
-        return smaller ?? formats.OrderByDescending(x => x.FrameSize.Width * x.FrameSize.Height).First();
+    /// <summary>
+    /// Builds the audio options of the recording.  The audio comes from the
+    /// system audio or from a microphone, and it can be left out entirely.
+    /// </summary>
+    private ScreenRecorderLib.AudioOptions BuildAudioOptions(CameraCaptureRequest request)
+    {
+        var options = new ScreenRecorderLib.AudioOptions
+        {
+            IsAudioEnabled = false
+        };
+
+        if (request.AudioSource == CameraAudioSource.None)
+        {
+            return options;
+        }
+
+        ScreenRecorderLib.AudioSourceBase? source = null;
+
+        try
+        {
+            if (request.AudioSource == CameraAudioSource.SystemAudio)
+            {
+                var device = SelectAudioDevice(request.AudioDeviceId, CameraAudioSource.SystemAudio);
+
+                source = device is null ?
+                    ScreenRecorderLib.LoopbackAudioSource.Default :
+                    new ScreenRecorderLib.LoopbackAudioSource(device.Id);
+            }
+            else
+            {
+                var device = SelectAudioDevice(request.AudioDeviceId, CameraAudioSource.Microphone);
+
+                source = device is null ?
+                    ScreenRecorderLib.CaptureAudioSource.Default :
+                    new ScreenRecorderLib.CaptureAudioSource(device.Id)
+                    {
+                        ForceMono = true
+                    };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The audio source could not be prepared, so the recording has no audio.");
+            return options;
+        }
+
+        if (source is null)
+        {
+            return options;
+        }
+
+        options.IsAudioEnabled = true;
+        options.AudioSources.Add(source);
+
+        return options;
+    }
+
+    /// <summary>
+    /// Finds the audio device that was picked, or the default device of its
+    /// kind when the picked one is not available anymore.
+    /// </summary>
+    private CameraAudioDeviceInfo? SelectAudioDevice(string audioDeviceId, CameraAudioSource source)
+    {
+        var devices = GetAudioDevices()
+            .Where(x => x.Source == source)
+            .ToList();
+
+        if (devices.Count == 0)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(audioDeviceId))
+        {
+            var selected = devices.FirstOrDefault(x =>
+                string.Equals(x.Id, audioDeviceId, StringComparison.OrdinalIgnoreCase));
+
+            if (selected is not null)
+            {
+                return selected;
+            }
+        }
+
+        return devices.FirstOrDefault(x => x.IsDefault) ?? devices[0];
     }
 
 #else
 
     /// <summary>
-    /// The camera capture needs the native library of ScreenRecorderLib, which
+    /// The recording needs the native library of ScreenRecorderLib, which
     /// only supports the x86, x64, and ARM64 platforms.  This build doesn't
     /// have it, so no clip can be recorded.
     /// </summary>
@@ -213,12 +356,17 @@ internal class CameraCapturerWin : ICameraCapturer
         return Array.Empty<CameraDeviceInfo>();
     }
 
+    public IReadOnlyList<CameraAudioDeviceInfo> GetAudioDevices()
+    {
+        return Array.Empty<CameraAudioDeviceInfo>();
+    }
+
     public Task<Result<string>> RecordAsync(
         CameraCaptureRequest request,
         CancellationToken cancellationToken)
     {
         return Task.FromResult(Result.Fail<string>(
-            "The camera capture is not available in this build.  " +
+            "The recording is not available in this build.  " +
             "The desktop client must be built for the x64 or x86 platform."));
     }
 

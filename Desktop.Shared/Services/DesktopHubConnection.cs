@@ -37,7 +37,7 @@ public interface IDesktopHubConnection
     /// <summary>
     /// Sends the cameras of this device to the server.
     /// </summary>
-    Task SendCameraDevices(CameraDeviceInfo[] cameras);
+    Task SendCameraDevices(CameraDeviceInfo[] cameras, CameraAudioDeviceInfo[] audioDevices);
 
     /// <summary>
     /// Sends a chunk of a recorded camera clip to the server.
@@ -459,15 +459,17 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     }
 
     /// <summary>
-    /// Called by the server to record a video clip from one of the cameras of
-    /// this device.
+    /// Called by the server to record a video clip from one of the cameras or
+    /// displays of this device.
     /// </summary>
-    public Task StartCameraCapture(string deviceId, string cameraId, int quality, int durationSeconds)
+    public Task StartCameraCapture(string deviceId, CameraCaptureRequest request)
     {
         _logger.LogInformation(
-            "Server requested a camera recording.  Quality: {quality}.  Duration: {duration} seconds.",
-            quality,
-            durationSeconds);
+            "Server requested a video recording.  Source: {source}.  Audio: {audio}.  Quality: {quality}.  Duration: {duration} seconds.",
+            request.VideoSource,
+            request.AudioSource,
+            request.Quality,
+            request.DurationSeconds);
 
         _ = Task.Run(async () =>
         {
@@ -482,22 +484,17 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
                 // which ones this device has.
                 await cameraCaptureService.SendCameraDevices();
 
-                if (durationSeconds <= 0)
+                if (request.DurationSeconds <= 0)
                 {
                     // Only the list of cameras was requested.
                     return;
                 }
 
-                var request = new CameraCaptureRequest(
-                    cameraId,
-                    (CameraQuality)quality,
-                    durationSeconds);
-
                 await cameraCaptureService.CaptureAsync(deviceId, request);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while recording a camera clip.");
+                _logger.LogError(ex, "Error while recording a video clip.");
             }
         });
 
@@ -712,16 +709,16 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     }
 
     /// <summary>
-    /// Sends the cameras of this device to the server.
+    /// Sends the cameras and the audio devices of this device to the server.
     /// </summary>
-    public Task SendCameraDevices(CameraDeviceInfo[] cameras)
+    public Task SendCameraDevices(CameraDeviceInfo[] cameras, CameraAudioDeviceInfo[] audioDevices)
     {
         if (Connection is null)
         {
             return Task.CompletedTask;
         }
 
-        return Connection.InvokeAsync("SendCameraDevices", cameras);
+        return Connection.InvokeAsync("SendCameraDevices", cameras, audioDevices);
     }
 
     /// <summary>
@@ -864,7 +861,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         connection.On<int, int[], int[]>(nameof(StartMonitoring), StartMonitoring);
         connection.On(nameof(StopMonitoring), StopMonitoring);
         connection.On(nameof(CaptureScreenshotNow), CaptureScreenshotNow);
-        connection.On<string, string, int, int>(nameof(StartCameraCapture), StartCameraCapture);
+        connection.On<string, CameraCaptureRequest>(nameof(StartCameraCapture), StartCameraCapture);
         connection.On(nameof(StopCameraCapture), StopCameraCapture);
         connection.On<string, CameraCaptureRequest, int, int[], int[]>(
             nameof(StartCameraMonitoring),

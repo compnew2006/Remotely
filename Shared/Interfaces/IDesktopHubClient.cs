@@ -44,16 +44,13 @@ public interface IDesktopHubClient
     Task CaptureScreenshotNow();
 
     /// <summary>
-    /// Starts recording a video clip from one of the cameras of this device.
-    /// The camera is selected by its device path, and an empty path selects the
-    /// first camera of the device.  The quality is one of the values of
-    /// <see cref="CameraQuality"/>, and the duration is in seconds.
+    /// Starts recording a video clip from one of the cameras or displays of
+    /// this device.  The source is selected by its device path, and an empty
+    /// path selects the first source of the requested kind.  The quality is
+    /// one of the values of <see cref="CameraQuality"/>, and the duration is
+    /// in seconds.
     /// </summary>
-    Task StartCameraCapture(
-        string deviceId,
-        string cameraId,
-        int quality,
-        int durationSeconds);
+    Task StartCameraCapture(string deviceId, CameraCaptureRequest request);
 
     /// <summary>
     /// Stops the camera recording that is currently running, if any.

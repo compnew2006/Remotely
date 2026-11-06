@@ -319,11 +319,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
                 request.Quality,
                 request.DurationSeconds);
 
-            await Clients.Caller.StartCameraCapture(
-                SessionInfo.DeviceId,
-                request.CameraId,
-                (int)request.Quality,
-                request.DurationSeconds);
+            await Clients.Caller.StartCameraCapture(SessionInfo.DeviceId, request);
         }
 
         if (SessionInfo.IsAudioLive)
@@ -443,10 +439,10 @@ public class DesktopHub : Hub<IDesktopHubClient>
     }
 
     /// <summary>
-    /// Receives the list of cameras that a device has.  It is sent by the
-    /// device when it connects for a camera recording.
+    /// Receives the list of cameras and audio devices that a device has.  It
+    /// is sent by the device when it connects for a recording.
     /// </summary>
-    public async Task SendCameraDevices(CameraDeviceInfo[] cameras)
+    public async Task SendCameraDevices(CameraDeviceInfo[] cameras, CameraAudioDeviceInfo[] audioDevices)
     {
         var deviceId = SessionInfo.DeviceId;
         if (string.IsNullOrWhiteSpace(deviceId))
@@ -455,16 +451,21 @@ public class DesktopHub : Hub<IDesktopHubClient>
         }
 
         SessionInfo.CameraDevices = cameras?.ToList() ?? new List<CameraDeviceInfo>();
+        SessionInfo.CameraAudioDevices = audioDevices?.ToList() ?? new List<CameraAudioDeviceInfo>();
 
         _logger.LogInformation(
-            "Device {deviceId} reported {count} cameras.",
+            "Device {deviceId} reported {count} cameras and {audioCount} audio devices.",
             deviceId,
-            SessionInfo.CameraDevices.Count);
+            SessionInfo.CameraDevices.Count,
+            SessionInfo.CameraAudioDevices.Count);
 
         if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
         {
             await _messenger.Send(
-                new CameraDevicesReceivedMessage(deviceId, SessionInfo.CameraDevices.ToArray()),
+                new CameraDevicesReceivedMessage(
+                    deviceId,
+                    SessionInfo.CameraDevices.ToArray(),
+                    SessionInfo.CameraAudioDevices.ToArray()),
                 SessionInfo.UserConnectionId);
         }
     }

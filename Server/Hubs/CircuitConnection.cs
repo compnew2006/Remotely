@@ -52,13 +52,12 @@ public interface ICircuitConnection
     Task<Result> ClearScreenshots(string deviceId);
 
     /// <summary>
-    /// Asks a device to record a video clip from one of its cameras.
+    /// Asks a device to record a video clip from one of its cameras or
+    /// displays.
     /// </summary>
     Task<Result> StartCameraCapture(
         string deviceId,
-        string cameraId,
-        int quality,
-        int durationSeconds);
+        CameraCaptureRequest request);
 
     /// <summary>
     /// Stops a camera recording that is running on a device.
@@ -67,9 +66,7 @@ public interface ICircuitConnection
 
     Task<Result> StartCameraMonitoring(
         string deviceId,
-        string cameraId,
-        int quality,
-        int durationSeconds,
+        CameraCaptureRequest request,
         int intervalMinutes);
 
     Task<Result> StopCameraMonitoring(string deviceId);
@@ -84,10 +81,16 @@ public interface ICircuitConnection
         string? pauseWindows = null);
 
     /// <summary>
-    /// Returns the cameras that the device reported the last time it was
-    /// asked to record.
+    /// Returns the cameras and the displays that the device reported the last
+    /// time it was asked to record.
     /// </summary>
     CameraDeviceInfo[] GetCameraDevices(string deviceId);
+
+    /// <summary>
+    /// Returns the microphones and the loopback devices that the device
+    /// reported the last time it was asked to record.
+    /// </summary>
+    CameraAudioDeviceInfo[] GetCameraAudioDevices(string deviceId);
 
     Task<Result> DeleteCameraClip(string deviceId, string fileName);
 
@@ -705,14 +708,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     }
 
     /// <summary>
-    /// Asks a device to record a video clip from one of its cameras.  The
-    /// device records the clip and sends it to the server.
+    /// Asks a device to record a video clip from one of its cameras or
+    /// displays.  The device records the clip and sends it to the server.
     /// </summary>
     public async Task<Result> StartCameraCapture(
         string deviceId,
-        string cameraId,
-        int quality,
-        int durationSeconds)
+        CameraCaptureRequest request)
     {
         if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
         {
@@ -747,16 +748,10 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail(orgResult.Reason);
         }
 
-        // A duration of zero means that only the list of cameras is asked
+        // A duration of zero means that only the list of sources is asked
         // for, so nothing is recorded.  Every other duration is brought into
         // the range that is allowed.
-        var duration = durationSeconds <= 0 ?
-            0 :
-            CameraQualityPresets.ClampDurationSeconds(durationSeconds);
-        var captureRequest = new CameraCaptureRequest(
-            cameraId ?? string.Empty,
-            CameraQualityPresets.ParseQuality(((CameraQuality)quality).ToString()),
-            duration);
+        var captureRequest = NormalizeCameraRequest(request);
 
         // A manual request can share the active scheduled session. The desktop
         // serializes captures, so it will never overlap a scheduled clip.
@@ -772,7 +767,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
             await _desktopHubContext.Clients
                 .Client(monitoringSession.DesktopConnectionId)
-                .StartCameraCapture(deviceId, captureRequest.CameraId, (int)captureRequest.Quality, duration);
+                .StartCameraCapture(deviceId, captureRequest);
 
             return Result.Ok();
         }
@@ -857,9 +852,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StartCameraMonitoring(
         string deviceId,
-        string cameraId,
-        int quality,
-        int durationSeconds,
+        CameraCaptureRequest request,
         int intervalMinutes)
     {
         if (intervalMinutes < 1 || intervalMinutes > 30)
@@ -897,10 +890,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
         await StopExistingCameraCapture(deviceId);
 
-        var captureRequest = new CameraCaptureRequest(
-            cameraId ?? string.Empty,
-            CameraQualityPresets.ParseQuality(((CameraQuality)quality).ToString()),
-            CameraQualityPresets.ClampDurationSeconds(durationSeconds));
+        var captureRequest = NormalizeCameraRequest(request);
         var sessionId = Guid.NewGuid();
         var accessKey = RandomGenerator.GenerateAccessKey();
 
@@ -1050,6 +1040,35 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     }
 
     /// <summary>
+    /// Brings a recording request into the shape that the device expects: the
+    /// duration is clamped, the quality and the sources are validated, and a
+    /// request that only asks for the list of sources keeps a duration of
+    /// zero.
+    /// </summary>
+    private static CameraCaptureRequest NormalizeCameraRequest(CameraCaptureRequest request)
+    {
+        var duration = request.DurationSeconds <= 0 ?
+            0 :
+            CameraQualityPresets.ClampDurationSeconds(request.DurationSeconds);
+
+        var videoSource = Enum.IsDefined(request.VideoSource) ?
+            request.VideoSource :
+            CameraDeviceKind.Camera;
+
+        var audioSource = Enum.IsDefined(request.AudioSource) ?
+            request.AudioSource :
+            CameraAudioSource.None;
+
+        return new CameraCaptureRequest(
+            request.CameraId ?? string.Empty,
+            CameraQualityPresets.ParseQuality(request.Quality.ToString()),
+            duration,
+            videoSource,
+            audioSource,
+            request.AudioDeviceId ?? string.Empty);
+    }
+
+    /// <summary>
     /// Returns the cameras that the device reported the last time it was
     /// asked to record.
     /// </summary>
@@ -1064,6 +1083,23 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraCapture);
 
         return session?.CameraDevices.ToArray() ?? Array.Empty<CameraDeviceInfo>();
+    }
+
+    /// <summary>
+    /// Returns the microphones and the loopback devices that the device
+    /// reported the last time it was asked to record.
+    /// </summary>
+    public CameraAudioDeviceInfo[] GetCameraAudioDevices(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Array.Empty<CameraAudioDeviceInfo>();
+        }
+
+        var session = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraCapture);
+
+        return session?.CameraAudioDevices.ToArray() ?? Array.Empty<CameraAudioDeviceInfo>();
     }
 
     /// <summary>

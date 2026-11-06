@@ -132,9 +132,16 @@ public class RemoteControlSession : IDisposable
     public CameraCaptureRequest? CameraCapture { get; set; }
 
     /// <summary>
-    /// The cameras that the device reported when it connected.
+    /// The cameras and the displays that the device reported when it
+    /// connected.
     /// </summary>
     public List<CameraDeviceInfo> CameraDevices { get; set; } = new();
+
+    /// <summary>
+    /// The microphones and the loopback devices that the device reported when
+    /// it connected.
+    /// </summary>
+    public List<CameraAudioDeviceInfo> CameraAudioDevices { get; set; } = new();
 
     /// <summary>
     /// Whether this session is an audio capture session, in which case the

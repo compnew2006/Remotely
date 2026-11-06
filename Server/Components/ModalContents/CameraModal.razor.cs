@@ -10,8 +10,9 @@ using Remotely.Shared.Utilities;
 namespace Remotely.Server.Components.ModalContents;
 
 /// <summary>
-/// Records video clips from the cameras of a remote device, and shows the
-/// clips that were recorded before, so they can be watched and deleted.
+/// Records video clips from the cameras or the displays of a remote device,
+/// optionally with the system audio or a microphone, shows the clips that
+/// were recorded before, so they can be played and deleted.
 /// </summary>
 public partial class CameraModal : AuthComponentBase, IDisposable
 {
@@ -22,11 +23,13 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
     private static readonly QualityOption[] _qualityOptions = BuildQualityOptions();
 
-    private readonly List<CameraDeviceInfo> _cameras = new();
+    private readonly List<CameraDeviceInfo> _videoSources = new();
+    private readonly List<CameraAudioDeviceInfo> _audioDevices = new();
     private readonly List<CameraClip> _clips = new();
     private readonly List<ScreenshotPauseWindow> _pauseWindows = new();
     private string? _errorMessage;
-    private string _selectedCameraId = string.Empty;
+    private string _selectedSource = string.Empty;
+    private string _selectedAudio = $"{CameraAudioSource.None}|";
     private string _storageDirectory = string.Empty;
     private string _directory = string.Empty;
     private int _quality = (int)CameraQuality.Medium;
@@ -75,7 +78,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
         await LoadDeviceSettings();
         LoadMonitoringStatus();
 
-        LoadCameras();
+        LoadSources();
         LoadClips();
     }
 
@@ -110,35 +113,136 @@ public partial class CameraModal : AuthComponentBase, IDisposable
     }
 
     /// <summary>
-    /// Reads the cameras that the device reported the last time it was asked
-    /// to record.
+    /// The value of a video source in the selector.  The kind is part of it,
+    /// so a camera and a display can never be mixed up.
     /// </summary>
-    private void LoadCameras()
+    private static string GetSourceValue(CameraDeviceInfo source)
     {
-        var cameras = CircuitConnection.GetCameraDevices(DeviceId);
+        return CameraSourceSelection.GetSourceValue(source);
+    }
 
-        _cameras.Clear();
-        _cameras.AddRange(cameras);
-
-        SelectFirstCameraIfNeeded();
+    private static string GetSourceLabel(CameraDeviceInfo source)
+    {
+        return source.Kind == CameraDeviceKind.Display ?
+            source.Name :
+            $"Camera - {source.Name}";
     }
 
     /// <summary>
-    /// Makes sure that a camera is selected whenever there is one, so the
-    /// recording doesn't start without a camera.
+    /// The value of an audio source in the selector.  A null device means
+    /// that the recording has no audio at all.
     /// </summary>
-    private void SelectFirstCameraIfNeeded()
+    private static string GetAudioValue(CameraAudioDeviceInfo? device)
     {
-        if (_cameras.Count == 0)
+        return CameraSourceSelection.GetAudioValue(device);
+    }
+
+    private static string GetAudioLabel(CameraAudioDeviceInfo device)
+    {
+        return device.Source == CameraAudioSource.SystemAudio ?
+            $"System audio - {device.Name}" :
+            $"Microphone - {device.Name}";
+    }
+
+    private static (CameraDeviceKind Kind, string Id) ParseSource(string value)
+    {
+        return CameraSourceSelection.ParseSource(value);
+    }
+
+    private static (CameraAudioSource Source, string Id) ParseAudio(string value)
+    {
+        return CameraSourceSelection.ParseAudio(value);
+    }
+
+    /// <summary>
+    /// Builds the request that is sent to the device with the source, the
+    /// audio, the quality, and the duration that were selected.
+    /// </summary>
+    private CameraCaptureRequest BuildRequest(int durationSeconds)
+    {
+        var (kind, id) = ParseSource(_selectedSource);
+        var (audioSource, audioId) = ParseAudio(_selectedAudio);
+
+        return new CameraCaptureRequest(
+            id,
+            (CameraQuality)_quality,
+            durationSeconds,
+            kind,
+            audioSource,
+            audioId);
+    }
+
+    /// <summary>
+    /// Reads the cameras and the displays that the device reported the last
+    /// time it was asked to record.
+    /// </summary>
+    private void LoadSources()
+    {
+        var sources = CircuitConnection.GetCameraDevices(DeviceId);
+
+        _videoSources.Clear();
+        _videoSources.AddRange(sources);
+
+        var audioDevices = CircuitConnection.GetCameraAudioDevices(DeviceId);
+
+        _audioDevices.Clear();
+        _audioDevices.AddRange(audioDevices);
+
+        SelectFirstSourceIfNeeded();
+        SelectFirstAudioDeviceIfNeeded();
+    }
+
+    /// <summary>
+    /// Makes sure that a video source is selected whenever there is one, so
+    /// the recording doesn't start without one.
+    /// </summary>
+    private void SelectFirstSourceIfNeeded()
+    {
+        if (_videoSources.Count == 0)
         {
-            _selectedCameraId = string.Empty;
+            _selectedSource = string.Empty;
             return;
         }
 
-        if (!_cameras.Any(x => string.Equals(x.Id, _selectedCameraId, StringComparison.OrdinalIgnoreCase)))
+        var current = ParseSource(_selectedSource);
+
+        var selected = _videoSources.FirstOrDefault(x =>
+            x.Kind == current.Kind &&
+            string.Equals(x.Id, current.Id, StringComparison.OrdinalIgnoreCase));
+
+        selected ??= _videoSources.FirstOrDefault(x => x.Kind == CameraDeviceKind.Display)
+            ?? _videoSources[0];
+
+        _selectedSource = GetSourceValue(selected);
+    }
+
+    /// <summary>
+    /// Makes sure that the selected audio device is still one of the devices
+    /// that the device reported.
+    /// </summary>
+    private void SelectFirstAudioDeviceIfNeeded()
+    {
+        var (source, id) = ParseAudio(_selectedAudio);
+
+        if (source == CameraAudioSource.None)
         {
-            _selectedCameraId = _cameras[0].Id;
+            return;
         }
+
+        var selected = _audioDevices.FirstOrDefault(x =>
+            x.Source == source &&
+            string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+
+        if (selected is not null)
+        {
+            return;
+        }
+
+        var replacement = _audioDevices.FirstOrDefault(x => x.Source == source);
+
+        _selectedAudio = replacement is null ?
+            $"{CameraAudioSource.None}|" :
+            GetAudioValue(replacement);
     }
 
     private void LoadClips()
@@ -182,9 +286,14 @@ public partial class CameraModal : AuthComponentBase, IDisposable
         }
 
         _intervalMinutes = status.IntervalMinutes;
-        _selectedCameraId = status.CaptureRequest.CameraId;
-        _quality = (int)status.CaptureRequest.Quality;
-        _durationSeconds = status.CaptureRequest.DurationSeconds;
+
+        var request = status.CaptureRequest;
+        _selectedSource = $"{request.VideoSource}|{request.CameraId}";
+        _selectedAudio = request.AudioSource == CameraAudioSource.None ?
+            $"{CameraAudioSource.None}|" :
+            $"{request.AudioSource}|{request.AudioDeviceId}";
+        _quality = (int)request.Quality;
+        _durationSeconds = request.DurationSeconds;
     }
 
     private async Task HandleCameraDevicesReceivedMessage(object subscriber, CameraDevicesReceivedMessage message)
@@ -196,14 +305,22 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
         await InvokeAsync(() =>
         {
-            _cameras.Clear();
+            _videoSources.Clear();
 
             if (message.Cameras is not null)
             {
-                _cameras.AddRange(message.Cameras);
+                _videoSources.AddRange(message.Cameras);
             }
 
-            SelectFirstCameraIfNeeded();
+            _audioDevices.Clear();
+
+            if (message.AudioDevices is not null)
+            {
+                _audioDevices.AddRange(message.AudioDevices);
+            }
+
+            SelectFirstSourceIfNeeded();
+            SelectFirstAudioDeviceIfNeeded();
 
             StateHasChanged();
         });
@@ -221,7 +338,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
             LoadClips();
 
             ToastService.ShowToast2(
-                $"A camera clip was received from {DeviceName}.",
+                $"A video clip was received from {DeviceName}.",
                 ToastType.Success);
 
             StateHasChanged();
@@ -229,8 +346,8 @@ public partial class CameraModal : AuthComponentBase, IDisposable
     }
 
     /// <summary>
-    /// Asks the device to record a clip with the selected camera, quality
-    /// and duration.
+    /// Asks the device to record a clip with the selected source, audio,
+    /// quality and duration.
     /// </summary>
     private async Task RecordClip()
     {
@@ -239,9 +356,9 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
         try
         {
-            if (string.IsNullOrWhiteSpace(_selectedCameraId))
+            if (string.IsNullOrWhiteSpace(_selectedSource))
             {
-                _errorMessage = "Select a camera before recording.";
+                _errorMessage = "Select a camera or a screen before recording.";
                 return;
             }
 
@@ -250,9 +367,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
             var result = await CircuitConnection.StartCameraCapture(
                 DeviceId,
-                _selectedCameraId,
-                (int)_quality,
-                _durationSeconds);
+                BuildRequest(_durationSeconds));
 
             if (!result.IsSuccess)
             {
@@ -282,18 +397,16 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
         try
         {
-            if (string.IsNullOrWhiteSpace(_selectedCameraId))
+            if (string.IsNullOrWhiteSpace(_selectedSource))
             {
-                _errorMessage = "Select a camera before starting scheduled recording.";
+                _errorMessage = "Select a camera or a screen before starting scheduled recording.";
                 return;
             }
 
             _durationSeconds = CameraQualityPresets.ClampDurationSeconds(_durationSeconds);
             var result = await CircuitConnection.StartCameraMonitoring(
                 DeviceId,
-                _selectedCameraId,
-                _quality,
-                _durationSeconds,
+                BuildRequest(_durationSeconds),
                 _intervalMinutes);
 
             if (!result.IsSuccess)
@@ -303,7 +416,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
             }
 
             _isMonitoring = true;
-            ToastService.ShowToast2($"Scheduled camera recording started for {DeviceName}.", ToastType.Success);
+            ToastService.ShowToast2($"Scheduled recording started for {DeviceName}.", ToastType.Success);
         }
         catch (Exception ex)
         {
@@ -331,7 +444,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
             }
 
             _isMonitoring = false;
-            ToastService.ShowToast2($"Scheduled camera recording stopped for {DeviceName}.", ToastType.Info);
+            ToastService.ShowToast2($"Scheduled recording stopped for {DeviceName}.", ToastType.Info);
         }
         catch (Exception ex)
         {
@@ -379,7 +492,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
             await LoadDeviceSettings();
             LoadClips();
-            ToastService.ShowToast2("Camera settings saved.", ToastType.Success);
+            ToastService.ShowToast2("Recording settings saved.", ToastType.Success);
         }
         catch (Exception ex)
         {
@@ -432,10 +545,11 @@ public partial class CameraModal : AuthComponentBase, IDisposable
     }
 
     /// <summary>
-    /// Asks the device for the cameras that it has.  A duration of zero only
-    /// requests the list of cameras, so nothing is recorded.
+    /// Asks the device for the cameras and the screens that it has.  A
+    /// duration of zero only requests the list of sources, so nothing is
+    /// recorded.
     /// </summary>
-    private async Task RefreshCameras()
+    private async Task RefreshSources()
     {
         _isBusy = true;
         _errorMessage = null;
@@ -444,9 +558,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
         {
             var result = await CircuitConnection.StartCameraCapture(
                 DeviceId,
-                string.Empty,
-                (int)_quality,
-                0);
+                BuildRequest(0));
 
             if (!result.IsSuccess)
             {
@@ -455,7 +567,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
             }
 
             ToastService.ShowToast2(
-                $"Asked {DeviceName} for its cameras.",
+                $"Asked {DeviceName} for its cameras and screens.",
                 ToastType.Info);
         }
         catch (Exception ex)
@@ -464,7 +576,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
         }
         finally
         {
-            LoadCameras();
+            LoadSources();
             _isBusy = false;
             StateHasChanged();
         }
@@ -477,7 +589,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
 
         try
         {
-            LoadCameras();
+            LoadSources();
             LoadClips();
             await LoadDeviceSettings();
             LoadMonitoringStatus();
@@ -519,7 +631,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
     private async Task ClearClips()
     {
         var confirmed = await JsInterop.Confirm(
-            "Are you sure you want to delete every camera clip of this device?");
+            "Are you sure you want to delete every video clip of this device?");
 
         if (!confirmed)
         {
@@ -541,7 +653,7 @@ public partial class CameraModal : AuthComponentBase, IDisposable
             _clips.Clear();
 
             ToastService.ShowToast2(
-                "All camera clips were deleted.",
+                "All video clips were deleted.",
                 ToastType.Info);
         }
         catch (Exception ex)
