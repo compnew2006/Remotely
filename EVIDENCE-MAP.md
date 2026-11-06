@@ -156,7 +156,8 @@
 | T-07 | **(جلسة المرحلة صفر)** `DOTNET_ROLL_FORWARD=Major` + `dotnet test` المشروعين | **19/19 نجحت** (Shared.Tests 1/1 · Server.Tests 18/18 · exit 0) — على runtime 10.0.14 بالـroll-forward، لا على .NET 8 أصلي | `[TEST-EVIDENCE]` (بشرط roll-forward الموثق هنا) |
 | T-08 | **(المرحلة 3)** بعد ترقيات الحزم: `dotnet build Remotely.sln` + `DOTNET_ROLL_FORWARD=Major dotnet test` + `dotnet list --vulnerable` على المشاريع الأربعة | **build 0 Error · 19/19 · صفر High/Moderate** (Agent/Shared/Desktop.Shared نظيفة تمامًا؛ Server به Low ×2 NuGet تصميمي) | `[RUNTIME-VERIFIED]` + `[TEST-EVIDENCE]` (بشرط roll-forward) |
 | T-09 | **(المرحلة 4)** PoC هوية G7: بناء `poc/G7Identity` (0 أخطاء) وتشغيله كمهمّة مجدولة SYSTEM ⇒ تكرير توكن winlogon + `CreateProcessAsUserOk=true` وتسجيل الوقائع الست في `poc/results/g7-report.json` (تكررت ثلاث مرات حتى مخرجات نظيفة؛ حُذفت المهمة بعدها) | **نُفِّذ — النتائج في E-43** | `[RUNTIME-VERIFIED]` |
-| T-10 | **(المرحلة 4 — تحقق AD-16)** بعد retarget الحل إلى net10.0 (commit خارجي `6c092ac9`): `dotnet --list-sdks` ⇒ **9.0.315 فقط** · `dotnet build Remotely.sln` ⇒ **FAIL — `NETSDK1045` في 11 مشروعًا** (SDK 9 لا يبني net10.0؛ runtime 10.0.14 الموجود **لا يغني** — بناء SDK ≠ runtime) | **فشل البناء المحلي — البناء الآن مكسور على جهاز التقييم حتى تثبيت SDK 10 أو revert الـretarget**؛ `dotnet test` غير قابل للتنفيذ بالتبعية | `[RUNTIME-VERIFIED]` |
+| T-10 | **(المرحلة 4 — تحقق AD-16)** بعد retarget الحل إلى net10.0 (commit خارجي `6c092ac9`): `dotnet --list-sdks` ⇒ **9.0.315 فقط** · `dotnet build Remotely.sln` ⇒ **FAIL — `NETSDK1045` في 11 مشروعًا** (SDK 9 لا يبني net10.0؛ runtime 10.0.14 الموجود **لا يغني** — بناء SDK ≠ runtime) | **فشل البناء المحلي بالمسار الافتراضي على PATH** — خُفِّف لاحقًا جزئيًا بـT-11 (SDK 10 موجود على مستوى المستخدم)؛ يبقى صحيحًا لأوامر `dotnet` الحرفية | `[RUNTIME-VERIFIED]` |
+| T-11 | **(المرحلة 4 — حسم OD-10 / AD-17)** بعد توجيه المالك بتثبيت SDK 10: (أ) `dotnet-install.ps1 -Channel 10.0 -InstallDir 'C:\Program Files\dotnet'` ⇒ تنزيل سليم (300,745,255 بايت) ثم **فشل فك الضغط**: `dotnet.exe` «being used by another process» (Roslyn language server + 13 عقدة MSBuild) — لم أُنهها بلا تصريح. (ب) اكتشاف **SDK 10.0.403 على مستوى المستخدم** (`C:\Users\Administrator\.dotnet\sdk`، آخر كتابة 13:05 — مصدره غير مُثبَت لي). (ج) به: `& "$env:USERPROFILE\.dotnet\dotnet.exe" build Remotely.sln` ⇒ **Build succeeded · 0 Errors · 44 warnings** · ثم `test Remotely.sln` ⇒ **Server.Tests 26/26 + Shared.Tests 1/1 = 27/27 نجحت، exit 0** بلا أي roll-forward (testhost هو net10.0 أصلي) | **أول خط أساس اختباري قابل للتنفيذ على هذا الجهاز**: 27 اختبارًا نُفِّذت ونجحت فعليًا ⇒ ادعاءات `[TEST-EVIDENCE]` صارت ممكنة من الآن فصاعدًا (سابقًا: 19/19 بـroll-forward فقط). **مفتوح**: `dotnet` على PATH = 9.0.315، فالأمر الحرفي لا يزال NETSDK1045؛ وLIB002 لم يعد يظهر لأن `71b890b9` أزال استعادة libman (E-44) لا بسبب هذا التثبيت | `[RUNTIME-VERIFIED]` + `[TEST-EVIDENCE]` |
 
 ### 3.2 سلسلة الفشل كما سُجِّلت حرفياً
 
@@ -186,13 +187,13 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 
 | # | ما لم يُنفَّذ | السبب | الأثر |
 |---|---|---|---|
-| N-01 | تشغيل أي حالة اختبار | لا .NET 8 runtime | **0/19** اختباراً مُنفَّذاً |
-| N-02 | بناء `Server` ثم `Server.Tests` | `LIB002` في LibMan | 18 اختباراً من `Server.Tests` لم تُبنَ ولم تُنفَّذ |
+| N-01 | تشغيل أي حالة اختبار | ~~لا .NET 8 runtime~~ **انقلب بـT-11**: 27/27 عُملت ونجحت على net10.0 (SDK المستخدم 10.0.403) | ~~0/19~~ ⇒ **27/27 مُنفَّذة** (net8 baseline: لا شيء؛ net10 baseline: كامل المجموعة في الحل) |
+| N-02 | بناء `Server` ثم `Server.Tests` | ~~`LIB002` في LibMan~~ **لم يعد حاضرًا**: `71b890b9` أزال استعادة libman من البناء (E-44) ⇒ Server.Tests يبنى ويُختبر (26/26) | ~~18~~ ⇒ **26 اختبارًا في `Server.Tests` نُفِّذت كلها** (أُضيف إليها `RemoteControlAuthorizationTests` خارجيًا) |
 | N-03 | تشغيل `Desktop.Win.Tests` | خارج الحل + كله `[Ignore]` | 7 اختبارات لا تعمل بالتصميم |
 | N-04 | أي اختبار على Windows فعلي (سلوك، الصلاحيات، سطح مكتب) | ~~لا جهاز Windows ممثّل في هذه البيئة~~ **بعضه نُفِّذ (المرحلة 4)**: PoC هوية G7 نُفِّذ على Windows Server 2025 حقيقي (E-43/T-09) — يبقى فحص موافقة G6 في جلسة حيّة وفحوص الصلاحيات السلوكية الأخرى | E-14 رُفد تنفيذيًا بـE-43؛ G6 تبقى بلا دليل تشغيلي |
-| N-05 | `dotnet build` بمخرجات نظيفة | نفس عطل LibMan | — |
+| N-05 | `dotnet build` بمخرجات نظيفة | ~~نفس عطل LibMan~~ **يبقى جزئيًا بالمسار الافتراضي فقط**: PATH→SDK 9 يفشل NETSDK1045؛ بالمسار الصريح للمستخدم ينجح 0 أخطاء (T-11) | — |
 
-**الأثر الحاكم:** تحت Principle XIII، **لا يمكن لأي ادعاء في هذه الوثيقة أن يحمل `[TEST-EVIDENCE]`**. كل ما سبق `[SOURCE-VERIFIED]` أو `[RUNTIME-VERIFIED]` (لفحص الأدوات نفسه). لا `[RELEASE-GATE]`.
+**الأثر الحاكم (مُحدَّث بـT-11):** كانت الصيغة الأصلية صارمة: «لا يمكن لأي ادعاء في هذه الوثيقة أن يحمل `[TEST-EVIDENCE]`» — لأن صفر اختبار كان قابلًا للتنفيذ. **بعد T-11 أصبح `[TEST-EVIDENCE]` ممكنًا ومحجوزًا**: أي ادعاء جديد به يجب أن يذكر (أ) أنه استُخدم فيه SDK 10.0.403 بالمسار الصريح (`$env:USERPROFILE\.dotnet\dotnet.exe`) لا `dotnet` على PATH، و(ب) أن نتيجته 27/27 هي خط الأساس الجديد. ما قبل T-11 من ادعاءات `[TEST-EVIDENCE]` (T-07/T-08) يبقى مُقيَّدًا بشرط roll-forward على net8. **ولا شيء هنا يحمل `[RELEASE-GATE]`** — فذلك تنفيذ في سياق النشر، والمالك يوثّقه وحده.
 
 ---
 

@@ -10,6 +10,7 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Remotely.Shared.Extensions;
+using Remotely.Shared.Helpers;
 using System.IO;
 
 namespace Remotely.Desktop.Win.Services;
@@ -85,13 +86,38 @@ public class FileTransferServiceWin : IFileTransferService
 
             if (startOfFile)
             {
-                var filePath = Path.Combine(baseDir, fileName);
+                // G3: the file name comes from the remote viewer and must never
+                // escape the transfer directory. Reduce it to a bare file name
+                // (strips every directory component) and fail closed on anything
+                // malformed.
+                if (!PathSanitizer.TrySanitizeFileName(fileName, out var safeFileName))
+                {
+                    _logger.LogWarning(
+                        "File transfer rejected: unsafe or malformed file name received.");
+                    return;
+                }
+
+                var filePath = Path.Combine(baseDir, safeFileName);
+
+                // Defence in depth: the combined path must resolve inside the
+                // transfer directory. With a sanitized name this cannot fail,
+                // but the check makes the boundary explicit and testable.
+                var fullBaseDir = Path.GetFullPath(baseDir)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var fullFilePath = Path.GetFullPath(filePath);
+                if (!fullFilePath.StartsWith(fullBaseDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(fullFilePath, fullBaseDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "File transfer rejected: resolved path escapes the transfer directory.");
+                    return;
+                }
 
                 if (File.Exists(filePath))
                 {
                     var count = 0;
-                    var ext = Path.GetExtension(fileName);
-                    var fileWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                    var ext = Path.GetExtension(safeFileName);
+                    var fileWithoutExt = Path.GetFileNameWithoutExtension(safeFileName);
                     while (File.Exists(filePath))
                     {
                         filePath = Path.Combine(baseDir, $"{fileWithoutExt}-{count}{ext}");
@@ -172,8 +198,12 @@ public class FileTransferServiceWin : IFileTransferService
             return;
         }
 
-        var sid = new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null);
-        var account = (NTAccount)sid.Translate(typeof(NTAccount));
+        // G3 / least privilege: instead of granting Modify to the entire
+        // Builtin Users group, grant it only to the current interactive user.
+        // SYSTEM, Administrators, and TrustedInstaller rights remain via
+        // inherited rules from ProgramData; every other local account loses
+        // direct write access to the transfer directory.
+        var account = new NTAccount(Environment.UserDomainName, Environment.UserName);
 
         var accessAlreadySet = false;
 
