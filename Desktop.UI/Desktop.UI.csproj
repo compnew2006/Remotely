@@ -36,6 +36,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="11.1.4" />
+    <!-- CVE-2026-39959 (GHSA-xrw6-gwf8-vvr9): override transitive 0.16.0 with the patched 0.21.3 backport. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
 		<PackageReference Include="Avalonia.Desktop" Version="11.1.4" />
 		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
 		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.1.4" />
