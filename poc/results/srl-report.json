@@ -1,0 +1,18 @@
+{
+  "LoadOk": true,
+  "LoadMs": 38,
+  "RecordFinished": true,
+  "RecordMs": 4870,
+  "CompleteFilePath": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-24\\new-chat\\work\\Captura\\poc\\ScreenRecorderPoc\\bin\\x64\\Debug\\net10.0-windows\\win-x64\\poc-capture-140523.mp4",
+  "FileSizeBytes": 525400,
+  "FileSizeMb": 0.501,
+  "MediaDeleted": true,
+  "TotalMs": 4963,
+  "Host": {
+    "Os": "Microsoft Windows NT 10.0.26100.0",
+    "NetVersion": "10.0.14",
+    "Machine": "SMACCDATABASE",
+    "Is64Bit": true,
+    "Interactive": true
+  }
+}

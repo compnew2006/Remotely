@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platform>x64</Platform>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ScreenRecorderPoc</AssemblyName>
+    <RootNamespace>Remotely.Poc.ScreenRecorder</RootNamespace>
+    <!-- P08 PoC only: NOT part of Remotely.sln, NOT shipped. Evidence tool. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- OD-4 probe: NuGet 7.0.1 path. The PoC result feeds the ADR; it does not ratify it. -->
+    <PackageReference Include="ScreenRecorderLib" Version="7.0.1" />
+  </ItemGroup>
+
+</Project>
