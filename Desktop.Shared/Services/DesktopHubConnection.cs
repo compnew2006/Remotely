@@ -502,6 +502,17 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     }
 
     /// <summary>
+    /// Called by the server to record a video clip with the call of an older
+    /// server, which does not know the displays and the audio devices yet.
+    /// </summary>
+    public Task StartCameraCapture(string deviceId, string cameraId, int quality, int durationSeconds)
+    {
+        return StartCameraCapture(
+            deviceId,
+            new CameraCaptureRequest(cameraId, (CameraQuality)quality, durationSeconds));
+    }
+
+    /// <summary>
     /// Called by the server to stop the camera recording that is running.
     /// </summary>
     public Task StopCameraCapture()
@@ -710,6 +721,8 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
 
     /// <summary>
     /// Sends the cameras and the audio devices of this device to the server.
+    /// It has its own name on the server, because SignalR does not allow a
+    /// hub method to be overloaded.
     /// </summary>
     public Task SendCameraDevices(CameraDeviceInfo[] cameras, CameraAudioDeviceInfo[] audioDevices)
     {
@@ -718,7 +731,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
             return Task.CompletedTask;
         }
 
-        return Connection.InvokeAsync("SendCameraDevices", cameras, audioDevices);
+        return Connection.InvokeAsync("SendCameraDevicesV2", cameras, audioDevices);
     }
 
     /// <summary>
@@ -824,7 +837,17 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
             return Result.Fail("Connection hasn't been made yet.");
         }
 
-        return await Connection.InvokeAsync<Result>("ReceiveUnattendedSessionInfo", unattendedSessionId, accessKey, machineName, requesterName, organizationName);
+        // The flag tells the server that this client knows the displays and
+        // the audio devices of a recording.  The method has its own name,
+        // because SignalR does not allow a hub method to be overloaded.
+        return await Connection.InvokeAsync<Result>(
+            "ReceiveUnattendedSessionInfoV2",
+            unattendedSessionId,
+            accessKey,
+            machineName,
+            requesterName,
+            organizationName,
+            true);
     }
 
     public async Task ViewerDisconnected(string viewerId)
@@ -862,6 +885,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         connection.On(nameof(StopMonitoring), StopMonitoring);
         connection.On(nameof(CaptureScreenshotNow), CaptureScreenshotNow);
         connection.On<string, CameraCaptureRequest>(nameof(StartCameraCapture), StartCameraCapture);
+        connection.On<string, string, int, int>(nameof(StartCameraCapture), StartCameraCapture);
         connection.On(nameof(StopCameraCapture), StopCameraCapture);
         connection.On<string, CameraCaptureRequest, int, int[], int[]>(
             nameof(StartCameraMonitoring),

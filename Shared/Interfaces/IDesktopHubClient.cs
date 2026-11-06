@@ -53,6 +53,17 @@ public interface IDesktopHubClient
     Task StartCameraCapture(string deviceId, CameraCaptureRequest request);
 
     /// <summary>
+    /// Starts recording a video clip from one of the cameras of this device.
+    /// This is the call of the older desktop clients, which do not know the
+    /// displays and the audio devices yet.
+    /// </summary>
+    Task StartCameraCapture(
+        string deviceId,
+        string cameraId,
+        int quality,
+        int durationSeconds);
+
+    /// <summary>
     /// Stops the camera recording that is currently running, if any.
     /// </summary>
     Task StopCameraCapture();

@@ -252,6 +252,40 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public async Task<Result> ReceiveUnattendedSessionInfo(Guid unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
+        return await ReceiveUnattendedSessionInfoCore(
+            unattendedSessionId,
+            accessKey,
+            machineName,
+            requesterName,
+            organizationName,
+            false);
+    }
+
+    /// <summary>
+    /// The desktop client tells the server whether it knows the displays and
+    /// the audio devices.  It has its own name, because SignalR does not allow
+    /// a hub method to be overloaded, and the older clients call the older
+    /// method.
+    /// </summary>
+    public async Task<Result> ReceiveUnattendedSessionInfoV2(Guid unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName, bool supportsRecordingSources)
+    {
+        return await ReceiveUnattendedSessionInfoCore(
+            unattendedSessionId,
+            accessKey,
+            machineName,
+            requesterName,
+            organizationName,
+            supportsRecordingSources);
+    }
+
+    private async Task<Result> ReceiveUnattendedSessionInfoCore(
+        Guid unattendedSessionId,
+        string accessKey,
+        string machineName,
+        string requesterName,
+        string organizationName,
+        bool supportsRecordingSources)
+    {
         if (_sessionCache.TryGetValue($"{unattendedSessionId}", out var existingSession) &&
             !string.IsNullOrWhiteSpace(existingSession.AccessKey) &&
             accessKey != existingSession.AccessKey)
@@ -273,6 +307,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         SessionInfo.MachineName = machineName;
         SessionInfo.RequesterName = requesterName;
         SessionInfo.OrganizationName = organizationName;
+        SessionInfo.SupportsRecordingSources = supportsRecordingSources;
 
         if (SessionInfo.IsMonitoring)
         {
@@ -319,7 +354,20 @@ public class DesktopHub : Hub<IDesktopHubClient>
                 request.Quality,
                 request.DurationSeconds);
 
-            await Clients.Caller.StartCameraCapture(SessionInfo.DeviceId, request);
+            if (SessionInfo.SupportsRecordingSources)
+            {
+                await Clients.Caller.StartCameraCapture(SessionInfo.DeviceId, request);
+            }
+            else
+            {
+                // The device runs an older desktop client, which only knows
+                // the camera and no audio.
+                await Clients.Caller.StartCameraCapture(
+                    SessionInfo.DeviceId,
+                    request.CameraId,
+                    (int)request.Quality,
+                    request.DurationSeconds);
+            }
         }
 
         if (SessionInfo.IsAudioLive)
@@ -439,10 +487,28 @@ public class DesktopHub : Hub<IDesktopHubClient>
     }
 
     /// <summary>
-    /// Receives the list of cameras and audio devices that a device has.  It
-    /// is sent by the device when it connects for a recording.
+    /// Receives the list of cameras that a device has.  It is the call of the
+    /// older desktop clients, which do not know the audio devices yet.
     /// </summary>
-    public async Task SendCameraDevices(CameraDeviceInfo[] cameras, CameraAudioDeviceInfo[] audioDevices)
+    public async Task SendCameraDevices(CameraDeviceInfo[] cameras)
+    {
+        await StoreCameraDevices(cameras, Array.Empty<CameraAudioDeviceInfo>(), false);
+    }
+
+    /// <summary>
+    /// Receives the list of cameras and audio devices that a device has.  It
+    /// has its own name, because SignalR does not allow a hub method to be
+    /// overloaded, and the older clients call the older method.
+    /// </summary>
+    public async Task SendCameraDevicesV2(CameraDeviceInfo[] cameras, CameraAudioDeviceInfo[] audioDevices)
+    {
+        await StoreCameraDevices(cameras, audioDevices, true);
+    }
+
+    private async Task StoreCameraDevices(
+        CameraDeviceInfo[] cameras,
+        CameraAudioDeviceInfo[] audioDevices,
+        bool supportsRecordingSources)
     {
         var deviceId = SessionInfo.DeviceId;
         if (string.IsNullOrWhiteSpace(deviceId))
@@ -450,6 +516,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
             return;
         }
 
+        SessionInfo.SupportsRecordingSources = supportsRecordingSources;
         SessionInfo.CameraDevices = cameras?.ToList() ?? new List<CameraDeviceInfo>();
         SessionInfo.CameraAudioDevices = audioDevices?.ToList() ?? new List<CameraAudioDeviceInfo>();
 

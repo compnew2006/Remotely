@@ -132,6 +132,13 @@ public class RemoteControlSession : IDisposable
     public CameraCaptureRequest? CameraCapture { get; set; }
 
     /// <summary>
+    /// Whether the device reported its cameras with the newer call that also
+    /// carries the audio devices.  A device that runs an older desktop client
+    /// only knows the older call, and it records without audio.
+    /// </summary>
+    public bool SupportsRecordingSources { get; set; }
+
+    /// <summary>
     /// The cameras and the displays that the device reported when it
     /// connected.
     /// </summary>
