@@ -25,7 +25,7 @@
 | **بناء الحل كاملًا** | ✅ **نجح** (`dotnet build Remotely.sln`) |
 | **بوابات اجتازت** | **0 من 7** — لم تُنفَّذ فحوص بوابات في هذه الجلسة |
 | **كود إنتاج معدَّل** | ملفان إنشائيان (build-only): `Server/libman.json` · `.github/workflows/run_tests.yml` — بتفويض المالك للمرحلة صفر (ADR-P00-09) |
-| **استنتاجات مسنَدة** | **46** (39 أصلي + E-36…E-42) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
+| **استنتاجات مسنَدة** | **47** (39 أصلي + E-36…E-43) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
 
 > ⚠️ **الخلاصة التي يجب أن تسبق كل شيء آخر (محدَّثة في المرحلة صفر):** خط الأساس الاختباري **أصبح قابلًا للتنفيذ جزئيًا** — 19/19 تعمل بـroll-forward (T-07) — لكنه **غير مُستوفى كاملًا**: لا runtime 8.0 أصلي مثبَّت، وشرط Execution-Environment-Uniformity الدستوري لم يُستوفَ بعد، وCI لم يُسجَّل أخضر. أي ادعاء `[TEST-EVIDENCE]` يجب أن يذكر شرط الـroll-forward صراحةً. (كانت الصيغة الأصلية: "لا خط أساس إطلاقًا" — انظر سجل التغيير §11.)
 
@@ -66,10 +66,10 @@
 |---|---|---|---|
 | E-12 | الوكيل يعمل كخدمة Windows ⇒ **Session 0** | `[SOURCE-VERIFIED]` | `Agent/Program.cs:29` — `.UseWindowsService()` (و`:30` `.UseSystemd()`) |
 | E-13 | مسار الإطلاق **يكرّر توكن winlogon** | `[SOURCE-VERIFIED]` | `Desktop.Native/Windows/Win32Interop.cs:121` (PID winlogon في الجلسة) · `:134` `OpenProcessToken(..., TOKEN_DUPLICATE)` · `:145` `DuplicateTokenEx(..., TokenPrimary, out hUserTokenDup)` |
-| E-14 | winlogon يعمل كـSYSTEM ⇒ **المتوقَّع** أن العملية التفاعلية ترث SYSTEM | `[SOURCE-VERIFIED]` (قدرة مصدر) — **ليس** `[RUNTIME-VERIFIED]` | استنتاج من E-13 + `[SOURCE-VERIFIED]` لـ"`winlogon.exe` runs as SYSTEM" — **لا يوجد أي تنفيذ `whoami /all` ولا سجل تشغيلي** |
+| E-14 | winlogon يعمل كـSYSTEM ⇒ **المتوقَّع** أن العملية التفاعلية ترث SYSTEM — ✅ **تأكد تنفيذيًا في المرحلة 4** (E-43/T-09: التوكن الفعلي للابن `S-1-5-18` بتكامل System على `winsta0\Default`) | `[SOURCE-VERIFIED]` (قدرة مصدر) + **مُؤيَّد `[RUNTIME-VERIFIED]` بـE-43** | استنتاج من E-13 + `[SOURCE-VERIFIED]` لـ"`winlogon.exe` runs as SYSTEM" — كان بلا تنفيذ حتى المرحلة 4 (E-43) |
 | E-15 | سطح المكتب عند logon/UAC هو **الآمن** | `[SOURCE-VERIFIED]` | `Desktop.Native/Windows/Win32Interop.cs:158` — `si.lpDesktop = @"winsta0\" + ResolveDesktopName(dwSessionId)` |
 
-> **لم يُنفَّذ** (بلا سجل): التوكن الفعلي · SID المستخدم · معرّف الجلسة · حالة الارتفاع · إمكانية الوصول لسطح المكتب · آلية الإطلاق. ⇒ G7 = **UNKNOWN**، لا "FAIL".
+> ~~**لم يُنفَّذ** (بلا سجل): التوكن الفعلي · SID المستخدم · معرّف الجلسة · حالة الارتفاع · إمكانية الوصول لسطح المكتب · آلية الإطلاق. ⇒ G7 = **UNKNOWN**، لا "FAIL".~~ **حُدِّث في المرحلة 4 (2026-11-06): الوقائع الست نُفِّذت وسُجِّلت في E-43/T-09 على Windows Server 2025 حقيقي ⇒ G7 انتقلت UNKNOWN → FAIL بقرار المالك (AD-14) — لا ترقية ذاتية؛ الفحص صار موجودًا وأثبت فشل شرطي الهوية (1) و(2) من شروط G7 الخمسة.**
 
 ### 1.4 أسطح الهجوم المسجَّلة
 
@@ -117,6 +117,7 @@
 | E-42 | ثغرات سلسلة التوريد عبر `dotnet list --vulnerable --include-transitive`: **كل High/Moderate أُغلقت**؛ بقي **Low ×2** (`NuGet.Packaging`/`Protocol` 6.11.0، GHSA-g4vj) عابِرة من أداة scaffolding تصميمية (`CodeGeneration.Design`) — ليست في سطح تشغيل السيرفر الحي | `[RUNTIME-VERIFIED]` | قبل/بعد (هذه الجلسة): SignalR `8.0.10→8.0.33` · MailKit `4.8.0→4.18.2` · MessagePack `2.5.187→2.5.307` · pins للـAgent: `System.IO.Packaging 8.0.1` / `Cryptography.Pkcs 8.0.2` / `Cryptography.Xml 8.0.5` (سلسلة GHSA-846f/37gx/cvvh/r955) · `CodeGeneration.Design 8.0.6→8.0.23` (أزال `Microsoft.Build` High) · `Server.Tests` EF `8.0.10→8.0.33` (تفادي NU1605) |
 | E-40 | LibMan restore يعيد كتابة الأصول الملتزَمة بنهايات LF عند كل بناء على Windows ⇒ **شجرة git متسخة بعد كل بناء** (~37 ملفًا، محتوى متطابقًا — فروق أسطر فقط) | `[RUNTIME-VERIFIED]` | بعد بناء ناجح: `git status` أظهر 37 ملف M تحت `wwwroot/lib/fontawesome` + `microsoft-signalr`؛ `git diff --ignore-cr-at-eol --name-only` = **صفر** ⇒ أسطر فقط. أُصلح بإزالة **كل** إدخالات libman (وليس unpkg وحدها) | بناءان متكرران في نفس الجلسة + مقارنة diffs |
 | E-41 | فلتر التفويض ي**فشل مفتوحًا** (fail-open) — لو رمى `Authorize()` استثناءً (عطل DB في `ValidateApiKey`/`GetUserByName`) يُبتلع في `catch` ولا يُضبط `context.Result` ⇒ MVC ينفّذ الـ action **بلا مصادقة**، فيقوّض كل نقطة تُعتَبر محميّة | `[SOURCE-VERIFIED]` | `Server/Auth/ApiAuthorizationFilter.cs:24-31` و`Server/Auth/ExpiringTokenFilter.cs:28-35` (قبل الإصلاح) — أُصلح بإسناد `context.Result = new UnauthorizedResult()` داخل `catch` (fail-closed) في المرحلة 2 |
+| E-43 | **PoC هوية G7 على Windows حقيقي (المرحلة 4)**: إعادة إنتاج سلسلة `Win32Interop.CreateInteractiveSystemProcess:105-193` حرفيًا (مهمّة مجدولة SYSTEM في الجلسة 0 — نفس موضع وكيل الإنتاج — تكرير توكن winlogon PID 2100 ثم `CreateProcessAsUser` بتوكن TokenPrimary على `winsta0\Default`)؛ الابن (PID 117920) سجّل الوقائع الست: **(1)** توكن `NT AUTHORITY\SYSTEM`، TokenPrimary، SeTcb/SeDebug/SeImpersonate مفعّلة **(2)** SID `S-1-5-18` (مجموعات: Administrators/Everyone/Authenticated Users — **بلا logon SID**) **(3)** جلسة 1 = console، ومستخدم الجلسة `Administrator` ⇒ **فجوة الهوية مُثبتة تنفيذيًا** **(4)** تكامل System ‏`S-1-16-16384` + `isElevated=true` + ElevationType=Default **(5)** `WinSta0`/`Default` وطاقة الإدخال `Default` (لا LogonUI/consent وقت الفحص) **(6)** سلسلة الإطلاق مُسجّلة كاملة. ⇒ **تُرفع E-14 من "متوقَّع من المصدر" إلى مُؤيَّد تنفيذيًا** | `[RUNTIME-VERIFIED]` | الأداة `poc/G7Identity/` (خارج الحل، قياس فقط) · التقرير `poc/results/g7-report.json` بما فيه `whoami /all` الابن · تنفيذ 2026-11-06 10:04 UTC · **تحفّظات تمثيلية**: جهاز Server 2025 بمسجّل عليه built-in Administrator (لا توكن موظف مُرشَّح بـUAC)؛ الآمن (Winlogon desktop) غير مُختبَر (لا LogonUI/consent حاضر)؛ انحرافان قياسيان عن الإنتاج: `lpApplicationName`/`lpCurrentDirectory` مُمرَّرتان بإطلاق مطلق (الإنتاج null — أنتاجا 1314 ERROR_BAD_PATHNAME في بيئة القياس) |
 
 ---
 
@@ -154,6 +155,7 @@
 | T-06 | **(جلسة المرحلة صفر)** `dotnet build Remotely.sln` كاملًا | **نجح — Build succeeded** | `[RUNTIME-VERIFIED]` |
 | T-07 | **(جلسة المرحلة صفر)** `DOTNET_ROLL_FORWARD=Major` + `dotnet test` المشروعين | **19/19 نجحت** (Shared.Tests 1/1 · Server.Tests 18/18 · exit 0) — على runtime 10.0.14 بالـroll-forward، لا على .NET 8 أصلي | `[TEST-EVIDENCE]` (بشرط roll-forward الموثق هنا) |
 | T-08 | **(المرحلة 3)** بعد ترقيات الحزم: `dotnet build Remotely.sln` + `DOTNET_ROLL_FORWARD=Major dotnet test` + `dotnet list --vulnerable` على المشاريع الأربعة | **build 0 Error · 19/19 · صفر High/Moderate** (Agent/Shared/Desktop.Shared نظيفة تمامًا؛ Server به Low ×2 NuGet تصميمي) | `[RUNTIME-VERIFIED]` + `[TEST-EVIDENCE]` (بشرط roll-forward) |
+| T-09 | **(المرحلة 4)** PoC هوية G7: بناء `poc/G7Identity` (0 أخطاء) وتشغيله كمهمّة مجدولة SYSTEM ⇒ تكرير توكن winlogon + `CreateProcessAsUserOk=true` وتسجيل الوقائع الست في `poc/results/g7-report.json` (تكررت ثلاث مرات حتى مخرجات نظيفة؛ حُذفت المهمة بعدها) | **نُفِّذ — النتائج في E-43** | `[RUNTIME-VERIFIED]` |
 
 ### 3.2 سلسلة الفشل كما سُجِّلت حرفياً
 
@@ -186,7 +188,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | N-01 | تشغيل أي حالة اختبار | لا .NET 8 runtime | **0/19** اختباراً مُنفَّذاً |
 | N-02 | بناء `Server` ثم `Server.Tests` | `LIB002` في LibMan | 18 اختباراً من `Server.Tests` لم تُبنَ ولم تُنفَّذ |
 | N-03 | تشغيل `Desktop.Win.Tests` | خارج الحل + كله `[Ignore]` | 7 اختبارات لا تعمل بالتصميم |
-| N-04 | أي اختبار على Windows فعلي (سلوك،الصلاحيات، سطح مكتب) | لا جهاز Windows ممثّل في هذه البيئة | E-14 يبقى `[SOURCE-VERIFIED]` |
+| N-04 | أي اختبار على Windows فعلي (سلوك، الصلاحيات، سطح مكتب) | ~~لا جهاز Windows ممثّل في هذه البيئة~~ **بعضه نُفِّذ (المرحلة 4)**: PoC هوية G7 نُفِّذ على Windows Server 2025 حقيقي (E-43/T-09) — يبقى فحص موافقة G6 في جلسة حيّة وفحوص الصلاحيات السلوكية الأخرى | E-14 رُفد تنفيذيًا بـE-43؛ G6 تبقى بلا دليل تشغيلي |
 | N-05 | `dotnet build` بمخرجات نظيفة | نفس عطل LibMan | — |
 
 **الأثر الحاكم:** تحت Principle XIII، **لا يمكن لأي ادعاء في هذه الوثيقة أن يحمل `[TEST-EVIDENCE]`**. كل ما سبق `[SOURCE-VERIFIED]` أو `[RUNTIME-VERIFIED]` (لفحص الأدوات نفسه). لا `[RELEASE-GATE]`.
@@ -208,7 +210,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | GAP-07 | **P1** | إنشاء جهاز بلا مصادقة | E-16 | G4 · شرط إضافي | إغلاق أو قبول خطي من المالك | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة `ApiAuthorizationFilter` إلى `Create` (`DevicesController.cs:125`). لا مستهلك في المستودع (التسجيل عبر SignalR `AddOrUpdateDevice`) |
 | GAP-08 | **P1** | تنزيل مثبّت بلا مصادقة | E-17 | شرط إضافي | إغلاق المسار `:117` | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة الفلتر إلى `:117` و`GetDesktop :35/:71`. **تنزيل العام للمثبّت** (`/Content/*.zip` + `AgentUpdate/DownloadPackage`) قُبل **خطيًا** مع التخفيف — راجع DECISION-LOG / PC-1 |
 | GAP-09 | **P1** | تنزيل ثنائيات مخصّصة بلا مصادقة | E-18 | شرط إضافي | إضافة `ApiAuthorizationFilter` | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة الفلتر إلى `CustomBinariesController` (`:16` و`:27`)؛ المستهلك `Deploy.razor:200-201` عبر كوكي الأدمن فلا يكسر التنزيل |
-| GAP-10 | **P1** | تحديث العميل بلا توقيع/هاش | E-22 | G2 | توقيع + هاش مثبَّت | مفتوحة — **بوابة قرار (OD-9)**: G2 تتطلب إدارة مفاتيح توقيع معتمدة من المالك؛ الوكيل لا يصادقها لنفسه. ترقية الحزم (R-07/GAP-13) تمت، لكن التوقيع/التحقق لم تُنفَّذ له أي شيفرة |
+| GAP-10 | **P1** | تحديث العميل بلا توقيع/هاش | E-22 | G2 | توقيع + هاش مثبَّت | مفتوحة **تنفيذياً** — ~~بوابة قرار OD-9~~ ✅ **حُسِمت بقرار المالك `AD-13`** (DECISION-LOG): نموذج هجين (Authenticode على المحمّلات + SHA-256 موقّع لكل حزمة يتحقق منه العميل قبل فكّ الضغط) · مفاتيح KMS/HSM خارج المستودع · إبطال بـKey-ID + رفض الأقدم. **لم تُنفَّذ أي شيفرة توقيع** — AD-13 قرار نموذج لا تفويض تنفيذ؛ الباقي مواصفة (مرشَّحة SPEC-003) + تصريح + دليل بوابة |
 | GAP-11 | **P1** | اجتياز مسار في نقل الملفات + صلاحية `BuiltinUsersSid` واسع | E-19 · E-20 | G3 | canonicalisation + أقل امتياز | مفتوحة |
 | GAP-12 | **P1** | Named pipe بلا مصادقة | E-21 | G5 | ACL + تحقّق من العميل | مفتوحة |
 | GAP-13 | **P1** | ثغرات `NU1903` عالية الخطورة في الحزم | E-23 · **E-39** · **E-42 (المرحلة 3)** | Principle VIII | ترقية الحزم | ✅ **مغلقة (2026-11-06 المرحلة 3)** — صفر High/Moderate عبر كل المشاريع (T-08)؛ متبقٍّ Low ×2 (`NuGet.*` أداة تصميمية) مقبولة كبقايا — راجع E-42 |
@@ -292,7 +294,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | البوابة | الحالة | السبب |
 |---|---|---|
 | G1 — Server-enforced View Only | ❌ **FAIL** | لا فحص على السيرفر ولا على الجهاز (GAP-01…GAP-05) |
-| G2 — Signed and verified client updates | ❌ **FAIL** | E-22 — التوقيع بوابة قرار (OD-9)؛ الرُّزمة (R-07/GAP-13) تمت لكن التحقق من سلامة التحديث لم يُبنَ |
+| G2 — Signed and verified client updates | ❌ **FAIL** | E-22 — بوابة القرار `OD-9` **حُسِمت بـ`AD-13`** (هجين + KMS/HSM + Key-ID)؛ الرُّزمة (R-07/GAP-13) تمت لكن التحقق من سلامة التحديث **لم يُبنَ بعد** — ينتظر مواصفة + تصريح تنفيذ + `[RELEASE-GATE]` |
 | G3 — Safe file paths and transfer boundaries | ❌ **FAIL** | E-19 · E-20 |
 | G4 — Authenticated and authorized device actions | ❌ **FAIL** | E-16 · E-07 · E-18 |
 | G5 — Authenticated local IPC | ❌ **FAIL** | E-21 |
@@ -340,3 +342,5 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | 2026-11-06 (المرحلة صفر) | تصحيح C-08: E-29/GAP-15 **false positive** · إضافة E-36…E-39 وGAP-23…GAP-25 · إغلاق GAP-14 (شطب unpkg من libman.json، T-05/T-06) · تنفيذ T-07: **19/19** بـ`DOTNET_ROLL_FORWARD=Major` · GAP-06 مغلقة جزئيًا · GAP-19 مُصلَحة المصدر (لم تُسجَّل CI green بعد) |
 | 2026-11-06 (المرحلة 2 — R-04/PC-1) | حماية `DevicesController.Create` + `ClientDownloadsController` (`GetDesktop :35/:71` و`GetInstaller :117`) + `CustomBinariesController` بـ`ApiAuthorizationFilter` ⇒ **إغلاق GAP-07/08/09** · اكتشاف **E-41/GAP-26** (فلاتر fail-open) وإصلاحها fail-closed · **القبول الخطي** لتنزيل المثبّت العام (`/Content/*.zip` + `DownloadPackage`) مع التخفيفات — راجع DECISION-LOG (AD وD) وGATE-REGISTER PC-1 · بناء `Server` ناجح 0 أخطاء · لا تغيير على حالة بوابات G1–G7 |
 | 2026-11-06 (المرحلة 3 — R-07/GAP-13) | **ترقيات سلسلة التوريد** (وكيلة قابلة للتنفيذ): SignalR `8.0.10→8.0.33` · MailKit `4.8.0→4.18.2` · MessagePack `2.5.187→2.5.307` · pins للـAgent (IO.Packaging/Pkcs/Xml) · CodeGeneration.Design→8.0.23 (أزال Microsoft.Build High) · محاذاة Server.Tests EF (NU1605). **النتيجة: صفر High/Moderate · build 0 أخطاء · 19/19** · متبقٍّ Low ×2 (NuGet تصميمي) — راجع E-42/T-08. **أمّا R-03/G2 (توقيع التحديثات) فبوابة قرار (OD-9)** — لم تُنفَّذ أي شيفرة توقيع (تحتاج إدارة مفاتيح معتمدة) |
+| 2026-11-06 (المرحلة 3 — بوابة القرار) | **إغلاق `OD-9` بإجابة المالك ⇒ `AD-13`** (DECISION-LOG §1): نموذج هجين (Authenticode على المحمّلات + SHA-256 موقّع لكل حزمة يتحقق منه `UpdaterWin`/Linux/Mac قبل فكّ الضغط) · مفاتيح KMS/HSM خارج المستودع مع pubkey مضمَّن في العميل · إبطال بـKey-ID + رفض الأقدم. **لا شيفرة توقيع كُتبت** — G2 تبقى FAIL (مواصفة مرشَّحة SPEC-003 + تصريح تنفيذ + `[RELEASE-GATE]` باقية) — راجع GAP-10 وGATE-REGISTER G2 |
+| 2026-11-06 (المرحلة 4 — R-05 PoC) | **PoC هوية G7 نُفِّذ على هذا الجهاز (Windows Server 2025، Build 26100، جلسة console 1)**: أداة `poc/G7Identity/` (خارج الحل، قياس فقط) أعادت إنتاج سلسلة `CreateInteractiveSystemProcess` حرفيًا من موضع مُكافئ للإنتاج (مهمّة مجدولة SYSTEM في الجلسة 0) وسجّلت الوقائع الست ⇒ **E-43 (جديد) وT-09 (جديد)** · تحديث EVIDENCE-MAP E-14/N-04 · العدد 46→47 · **G7: UNKNOWN → FAIL** (فُحص وفشل شرطا الهوية (1)(2) — بتوجيه المالك AD-14، لا بترقية ذاتية) · **G5/G6 لم تتغيّرا** (فحص الأنبوب الحيّ وموافقة الجلسة الحيّة لم يُنفَّذا) · تحفّظات التمثيلية موثّقة في E-43 (built-in Administrator، بلا UAC filtering؛ السطح الآمن غير مُختبَر) · الأداة والنتائج تُركت في الشجرة العمليّة **بلا commit** والمهمّة المُجدولة حُذفت بعد التشغيل |

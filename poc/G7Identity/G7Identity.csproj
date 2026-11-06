@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <SupportedOSPlatform>windows</SupportedOSPlatform>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>G7IdentityPoC</RootNamespace>
+    <!-- PoC فقط: خارج Remotely.sln، لا يُشار إليه من أي مشروع إنتاج -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+</Project>
