@@ -1,5 +1,7 @@
 <div align="center">
-  <img src="Assets/Remotely_Logo.png" alt="Remotely" width="280">
+  <img src="Assets/Remotely_Icon.png" alt="Remotely" width="80" height="80">
+
+  <h1>Remotely</h1>
 
   <p><strong>Self-hosted remote control, remote scripting, and screen monitoring.</strong><br>
   The operator works in a browser. The device runs a background agent.</p>
