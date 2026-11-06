@@ -263,11 +263,33 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             UserConnectionId = ConnectionId,
             AgentConnectionId = serviceConnectionId,
             DeviceId = deviceId,
-            ViewOnly = viewOnly,
+
+            // SPEC-001 / FR-005, FR-008: FullControl is granted only through this
+            // explicit, authenticated UI request (device-group access is checked
+            // above and the organization scope is the circuit user's). The
+            // decision is recorded below; viewer links and URL parameters never
+            // grant authority (FR-006).
+            AccessMode = viewOnly
+                ? Shared.Enums.RemoteAccessMode.ViewOnly
+                : Shared.Enums.RemoteAccessMode.FullControl,
             OrganizationId = User.OrganizationID,
             RequireConsent = settings.EnforceAttendedAccess,
             NotifyUserOnStart = settings.RemoteControlNotifyUser
         };
+
+        _logger.LogInformation(
+            "Privilege decision: GRANTED.  " +
+            "Action: StartRemoteControl.  " +
+            "Requested Mode: {requestedMode}.  " +
+            "Applied Mode: {accessMode}.  " +
+            "Session ID: {sessionId}.  " +
+            "Device ID: {deviceId}.  " +
+            "Identity: {identity}.",
+            viewOnly ? Shared.Enums.RemoteAccessMode.ViewOnly : Shared.Enums.RemoteAccessMode.FullControl,
+            session.AccessMode,
+            sessionId,
+            deviceId,
+            User.UserName);
 
         _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
 

@@ -11,7 +11,8 @@ public interface IDesktopHubClient
         string viewerId,
         string requesterName,
         bool notifyUser,
-        Guid streamId);
+        Guid streamId,
+        bool viewOnly);
 
     Task<PromptForAccessResult> PromptForAccess(RemoteControlAccessRequest accessRequest);
 
@@ -19,7 +20,8 @@ public interface IDesktopHubClient
         string viewerId,
         string requesterName,
         bool notifyUser,
-        Guid streamId);
+        Guid streamId,
+        bool viewOnly);
 
     Task SendDtoToClient(byte[] dtoWrapper, string viewerConnectionId);
 

@@ -82,7 +82,10 @@ internal class ScreenCaster : IScreenCaster
 
     private async Task BeginScreenCastingImpl(ScreenCastRequest screenCastRequest)
     {
-        using var viewer = _viewerFactory.CreateViewer(screenCastRequest.RequesterName, screenCastRequest.ViewerId);
+        using var viewer = _viewerFactory.CreateViewer(
+            screenCastRequest.RequesterName,
+            screenCastRequest.ViewerId,
+            hasControl: !screenCastRequest.ViewOnly);
 
         try
         {

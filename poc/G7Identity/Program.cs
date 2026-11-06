@@ -289,10 +289,12 @@ internal static class Program
                         var label = SidToString(sidPtr);
                         facts["4.integrityLevelSid"] = label switch
                         {
-                            "S-1-16-4096" => label + " (System)",
-                            "S-1-16-8192" => label + " (Protected Process Light)",
+                            "S-1-16-4096" => label + " (Low)",
+                            "S-1-16-8192" => label + " (Medium)",
                             "S-1-16-12288" => label + " (High)",
-                            "S-1-16-16384" => label + " (Protected Process)",
+                            "S-1-16-16384" => label + " (System)",
+                            "S-1-16-20480" => label + " (Protected Process)",
+                            "S-1-16-24576" => label + " (Protected Process Light)",
                             _ => label,
                         };
                         facts["4.mandatoryLevel"] = facts["4.integrityLevelSid"];

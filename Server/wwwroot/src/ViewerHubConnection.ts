@@ -68,6 +68,19 @@ export class ViewerHubConnection {
         try {
             settings.ViewerOptions = await this.Connection.invoke<RemoteControlViewerOptions>("GetViewerOptions");
             SetSettings(settings);
+
+            // SPEC-001 / FR-002, FR-007: the viewer UI reflects the server-owned
+            // access mode. A View Only session cannot be widened from the
+            // browser: the toggle is locked and any query-string hint to the
+            // contrary is discarded.
+            if (settings.ViewerOptions.ViewOnly) {
+                ViewerApp.ViewOnlyLock = true;
+                ViewerApp.ViewOnlyMode = true;
+                UI.ViewOnlyButton.classList.add("toggled");
+                UI.ViewOnlyButton.disabled = true;
+                UI.ViewOnlyButton.title = "Session is View Only.";
+            }
+
             return settings.ViewerOptions;
         }
         catch (e) {
@@ -107,13 +120,16 @@ export class ViewerHubConnection {
     }
 
     async SendScreenCastRequestToDevice() {
-        const viewerOptions = await this.GetRemoteControlViewerOptions();
-
         const result = await this.Connection.invoke<Result>(
             "SendScreenCastRequestToDevice",
             ViewerApp.SessionId,
             ViewerApp.AccessKey,
             ViewerApp.RequesterName);
+
+        // SPEC-001 / FR-002: fetch the server-owned access mode after the
+        // session attach, so the UI reflects the actual session authority
+        // rather than any client-supplied hint.
+        const viewerOptions = await this.GetRemoteControlViewerOptions();
 
         if (!result.IsSuccess) {
             this.Connection.stop();

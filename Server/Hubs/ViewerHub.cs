@@ -4,6 +4,8 @@ using Remotely.Server.Models;
 using Remotely.Server.Services;
 using Remotely.Shared.Interfaces;
 using Remotely.Shared.Models;
+using Remotely.Shared.Models.Dtos;
+using MessagePack;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -83,12 +85,40 @@ public class ViewerHub : Hub<IViewerHubClient>
                 return Result.Fail("Only available in unattended mode.");
             }
 
+            // SPEC-001 / FR-010, FR-011: changing the target Windows session is a
+            // control action and is refused for View Only sessions.
+            if (SessionInfo.ViewOnly)
+            {
+                LogPrivilegeRefused(nameof(ChangeWindowsSession));
+                await Clients.Caller.ShowMessage("Not permitted: session is View Only.");
+                return Result.Fail("Not permitted: session is View Only.");
+            }
+
             SessionInfo.ViewerList.Remove(Context.ConnectionId);
             await _desktopHub.Clients
                 .Client(SessionInfo.DesktopConnectionId)
                 .ViewerDisconnected(Context.ConnectionId);
 
+            var previousSessionId = SessionInfo.UnattendedSessionId;
+            var previousMode = SessionInfo.AccessMode;
             SessionInfo = SessionInfo.CreateNew();
+
+            // SPEC-001 / FR-014: a clone carries its own recorded authorization
+            // decision. The mode itself is preserved by CreateNew (FR-013) and is
+            // never widened here.
+            _logger.LogInformation(
+                "Privilege decision: session cloned.  " +
+                "Session ID: {sessionId}.  " +
+                "Access Mode: {accessMode}.  " +
+                "Previous Session ID: {previousSessionId}.  " +
+                "Previous Access Mode: {previousAccessMode}.  " +
+                "Identity: {identity}.",
+                SessionInfo.UnattendedSessionId,
+                SessionInfo.AccessMode,
+                previousSessionId,
+                previousMode,
+                Context.User?.Identity?.Name ?? "unauthenticated");
+
             _desktopSessionCache.AddOrUpdate($"{SessionInfo.UnattendedSessionId}", SessionInfo);
 
             await _agentHub.Clients
@@ -153,9 +183,15 @@ public class ViewerHub : Hub<IViewerHubClient>
     public async Task<RemoteControlViewerOptions> GetViewerOptions()
     {
         var settings = await _dataService.GetSettings();
+
+        // SPEC-001 / FR-002, FR-007: the viewer UI receives the session's
+        // server-owned access mode. The client fetches this after the session
+        // attach request, so SessionInfo is the server-owned session record.
+        // The viewer's link and URL parameters are never consulted.
         return new RemoteControlViewerOptions()
         {
-            ShouldRecordSession = settings.EnableRemoteControlRecording
+            ShouldRecordSession = settings.EnableRemoteControlRecording,
+            ViewOnly = SessionInfo.ViewOnly
         };
     }
 
@@ -163,6 +199,14 @@ public class ViewerHub : Hub<IViewerHubClient>
     {
         try
         {
+            // SPEC-001 / FR-010, FR-011: Ctrl+Alt+Del is a control action.
+            if (SessionInfo.ViewOnly)
+            {
+                LogPrivilegeRefused(nameof(InvokeCtrlAltDel));
+                await Clients.Caller.ShowMessage("Not permitted: session is View Only.");
+                return;
+            }
+
             await _agentHub.Clients.Client(SessionInfo.AgentConnectionId).InvokeCtrlAltDel();
         }
         catch (Exception ex)
@@ -184,17 +228,92 @@ public class ViewerHub : Hub<IViewerHubClient>
         await base.OnDisconnectedAsync(exception);
     }
 
-    public Task SendDtoToClient(byte[] dtoWrapper)
+    public async Task SendDtoToClient(byte[] dtoWrapper)
     {
         if (string.IsNullOrWhiteSpace(SessionInfo.DesktopConnectionId))
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return _desktopHub.Clients
+        // SPEC-001 / FR-010, FR-011, FR-012: every remote-control message is
+        // authorized against the server-owned access mode of the session before
+        // it is forwarded. FullControl sessions are forwarded untouched (no
+        // parsing overhead); View Only sessions are inspected and any
+        // device-modifying message is refused here, at the server, and recorded.
+        if (SessionInfo.ViewOnly)
+        {
+            if (!TryGetDtoType(dtoWrapper, out var dtoType))
+            {
+                // A malformed message cannot be classified, so it cannot be
+                // proven to be view-only traffic. Fail closed (FR-009).
+                LogPrivilegeRefused("UnparsableDto");
+                return;
+            }
+
+            if (dtoType.IsControlMessage())
+            {
+                LogPrivilegeRefused(dtoType.ToString());
+
+                // FR-011: make the refusal observable to the viewer/administrator
+                // UI, but only once per connection so input-frequency messages do
+                // not flood the channel.
+                if (!_viewOnlyRefusalNotified)
+                {
+                    _viewOnlyRefusalNotified = true;
+                    await Clients.Caller.ShowMessage("Input blocked: session is View Only.");
+                }
+
+                return;
+            }
+        }
+
+        await _desktopHub.Clients
             .Client(SessionInfo.DesktopConnectionId)
             .SendDtoToClient(dtoWrapper, Context.ConnectionId);
     }
+
+    private bool _viewOnlyRefusalNotified;
+
+    /// <summary>
+    /// SPEC-001 / FR-008, FR-009, FR-029: record each refused privilege
+    /// decision with the session, the action, and the identity. Access keys and
+    /// other session secrets are never logged.
+    /// </summary>
+    private void LogPrivilegeRefused(string action)
+    {
+        _logger.LogWarning(
+            "Privilege decision: REFUSED.  " +
+            "Action: {action}.  " +
+            "Session ID: {sessionId}.  " +
+            "Access Mode: {accessMode}.  " +
+            "Identity: {identity}.  " +
+            "Connection ID: {connectionId}.",
+            action,
+            SessionInfo.UnattendedSessionId != Guid.Empty
+                ? SessionInfo.UnattendedSessionId.ToString()
+                : SessionInfo.AttendedSessionId,
+            SessionInfo.AccessMode,
+            Context.User?.Identity?.Name ?? "unauthenticated",
+            Context.ConnectionId);
+    }
+
+    private static bool TryGetDtoType(byte[] dtoWrapper, out DtoType dtoType)
+    {
+        dtoType = default;
+        try
+        {
+            var wrapper = MessagePackSerializer.Deserialize<DtoWrapper>(dtoWrapper);
+            dtoType = wrapper.DtoType;
+            return true;
+        }
+        catch (MessagePackSerializationException)
+        {
+            // A malformed message cannot be classified, so it cannot be proven
+            // to be view-only traffic. Fail closed (FR-009).
+            return false;
+        }
+    }
+
     public async Task<Result> SendScreenCastRequestToDevice(string sessionId, string accessKey, string requesterName)
     {
         if (string.IsNullOrWhiteSpace(sessionId))
@@ -269,18 +388,39 @@ public class ViewerHub : Hub<IViewerHubClient>
                     Context.ConnectionId,
                     RequesterDisplayName,
                     SessionInfo.NotifyUserOnStart,
-                    SessionInfo.StreamId);
+                    SessionInfo.StreamId,
+                    SessionInfo.ViewOnly);
         }
         else
         {
             SessionInfo.Mode = RemoteControlMode.Attended;
+
+            // SPEC-001: attended sessions are consent-gated on the device (the
+            // employee shares the session ID and accepts the connection prompt),
+            // which is the existing consent mechanism the constitution and the
+            // specification reuse. That consent is the authority basis for
+            // FullControl here; the decision is recorded (FR-008). This preserves
+            // the attended support workflow (Principle II: preserve function).
+            SessionInfo.AccessMode = Shared.Enums.RemoteAccessMode.FullControl;
+            _logger.LogInformation(
+                "Privilege decision: GRANTED.  " +
+                "Action: AttendedSessionAttach.  " +
+                "Applied Mode: {accessMode}.  " +
+                "Basis: attended consent on device.  " +
+                "Session ID: {sessionId}.  " +
+                "Identity: {identity}.",
+                SessionInfo.AccessMode,
+                SessionInfo.AttendedSessionId,
+                Context.User?.Identity?.Name ?? RequesterDisplayName);
+
             await _desktopHub.Clients
                 .Client(SessionInfo.DesktopConnectionId)
                 .RequestScreenCast(
                     Context.ConnectionId,
                     RequesterDisplayName,
                     SessionInfo.NotifyUserOnStart,
-                    SessionInfo.StreamId);
+                    SessionInfo.StreamId,
+                    SessionInfo.ViewOnly);
         }
 
         return Result.Ok();

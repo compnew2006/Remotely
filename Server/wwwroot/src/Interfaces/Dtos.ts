@@ -136,6 +136,7 @@ export class MouseWheelDto {
 
 export interface RemoteControlViewerOptions {
     ShouldRecordSession: boolean;
+    ViewOnly: boolean;
 }
 
 export interface ScreenDataDto {

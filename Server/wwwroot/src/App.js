@@ -21,6 +21,9 @@ export const ViewerApp = {
     ViewOnlyMode: queryString["viewonly"] ?
         decodeURIComponent(queryString["viewonly"]).toLowerCase() == "true" :
         false,
+    // SPEC-001 / FR-007: set by the server-owned viewer options. When true,
+    // the session is View Only per the server and the UI cannot widen it.
+    ViewOnlyLock: false,
     Mode: RemoteControlMode.Unknown,
     Settings: GetSettings(),
     Init: () => {

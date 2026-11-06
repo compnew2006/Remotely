@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Remotely — a remote control and remote scripting solution built with .NET 8, Blazor, and SignalR Core. Upstream: https://github.com/immense/Remotely
+Remotely — a remote control and remote scripting solution built with .NET 10 (LTS retarget ratified — AD-16), Blazor, and SignalR Core. Upstream: https://github.com/immense/Remotely
 
 ## Setup commands
 
@@ -15,17 +15,17 @@ Remotely — a remote control and remote scripting solution built with .NET 8, B
 
 ## Project layout
 
-- `Server/` — ASP.NET Core (net8.0): `API/`, `Hubs/` (SignalR), `Components/` + `Pages/` (Blazor), `Auth/`, `Data/` + `Migrations/`, `Services/`, `Extensions/`, `Options/`, `wwwroot/` (TS client)
+- `Server/` — ASP.NET Core (net10.0): `API/`, `Hubs/` (SignalR), `Components/` + `Pages/` (Blazor), `Auth/`, `Data/` + `Migrations/`, `Services/`, `Extensions/`, `Options/`, `wwwroot/` (TS client)
 - `Shared/` — cross-project entities, DTOs, primitives, shared services
-- `Agent/` — background agent/service client (net8.0)
-- `Desktop.Shared/`, `Desktop.UI/` (Avalonia), `Desktop.Linux/`, `Desktop.Win/` (net8.0-windows), `Desktop.Native/` (Win32/X11 P/Invoke). `Desktop.Core/` is a **duplicate of `Desktop.Shared` that is not in the solution and not referenced by any project** — dead code; the live implementation is `Desktop.Shared/`.
+- `Agent/` — background agent/service client (net10.0)
+- `Desktop.Shared/`, `Desktop.UI/` (Avalonia), `Desktop.Linux/`, `Desktop.Win/` (net10.0-windows), `Desktop.Native/` (Win32/X11 P/Invoke). `Desktop.Core/` is a **duplicate of `Desktop.Shared` that is not in the solution and not referenced by any project** — dead code; the live implementation is `Desktop.Shared/`.
 - `Tests/` — MSTest projects `Server.Tests/`, `Shared.Tests/`, `Desktop.Win.Tests/`; `LoadTester/` is a console tool
 - `docker-compose/` — container deployment  ·  `Utilities/` — publish/migration/signing scripts
 - `.github/workflows/` — `run_tests.yml` (CI test job), `build.yml` (manual RID builds)  ·  `.azure-pipelines/` — release pipeline
 
 ## Code style
 
-- C# / .NET 8, `Nullable` enabled repo-wide via `Directory.Build.props`; `RootNamespace` is `Remotely.<Project>`
+- C# / .NET 10 (all solution projects retargeted to `net10.0` in `6c092ac9`; ratified as owner decision AD-16 — local SDK-10 availability tracked as OD-10), `Nullable` enabled repo-wide via `Directory.Build.props`; `RootNamespace` is `Remotely.<Project>`
 - File-scoped namespaces (`namespace Remotely.Server.Services;`), 4-space indent, CRLF, braces required (`.editorconfig`)
 - Global usings live in each project's `Usings.cs` — add to those instead of repeating `using` lines
 - DI is registered in the composition root (`Server/Program.cs`) and `Server/Extensions/`; no service locators or statics for services
@@ -34,7 +34,7 @@ Remotely — a remote control and remote scripting solution built with .NET 8, B
 
 ## Testing instructions
 
-- Unit tests: `dotnet test` (MSTest + Moq). **26 test attributes exist in source, but only 19 are in the solution** (`Server.Tests` 18 + `Shared.Tests` 1); the other 7 are in `Tests/Desktop.Win.Tests`, which is **not in the solution** and whose tests are all `[Ignore]`d. **0 of them currently execute** (verified 2026-11-06): the test host needs a **.NET 8 runtime** (this machine has 6.0.11 / 9.0.17 / 10.0.14 only), and the `Server` build fails on the LibMan `LIB002` error, so `Server.Tests` never compiles. CI pins **SDK 7** while projects target `net8.0` — expect `NETSDK1045` there. ⇒ **Do not claim a test result you did not run.** See `EVIDENCE-MAP.md` §3.
+- Unit tests: `dotnet test` (MSTest + Moq). **26 test attributes exist in source, but only 19 are in the solution** (`Server.Tests` 18 + `Shared.Tests` 1); the other 7 are in `Tests/Desktop.Win.Tests`, which is **not in the solution** and whose tests are all `[Ignore]`d. **0 of them currently execute** (verified 2026-11-06). Since the net10.0 retarget (`6c092ac9`) the situation worsened (T-10): this machine has **SDK 9.0.315 only** (runtime 10.0.14 ≠ SDK), so `dotnet build Remotely.sln` fails `NETSDK1045` on all 11 projects — nothing compiles locally until OD-10 is resolved (install SDK 10 / revert / CI-only). The `Server` build additionally fails on the LibMan `LIB002` error. CI pins **SDK 7** — expect `NETSDK1045` there too. ⇒ **Do not claim a test result you did not run.** See `EVIDENCE-MAP.md` §3 and T-10.
 - Test projects live under `Tests/`; follow the existing `*Tests.cs` naming and folder layout
 - Add tests for new behavior; EF-backed tests use `Microsoft.EntityFrameworkCore.InMemory`
 - `dotnet test` must pass before opening a PR

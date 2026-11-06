@@ -45,29 +45,24 @@ public class DtoMessageHandler : IDtoMessageHandler
         {
             var wrapper = MessagePackSerializer.Deserialize<DtoWrapper>(message);
 
-            switch (wrapper.DtoType)
+            // SPEC-001 / FR-017, FR-018, FR-019, FR-020: the device independently
+            // verifies every remote-control message against the authority the
+            // server granted for this viewer (conveyed via the screen-cast
+            // request). The classification comes from the shared DtoType
+            // classifier so the device and the server can never diverge.
+            // Rejection is recorded locally and never terminates or degrades the
+            // viewing session.
+            if (wrapper.DtoType.IsControlMessage() && !viewer.HasControl)
             {
-                case DtoType.MouseMove:
-                case DtoType.MouseDown:
-                case DtoType.MouseUp:
-                case DtoType.Tap:
-                case DtoType.MouseWheel:
-                case DtoType.KeyDown:
-                case DtoType.KeyUp:
-                case DtoType.CtrlAltDel:
-                case DtoType.ToggleBlockInput:
-                case DtoType.TextTransfer:
-                case DtoType.KeyPress:
-                case DtoType.SetKeyStatesUp:
-                    {
-                        if (!viewer.HasControl)
-                        {
-                            return;
-                        }
-                    }
-                    break;
-                default:
-                    break;
+                _logger.LogWarning(
+                    "Control message rejected on device.  " +
+                    "DtoType: {dtoType}.  " +
+                    "Viewer Name: {viewerName}.  " +
+                    "Has Control: {hasControl}.",
+                    wrapper.DtoType,
+                    viewer.Name,
+                    viewer.HasControl);
+                return;
             }
 
             switch (wrapper.DtoType)

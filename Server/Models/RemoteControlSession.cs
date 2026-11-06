@@ -1,5 +1,6 @@
 using Remotely.Server.Enums;
 using Remotely.Server.Services;
+using Remotely.Shared.Enums;
 using Remotely.Shared.Helpers;
 
 namespace Remotely.Server.Models;
@@ -29,6 +30,20 @@ public class RemoteControlSession : IDisposable
     public DateTimeOffset LastStateChange { get; private set; } = DateTimeOffset.Now;
     public string MachineName { get; internal set; } = string.Empty;
     public RemoteControlMode Mode { get; internal set; }
+
+    /// <summary>
+    /// The server-owned access authority of this session (SPEC-001 / FR-001, FR-002).
+    /// Defaults to ViewOnly (FR-003). Only an explicit, authorized server-side
+    /// decision may set FullControl; the browser, the viewer, the link, and the
+    /// device cannot widen it.
+    /// </summary>
+    public RemoteAccessMode AccessMode { get; set; } = RemoteAccessMode.ViewOnly;
+
+    /// <summary>
+    /// Convenience view of <see cref="AccessMode"/>. Read-only by design:
+    /// authority is changed through <see cref="AccessMode"/>, never through this flag.
+    /// </summary>
+    public bool ViewOnly => AccessMode == RemoteAccessMode.ViewOnly;
     /// <summary>
     /// Whether to notify the user via system notification when a remote
     /// control session has started.
@@ -37,7 +52,8 @@ public class RemoteControlSession : IDisposable
 
     public string OrganizationId { get; set; } = string.Empty;
     public string OrganizationName { get; internal set; } = string.Empty;
-    public string RelativeAccessUri => $"/Viewer?mode=Unattended&sessionId={UnattendedSessionId}&accessKey={AccessKey}&viewonly=False";
+    public string RelativeAccessUri =>
+        $"/Viewer?mode=Unattended&sessionId={UnattendedSessionId}&accessKey={AccessKey}&viewonly={(ViewOnly ? "True" : "False")}";
     public string RequesterName { get; set; } = string.Empty;
     public string RequesterUserName { get; internal set; } = string.Empty;
     /// <summary>
@@ -71,7 +87,6 @@ public class RemoteControlSession : IDisposable
     /// </summary>
     public HashSet<string> ViewerList { get; private set; } = new();
 
-    public bool ViewOnly { get; set; }
     /// <summary>
     /// Creates a new session based off this existing one, but with
     /// a new UnattendedSessionId and AccessKey.
@@ -89,7 +104,12 @@ public class RemoteControlSession : IDisposable
         clone.UnattendedSessionId = Guid.NewGuid();
         clone.AccessKey = RandomGenerator.GenerateAccessKey();
         clone.ViewerList = new();
-        clone.ViewOnly = false;
+
+        // SPEC-001 / FR-013, FR-014: lifecycle events must never upgrade a
+        // session from ViewOnly to FullControl. The clone keeps the server-owned
+        // access mode it was derived from; its own privilege decision is recorded
+        // by the caller that performs the clone.
+        // Note: MemberwiseClone already copies AccessMode.
         return clone;
     }
 

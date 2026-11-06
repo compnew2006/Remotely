@@ -7,7 +7,7 @@ namespace Remotely.Desktop.Shared.Services;
 
 internal interface IViewerFactory
 {
-    IViewer CreateViewer(string viewerName, string viewerConnectionId);
+    IViewer CreateViewer(string viewerName, string viewerConnectionId, bool hasControl);
 }
 
 internal class ViewerFactory : IViewerFactory
@@ -19,7 +19,7 @@ internal class ViewerFactory : IViewerFactory
         _serviceProvider = serviceProvider;
     }
 
-    public IViewer CreateViewer(string viewerName, string viewerConnectionId)
+    public IViewer CreateViewer(string viewerName, string viewerConnectionId, bool hasControl)
     {
         var desktopHubConnection = _serviceProvider.GetRequiredService<IDesktopHubConnection>();
         var screenCapturer = _serviceProvider.GetRequiredService<IScreenCapturer>();
@@ -31,6 +31,7 @@ internal class ViewerFactory : IViewerFactory
         return new Viewer(
             viewerName,
             viewerConnectionId,
+            hasControl,
             desktopHubConnection,
             screenCapturer,
             clipboardService,

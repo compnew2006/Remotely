@@ -195,7 +195,8 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         string viewerId,
         string requesterName,
         bool notifyUser,
-        Guid streamId)
+        Guid streamId,
+        bool viewOnly)
     {
         // We don't want to tie up the invocation from the server, so we'll
         // start this in a new task.
@@ -210,7 +211,8 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
                         NotifyUser = notifyUser,
                         ViewerId = viewerId,
                         RequesterName = requesterName,
-                        StreamId = streamId
+                        StreamId = streamId,
+                        ViewOnly = viewOnly
                     });
             }
             catch (Exception ex)
@@ -279,14 +281,15 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         }
     }
 
-    public Task RequestScreenCast(string viewerId, string requesterName, bool notifyUser, Guid streamId)
+    public Task RequestScreenCast(string viewerId, string requesterName, bool notifyUser, Guid streamId, bool viewOnly)
     {
         _appState.InvokeScreenCastRequested(new ScreenCastRequest()
         {
             NotifyUser = notifyUser,
             ViewerId = viewerId,
             RequesterName = requesterName,
-            StreamId = streamId
+            StreamId = streamId,
+            ViewOnly = viewOnly
         });
         return Task.CompletedTask;
     }
@@ -385,8 +388,8 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
 
         // TODO: Replace parameters with singular DTOs for both client and server methods.
         connection.On<string>(nameof(Disconnect), Disconnect);
-        connection.On<string, string, bool, Guid>(nameof(GetScreenCast), GetScreenCast);
-        connection.On<string, string, bool, Guid>(nameof(RequestScreenCast), RequestScreenCast);
+        connection.On<string, string, bool, Guid, bool>(nameof(GetScreenCast), GetScreenCast);
+        connection.On<string, string, bool, Guid, bool>(nameof(RequestScreenCast), RequestScreenCast);
         connection.On<byte[], string>(nameof(SendDtoToClient), SendDtoToClient);
         connection.On<string>(nameof(ViewerDisconnected), ViewerDisconnected);
         connection.On<RemoteControlAccessRequest, PromptForAccessResult>(nameof(PromptForAccess), PromptForAccess);

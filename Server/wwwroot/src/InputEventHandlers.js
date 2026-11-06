@@ -64,6 +64,15 @@ export function ApplyInputHandlers() {
         }, { once: true });
     });
     ViewOnlyButton.addEventListener("click", () => {
+        // SPEC-001 / FR-007: a UI control must not grant control unless the
+        // server has authorized FullControl for the session. A locked session
+        // (ViewOnly per the server) cannot be widened from here; the server and
+        // the device enforce this independently as well.
+        if (ViewerApp.ViewOnlyLock) {
+            ViewOnlyButton.classList.add("toggled");
+            ViewerApp.ViewOnlyMode = true;
+            return;
+        }
         ViewOnlyButton.classList.toggle("toggled");
         ViewerApp.ViewOnlyMode = ViewOnlyButton.classList.contains("toggled");
     });

@@ -61,6 +61,7 @@ public class Viewer : IViewer
     public Viewer(
         string requesterName,
         string viewerHubConnectionId,
+        bool hasControl,
         IDesktopHubConnection desktopHubConnection,
         IScreenCapturer screenCapturer,
         IClipboardService clipboardService,
@@ -70,6 +71,13 @@ public class Viewer : IViewer
     {
         Name = requesterName;
         ViewerConnectionId = viewerHubConnectionId;
+
+        // SPEC-001 / FR-017, FR-020: control authority derives solely from the
+        // server-granted authorization for this session, conveyed via the
+        // screen-cast request. Fail-closed: the default (parameter-less) state
+        // of a viewer is no control.
+        HasControl = hasControl;
+
         Capturer = screenCapturer;
         _desktopHubConnection = desktopHubConnection;
         _clipboardService = clipboardService;
@@ -92,7 +100,7 @@ public class Viewer : IViewer
             _disconnectRequested = value;
         }
     }
-    public bool HasControl { get; set; } = true;
+    public bool HasControl { get; set; }
     public int ImageQuality { get; private set; } = DefaultQuality;
     public bool IsResponsive { get; private set; } = true;
     public string Name { get; set; } = string.Empty;

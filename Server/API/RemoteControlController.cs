@@ -46,14 +46,14 @@ public class RemoteControlController : ControllerBase
 
     [HttpGet("{deviceID}")]
     [ServiceFilter(typeof(ApiAuthorizationFilter))]
-    public async Task<IActionResult> Get(string deviceID)
+    public async Task<IActionResult> Get(string deviceID, [FromQuery] string? accessMode)
     {
         if (!Request.Headers.TryGetOrganizationId(out var orgId))
         {
             return Unauthorized();
         }
-        
-        return await InitiateRemoteControl(deviceID, orgId);
+
+        return await InitiateRemoteControl(deviceID, orgId, accessMode);
     }
 
     [HttpPost]
@@ -86,7 +86,7 @@ public class RemoteControlController : ControllerBase
             _dataService.DoesUserHaveAccessToDevice(rcRequest.DeviceID, userResult.Value))
         {
             _logger.LogInformation("API login successful for {rcRequestEmail}.", rcRequest.Email);
-            return await InitiateRemoteControl(rcRequest.DeviceID, orgId);
+            return await InitiateRemoteControl(rcRequest.DeviceID, orgId, null);
         }
         else if (result.IsLockedOut)
         {
@@ -102,7 +102,7 @@ public class RemoteControlController : ControllerBase
         return BadRequest();
     }
 
-    private async Task<IActionResult> InitiateRemoteControl(string deviceID, string orgId)
+    private async Task<IActionResult> InitiateRemoteControl(string deviceID, string orgId, string? requestedAccessMode)
     {
         if (!_serviceSessionCache.TryGetByDeviceId(deviceID, out var targetDevice) ||
             !_serviceSessionCache.TryGetConnectionId(deviceID, out var serviceConnectionId))
@@ -130,10 +130,42 @@ public class RemoteControlController : ControllerBase
             }
         }
 
+        // SPEC-001 / FR-003, FR-004, FR-021: the access mode is an explicit,
+        // server-evaluated decision. An absent mode is never interpreted as
+        // FullControl: the default is ViewOnly.
+        // FR-023: FullControl is offered only to an authenticated caller whose
+        // device-group access has been verified above. API-key-only callers and
+        // unauthenticated callers get View Only, fail-closed.
+        var isFullControlRequested =
+            string.Equals(requestedAccessMode, "FullControl", StringComparison.OrdinalIgnoreCase);
+
+        var isFullControlAuthorized =
+            isFullControlRequested &&
+            User.Identity?.IsAuthenticated == true;
+
+        var appliedAccessMode = isFullControlAuthorized
+            ? Shared.Enums.RemoteAccessMode.FullControl
+            : Shared.Enums.RemoteAccessMode.ViewOnly;
+
         var sessionCount = _remoteControlSessionCache.Sessions.Count(x => x.OrganizationId == orgId);
 
         var sessionId = Guid.NewGuid();
         var accessKey = RandomGenerator.GenerateAccessKey();
+
+        _logger.LogInformation(
+            "Privilege decision: {decision}.  " +
+            "Action: ApiStartRemoteControl.  " +
+            "Requested Mode: {requestedMode}.  " +
+            "Applied Mode: {appliedMode}.  " +
+            "Session ID: {sessionId}.  " +
+            "Device ID: {deviceId}.  " +
+            "Identity: {identity}.",
+            isFullControlRequested && isFullControlAuthorized ? "GRANTED" : (isFullControlRequested ? "REFUSED" : "DEFAULTED"),
+            string.IsNullOrWhiteSpace(requestedAccessMode) ? "none" : requestedAccessMode,
+            appliedAccessMode,
+            sessionId,
+            deviceID,
+            User.Identity?.IsAuthenticated == true ? User.Identity.Name : "api-key");
 
         var session = new RemoteControlSession()
         {
@@ -141,7 +173,8 @@ public class RemoteControlController : ControllerBase
             UserConnectionId = HttpContext.Connection.Id,
             AgentConnectionId = serviceConnectionId,
             DeviceId = deviceID,
-            OrganizationId = orgId
+            OrganizationId = orgId,
+            AccessMode = appliedAccessMode
         };
 
         _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session, (k, v) =>
@@ -172,6 +205,11 @@ public class RemoteControlController : ControllerBase
         }
        
         var otp = _otpProvider.GetOtp(targetDevice.ID);
+
+        // SPEC-001 / FR-022, FR-027: expose the applied access mode in a
+        // machine-readable form so integrators can detect the change without
+        // parsing the returned URL.
+        Response.Headers["X-Remote-Control-Access-Mode"] = appliedAccessMode.ToString();
 
         return Ok($"{HttpContext.Request.Scheme}://{Request.Host}/Viewer?mode=Unattended&sessionId={sessionId}&accessKey={accessKey}&otp={otp}");
     }

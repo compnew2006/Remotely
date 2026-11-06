@@ -290,8 +290,14 @@ else
     }
 }
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// Hardening (EVIDENCE-MAP E-37 / GAP-24): Swagger and its UI are exposed only
+// in development. They list every internal API route and must not be reachable
+// from a production deployment.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 ConfigureStaticFiles();
 
