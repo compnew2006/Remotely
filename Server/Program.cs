@@ -85,7 +85,34 @@ using AppDb appDb = dbProvider switch
     _ => throw new InvalidOperationException($"Invalid DBProvider: {dbProvider}")
 };
 
-await appDb.Database.MigrateAsync();
+// GAP-25 (part): automatic schema migration at startup is now gated by an
+// explicit operator opt-out. The default keeps the existing behaviour (migrate
+// on boot) so current deployments upgrade without action, but operators who
+// require controlled migrations (release/change management) can set
+// Remotely_ApplicationOptions__AllowDbAutoMigration=false and run
+// `dotnet ef database update` under their own change process.
+var allowDbAutoMigration = builder.Configuration
+    .GetSection("ApplicationOptions")
+    .GetValue<bool?>(nameof(ApplicationOptions.AllowDbAutoMigration)) ?? true;
+
+if (allowDbAutoMigration)
+{
+    await appDb.Database.MigrateAsync();
+}
+else
+{
+    var pending = (await appDb.Database.GetPendingMigrationsAsync()).Count();
+    if (pending > 0)
+    {
+        // Fail closed: running with an un-migrated schema is a support hazard.
+        throw new InvalidOperationException(
+            $"{pending} pending database migration(s) found and " +
+            "AllowDbAutoMigration is disabled.  " +
+            "Apply migrations manually (dotnet ef database update) or " +
+            "re-enable automatic migration.");
+    }
+}
+
 var settings = await appDb.GetAppSettings();
 
 ConfigureSerilog(builder, settings);
