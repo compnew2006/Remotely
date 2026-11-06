@@ -1,18 +1,119 @@
-﻿#deviceControlsWrapper {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-column-gap: 20px;
-    grid-row-gap: 10px;
-    margin-bottom: 5px;
-    margin-right: 5px;
-    padding-top: 3px;
+﻿/*
+ * The device toolbar is one bar with two groups: filters on the left, view
+ * controls on the right. Every field is a micro-label above a 38px control,
+ * so the labels share one baseline and the controls share one baseline.
+ */
+#deviceControlsWrapper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 32px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rm-border);
 }
 
-    #deviceControlsWrapper > :last-child {
-        text-align: right;
-    }
+.rm-toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+}
 
-#deviceListDiv{
+.rm-toolbar-group-end {
+    justify-content: flex-end;
+}
+
+.rm-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rm-field-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rm-field-check {
+    justify-content: flex-end;
+    height: var(--rm-control-height);
+}
+
+.rm-field-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The field name: 12px, uppercase, quiet. */
+.rm-label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rm-ink-faint);
+}
+
+/* The name of a control inside a field ("of 3", the checkbox text). */
+.rm-control-label {
+    margin: 0;
+    font-size: 14px;
+    color: var(--rm-ink-muted);
+}
+
+.rm-icon-button {
+    width: 40px;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+#deviceControlsWrapper .form-control,
+#deviceControlsWrapper .btn {
+    height: var(--rm-control-height);
+}
+
+#deviceControlsWrapper .custom-control-label {
+    font-size: 14px;
+    color: var(--rm-ink-muted);
+}
+
+.rm-select-group {
+    width: 150px;
+}
+
+.rm-search-input {
+    width: 200px;
+}
+
+.rm-per-page-select {
+    width: 100px;
+}
+
+.rm-page-input {
+    width: 75px;
+    text-align: center;
+}
+
+/*
+ * The cards carry their own margins, which pushed the grid 8px to the right
+ * of the toolbar. The grid owns the spacing instead, so both share an edge.
+ */
+#deviceListDiv {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 0 0 48px;
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+#deviceListDiv ::deep .device-card {
+    margin: 0;
+    flex: 0 0 auto;
 }

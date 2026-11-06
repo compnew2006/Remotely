@@ -10,7 +10,7 @@ using Remotely.Shared;
 using Remotely.Shared.Entities;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Interfaces;
-using Remotely.Shared.Utilities;
+using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
 using System.Collections.Concurrent;
 
@@ -50,6 +50,48 @@ public interface ICircuitConnection
     Task<Result> DeleteScreenshot(string deviceId, string fileName);
 
     Task<Result> ClearScreenshots(string deviceId);
+
+    /// <summary>
+    /// Asks a device to record a video clip from one of its cameras.
+    /// </summary>
+    Task<Result> StartCameraCapture(
+        string deviceId,
+        string cameraId,
+        int quality,
+        int durationSeconds);
+
+    /// <summary>
+    /// Stops a camera recording that is running on a device.
+    /// </summary>
+    Task<Result> StopCameraCapture(string deviceId);
+
+    Task<Result> StartCameraMonitoring(
+        string deviceId,
+        string cameraId,
+        int quality,
+        int durationSeconds,
+        int intervalMinutes);
+
+    Task<Result> StopCameraMonitoring(string deviceId);
+
+    CameraMonitoringStatus? GetCameraMonitoringStatus(string deviceId);
+
+    Task<Result> UpdateCameraSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
+    /// <summary>
+    /// Returns the cameras that the device reported the last time it was
+    /// asked to record.
+    /// </summary>
+    CameraDeviceInfo[] GetCameraDevices(string deviceId);
+
+    Task<Result> DeleteCameraClip(string deviceId, string fileName);
+
+    Task<Result> ClearCameraClips(string deviceId);
 
     Task RemoveDevices(string[] deviceIDs);
 
@@ -91,6 +133,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     private readonly IExpiringTokenService _expiringTokenService;
     private readonly ILogger<CircuitConnection> _logger;
     private readonly IAgentHubSessionCache _agentSessionCache;
+    private readonly ICameraService _cameraService;
     private readonly IMessenger _messenger;
     private readonly IToastService _toastService;
     private RemotelyUser? _user;
@@ -106,6 +149,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         IExpiringTokenService expiringTokenService,
         IRemoteControlSessionCache remoteControlSessionCache,
         IScreenshotService screenshotService,
+        ICameraService cameraService,
         IAgentHubSessionCache agentSessionCache,
         IMessenger messenger,
         ILogger<CircuitConnection> logger)
@@ -120,6 +164,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         _expiringTokenService = expiringTokenService;
         _remoteControlSessionCache = remoteControlSessionCache;
         _screenshotService = screenshotService;
+        _cameraService = cameraService;
         _agentSessionCache = agentSessionCache;
         _messenger = messenger;
         _logger = logger;
@@ -596,6 +641,471 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         _screenshotService.ClearScreenshots(deviceResult.Value);
 
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Asks a device to record a video clip from one of its cameras.  The
+    /// device records the clip and sends it to the server.
+    /// </summary>
+    public async Task<Result> StartCameraCapture(
+        string deviceId,
+        string cameraId,
+        int quality,
+        int durationSeconds)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            _logger.LogWarning(
+                "A camera recording was attempted by an unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
+                deviceId,
+                User.UserName);
+
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
+        {
+            return Result.Fail("Service connection not found.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail(deviceResult.Reason);
+        }
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        // A duration of zero means that only the list of cameras is asked
+        // for, so nothing is recorded.  Every other duration is brought into
+        // the range that is allowed.
+        var duration = durationSeconds <= 0 ?
+            0 :
+            CameraQualityPresets.ClampDurationSeconds(durationSeconds);
+        var captureRequest = new CameraCaptureRequest(
+            cameraId ?? string.Empty,
+            CameraQualityPresets.ParseQuality(((CameraQuality)quality).ToString()),
+            duration);
+
+        // A manual request can share the active scheduled session. The desktop
+        // serializes captures, so it will never overlap a scheduled clip.
+        var monitoringSession = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraMonitoring);
+
+        if (monitoringSession is not null)
+        {
+            if (string.IsNullOrWhiteSpace(monitoringSession.DesktopConnectionId))
+            {
+                return Result.Fail("Camera monitoring is waiting for the device to reconnect.");
+            }
+
+            await _desktopHubContext.Clients
+                .Client(monitoringSession.DesktopConnectionId)
+                .StartCameraCapture(deviceId, captureRequest.CameraId, (int)captureRequest.Quality, duration);
+
+            return Result.Ok();
+        }
+
+        // Replace any one-shot recording left over for this device.
+        await StopExistingCameraCapture(deviceId);
+
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var session = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            IsCameraCapture = true,
+            CameraCapture = captureRequest
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
+
+        _logger.LogInformation(
+            "Camera capture requested.  Device ID: {deviceId}.  Quality: {quality}.  Duration: {duration} seconds.  Identity: {identity}.",
+            deviceId,
+            session.CameraCapture.Quality,
+            session.CameraCapture.DurationSeconds,
+            User.UserName);
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops a camera recording that is running on a device.
+    /// </summary>
+    public async Task<Result> StopCameraCapture(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var monitoringSession = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraMonitoring);
+
+        if (monitoringSession is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(monitoringSession.DesktopConnectionId))
+            {
+                await _desktopHubContext.Clients
+                    .Client(monitoringSession.DesktopConnectionId)
+                    .StopCameraCapture();
+            }
+        }
+        else
+        {
+            await StopExistingCameraCapture(deviceId);
+        }
+
+        _logger.LogInformation(
+            "Camera capture stopped.  Device ID: {deviceId}.  Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Starts recurring camera recordings at the selected interval.
+    /// </summary>
+    public async Task<Result> StartCameraMonitoring(
+        string deviceId,
+        string cameraId,
+        int quality,
+        int durationSeconds,
+        int intervalMinutes)
+    {
+        if (intervalMinutes < 1 || intervalMinutes > 30)
+        {
+            return Result.Fail("The camera recording interval must be between 1 and 30 minutes.");
+        }
+
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
+        {
+            return Result.Fail("Service connection not found.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail(deviceResult.Reason);
+        }
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        await StopExistingCameraCapture(deviceId);
+
+        var captureRequest = new CameraCaptureRequest(
+            cameraId ?? string.Empty,
+            CameraQualityPresets.ParseQuality(((CameraQuality)quality).ToString()),
+            CameraQualityPresets.ClampDurationSeconds(durationSeconds));
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var session = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            IsCameraCapture = true,
+            IsCameraMonitoring = true,
+            CameraMonitoringIntervalSeconds = intervalMinutes * 60,
+            CameraPauseWindows = deviceResult.Value.CameraPauseWindows,
+            CameraCapture = captureRequest
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
+
+        _logger.LogInformation(
+            "Scheduled camera recording started. Device ID: {deviceId}. Interval: {interval} seconds. Identity: {identity}.",
+            deviceId,
+            session.CameraMonitoringIntervalSeconds,
+            User.UserName);
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops recurring camera recordings for a device.
+    /// </summary>
+    public async Task<Result> StopCameraMonitoring(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        await StopExistingCameraMonitoring(deviceId);
+
+        _logger.LogInformation(
+            "Scheduled camera recording stopped. Device ID: {deviceId}. Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        return Result.Ok();
+    }
+
+    public CameraMonitoringStatus? GetCameraMonitoringStatus(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return null;
+        }
+
+        var session = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraMonitoring);
+
+        if (session?.CameraCapture is null)
+        {
+            return null;
+        }
+
+        return new CameraMonitoringStatus(
+            session.CameraMonitoringIntervalSeconds / 60,
+            new CameraCaptureRequest(
+                session.CameraCapture.CameraId,
+                session.CameraCapture.Quality,
+                session.CameraCapture.DurationSeconds));
+    }
+
+    public async Task<Result> UpdateCameraSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var result = await _dataService.UpdateCameraSettings(
+            deviceId,
+            directory,
+            retentionCount,
+            retentionHours,
+            pauseWindows);
+
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var monitoringSession = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraMonitoring);
+
+        if (monitoringSession is null)
+        {
+            return result;
+        }
+
+        monitoringSession.CameraPauseWindows = pauseWindows;
+
+        if (string.IsNullOrWhiteSpace(monitoringSession.DesktopConnectionId) ||
+            monitoringSession.CameraCapture is null)
+        {
+            // The updated settings will be applied when the desktop client
+            // reconnects and the server re-sends its schedule.
+            return result;
+        }
+
+        var pauseWindowList = ScreenshotPause.Deserialize(pauseWindows);
+
+        try
+        {
+            await _desktopHubContext.Clients
+                .Client(monitoringSession.DesktopConnectionId)
+                .StartCameraMonitoring(
+                    deviceId,
+                    monitoringSession.CameraCapture,
+                    monitoringSession.CameraMonitoringIntervalSeconds,
+                    pauseWindowList.Select(x => x.StartHour).ToArray(),
+                    pauseWindowList.Select(x => x.EndHour).ToArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Camera settings were saved, but the active schedule could not be updated for device {deviceId}.",
+                deviceId);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns the cameras that the device reported the last time it was
+    /// asked to record.
+    /// </summary>
+    public CameraDeviceInfo[] GetCameraDevices(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Array.Empty<CameraDeviceInfo>();
+        }
+
+        var session = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraCapture);
+
+        return session?.CameraDevices.ToArray() ?? Array.Empty<CameraDeviceInfo>();
+    }
+
+    /// <summary>
+    /// Deletes a single camera clip of a device.
+    /// </summary>
+    public async Task<Result> DeleteCameraClip(string deviceId, string fileName)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _cameraService.DeleteClip(deviceResult.Value, fileName);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Deletes every camera clip that was recorded from a device.
+    /// </summary>
+    public async Task<Result> ClearCameraClips(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _cameraService.ClearClips(deviceResult.Value);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops the camera recordings that are running for a device, and removes
+    /// their sessions.
+    /// </summary>
+    private async Task StopExistingCameraCapture(string deviceId)
+    {
+        foreach (var session in _remoteControlSessionCache.Sessions.Where(x => x.DeviceId == deviceId && x.IsCameraCapture))
+        {
+            if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                try
+                {
+                    // Tell the device to stop recording before the session is
+                    // removed, so the desktop app doesn't keep recording with
+                    // nowhere to send the result.
+                    if (session.IsCameraMonitoring)
+                    {
+                        await _desktopHubContext.Clients
+                            .Client(session.DesktopConnectionId)
+                            .StopCameraMonitoring();
+                    }
+                    else
+                    {
+                        await _desktopHubContext.Clients
+                            .Client(session.DesktopConnectionId)
+                            .StopCameraCapture();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while stopping a camera recording on device {deviceId}.", deviceId);
+                }
+            }
+
+            _remoteControlSessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
+    }
+
+    private async Task StopExistingCameraMonitoring(string deviceId)
+    {
+        foreach (var session in _remoteControlSessionCache.Sessions
+            .Where(x => x.DeviceId == deviceId && x.IsCameraMonitoring))
+        {
+            if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                try
+                {
+                    await _desktopHubContext.Clients
+                        .Client(session.DesktopConnectionId)
+                        .StopCameraMonitoring();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while stopping scheduled camera recording on device {deviceId}.", deviceId);
+                }
+            }
+
+            _remoteControlSessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
     }
 
     private async Task StopExistingMonitoring(string deviceId)    {

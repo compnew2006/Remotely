@@ -5,11 +5,11 @@
 
 <div @onclick="ClearSelectedCard">
     <div id="deviceControlsWrapper">
-        <div>
-            <div>
-                <div>Device Group</div>
-                <div class="text-nowrap">
-                    <select class="form-control d-inline" style="width: 150px" @bind="_selectedGroupId">
+        <div class="rm-toolbar-group">
+            <div class="rm-field">
+                <label class="rm-label" for="deviceGroupSelect">Device Group</label>
+                <div class="rm-field-control">
+                    <select id="deviceGroupSelect" class="form-control rm-select-group" @bind="_selectedGroupId">
                         <option value="@_deviceGroupAll">All</option>
                         <option value="@_deviceGroupNone">None</option>
                         @foreach (var group in _deviceGroups)
@@ -17,75 +17,84 @@
                             <option @key="group.ID" value="@group.ID">@group.Name</option>
                         }
                     </select>
-                    <button class="btn btn-sm btn-secondary" title="Wake Devices in Group" style="width: 40px; margin-left: 5px;" @onclick="WakeDevices">
+                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                            title="Wake Devices in Group" aria-label="Wake devices in group"
+                            @onclick="WakeDevices">
                         <span class="oi oi-power-standby"></span>
                     </button>
-
                 </div>
             </div>
 
-            <div>
-                <div class="mt-1">Sort</div>
-                <select class="form-control d-inline" style="width: 150px" @bind="_selectedSortProperty">
-                    <option value=""></option>
-                    @foreach (var prop in _sortableProperties)
-                    {
-                        <option value="@prop.Name">@GetDisplayName(prop)</option>
-                    }
-                </select>
-                <button class="btn btn-sm btn-secondary" title="Sort Direction" style="width: 40px; margin-left: 5px;" @onclick="ToggleSortDirection">
-                    <span class="oi @GetSortIcon()"></span>
-                </button>
+            <div class="rm-field">
+                <label class="rm-label" for="sortSelect">Sort</label>
+                <div class="rm-field-control">
+                    <select id="sortSelect" class="form-control rm-select-group" @bind="_selectedSortProperty">
+                        <option value=""></option>
+                        @foreach (var prop in _sortableProperties)
+                        {
+                            <option @key="prop.Name" value="@prop.Name">@GetDisplayName(prop)</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                            title="Sort Direction" aria-label="Sort direction"
+                            @onclick="ToggleSortDirection">
+                        <span class="oi @GetSortIcon()"></span>
+                    </button>
+                </div>
             </div>
 
-            <div class="custom-control custom-checkbox mt-2">
-                <input id="hideOfflineDevicesCheckbox" type="checkbox" class="custom-control-input align-middle" @bind="_hideOfflineDevices" />
-                <label class="custom-control-label align-middle" for="hideOfflineDevicesCheckbox">Hide offline devices</label>
+            <div class="rm-field rm-field-check">
+                <div class="custom-control custom-checkbox">
+                    <input id="hideOfflineDevicesCheckbox" type="checkbox" class="custom-control-input align-middle" @bind="_hideOfflineDevices" />
+                    <label class="custom-control-label align-middle" for="hideOfflineDevicesCheckbox">Hide offline devices</label>
+                </div>
             </div>
-            <div class="mt-2">
-                <button class="btn btn-sm btn-secondary me-2" @onclick="SelectAllCards">Select All</button>
-                <button class="btn btn-sm btn-primary" @onclick="HandleRefreshClicked">Refresh</button>
+
+            <div class="rm-field rm-field-actions">
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="SelectAllCards">Select All</button>
+                <button type="button" class="btn btn-sm btn-primary" @onclick="HandleRefreshClicked">Refresh</button>
             </div>
         </div>
-         
-        <div>
-            <div class="d-inline-block text-start">
-                <div>
-                    <div>Search</div>
-                    <input class="form-control d-inline"
-                           style="width: 200px"
-                           placeholder="Search device properties"
-                           @bind="_filter" />
-                </div>
 
-                <div class="mt-2" style="white-space: nowrap">
-                    <button class="btn btn-sm btn-secondary" @onclick="PageDown">
+        <div class="rm-toolbar-group rm-toolbar-group-end">
+            <div class="rm-field">
+                <label class="rm-label" for="deviceSearchInput">Search</label>
+                <input id="deviceSearchInput" class="form-control rm-search-input"
+                       placeholder="Search device properties"
+                       @bind="_filter" />
+            </div>
+
+            <div class="rm-field">
+                <label class="rm-label" for="currentPageInput">Page</label>
+                <div class="rm-field-control">
+                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                            title="Previous page" aria-label="Previous page"
+                            @onclick="PageDown">
                         <i class="oi oi-chevron-left"></i>
                     </button>
-                    <span class="small">Page</span>
-                    <input id="currentPageInput" style="width:75px; text-align: center" pattern="[0-9]" @bind="_currentPage" @bind:event="oninput" />
-                    <span class="small">of</span>
-                    <span>@TotalPages</span>
-                    <button class="btn btn-sm btn-secondary" @onclick="PageUp">
+                    <input id="currentPageInput" class="form-control rm-page-input" pattern="[0-9]"
+                           @bind="_currentPage" @bind:event="oninput" />
+                    <span class="rm-control-label">of @TotalPages</span>
+                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                            title="Next page" aria-label="Next page"
+                            @onclick="PageUp">
                         <i class="oi oi-chevron-right"></i>
                     </button>
                 </div>
-
-                <div class="mt-2">
-                    <select class="form-control d-inline" style="width:100px" @bind="_devicesPerPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                    </select>
-                    <span class="ms-1 small">per page</span>
-                </div>
             </div>
-           
 
+            <div class="rm-field">
+                <label class="rm-label" for="devicesPerPageSelect">Per page</label>
+                <select id="devicesPerPageSelect" class="form-control rm-per-page-select" @bind="_devicesPerPage">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
         </div>
     </div>
-    <div id="deviceListDiv" class="p-2 mb-5">
+    <div id="deviceListDiv">
         @foreach (var device in DisplayedDevices)
         {
             <CascadingValue Value="this">

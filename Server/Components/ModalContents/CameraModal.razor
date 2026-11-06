@@ -1,0 +1,194 @@
+@inherits AuthComponentBase
+
+<div class="row mb-3 g-2">
+    <div class="col-sm-4">
+        <label class="form-label mb-1" for="cameraSelect">Camera</label>
+        <select id="cameraSelect" class="form-select form-select-sm" @bind="_selectedCameraId" disabled="@_isBusy">
+            @if (_cameras.Count == 0)
+            {
+                <option value="">No cameras have been reported yet</option>
+            }
+            else
+            {
+                @foreach (var camera in _cameras)
+                {
+                    <option value="@camera.Id">@camera.Name</option>
+                }
+            }
+        </select>
+        @if (_cameras.Count == 0)
+        {
+            <div class="form-text">
+                No cameras have been reported yet. Press 'Refresh cameras' to ask the device.
+            </div>
+        }
+    </div>
+    <div class="col-sm-3">
+        <label class="form-label mb-1" for="cameraQuality">Quality</label>
+        <select id="cameraQuality" class="form-select form-select-sm" @bind="_quality" disabled="@_isBusy">
+            @foreach (var option in _qualityOptions)
+            {
+                <option value="@option.Value">@option.Label</option>
+            }
+        </select>
+    </div>
+    <div class="col-sm-3">
+        <label class="form-label mb-1" for="cameraDuration">Duration (seconds)</label>
+        <input id="cameraDuration" type="number" class="form-control form-control-sm" min="5" max="300"
+               @bind="_durationSeconds" disabled="@_isBusy" />
+    </div>
+    <div class="col-sm-2">
+        <label class="form-label mb-1" for="cameraInterval">Every (minutes)</label>
+        <input id="cameraInterval" type="number" class="form-control form-control-sm" min="1" max="30"
+               @bind="_intervalMinutes" disabled="@_isBusy" />
+    </div>
+</div>
+
+<div class="row mb-3 g-2">
+    <div class="col-12">
+        <button class="btn btn-primary btn-sm me-2" @onclick="RecordClip" disabled="@_isBusy">Record clip</button>
+        <button class="btn btn-danger btn-sm me-2" @onclick="StopRecording" disabled="@_isBusy">Stop</button>
+        @if (_isMonitoring)
+        {
+            <button class="btn btn-danger btn-sm me-2" @onclick="StopMonitoring" disabled="@_isBusy">Stop schedule</button>
+        }
+        else
+        {
+            <button class="btn btn-outline-primary btn-sm me-2" @onclick="StartMonitoring" disabled="@_isBusy">Start schedule</button>
+        }
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshCameras" disabled="@_isBusy">Refresh cameras</button>
+        <button class="btn btn-secondary btn-sm" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
+    </div>
+</div>
+
+@if (_isMonitoring)
+{
+    <div class="alert alert-success py-2">
+        Scheduled recording is active. A @_durationSeconds-second clip is recorded every @_intervalMinutes minute(s), outside pause windows.
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-warning py-2">@_errorMessage</div>
+}
+
+<div class="d-flex align-items-center mb-1">
+    <span class="fw-bold">Recorded clips</span>
+    <span class="text-muted small ms-2">@_clips.Count kept (max @_retentionCount, up to @_retentionHours hour(s) old)</span>
+    @if (!string.IsNullOrWhiteSpace(_storageDirectory))
+    {
+        <span class="text-muted small ms-2">Stored on the server: @_storageDirectory</span>
+    }
+    <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="ClearClips" disabled="@(_isBusy || _clips.Count == 0)">
+        Clear all
+    </button>
+</div>
+
+<div class="border rounded p-2 mb-3">
+    <div class="fw-bold mb-2">Camera storage settings</div>
+
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-6">
+            <label class="form-label mb-1" for="cameraDirectory">Folder on the server</label>
+            <div class="input-group input-group-sm">
+                <input id="cameraDirectory" type="text" class="form-control" @bind="_directory" />
+                <button class="btn btn-outline-secondary" @onclick="() => _showFolderPicker = true" disabled="@_isBusy">Browse</button>
+            </div>
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label mb-1" for="cameraRetentionCount">Keep (max)</label>
+            <input id="cameraRetentionCount" type="number" class="form-control form-control-sm" min="1" max="2000" @bind="_retentionCount" />
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label mb-1" for="cameraRetentionHours">Keep for (hours)</label>
+            <input id="cameraRetentionHours" type="number" class="form-control form-control-sm" min="1" max="8760" @bind="_retentionHours" />
+        </div>
+        <div class="col-sm-2 text-end">
+            <button class="btn btn-primary btn-sm w-100" @onclick="SaveSettings" disabled="@_isBusy">Save</button>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <div class="d-flex align-items-center mb-1">
+            <span class="fw-bold">Pause windows</span>
+            <span class="text-muted small ms-2">No scheduled camera clips are recorded during these hours</span>
+            <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="AddPauseWindow" disabled="@_isBusy">
+                Add window
+            </button>
+        </div>
+
+        @if (_pauseWindows.Count == 0)
+        {
+            <div class="text-muted small">Scheduled camera recording is never paused.</div>
+        }
+        else
+        {
+            <div class="row g-2">
+                @for (var i = 0; i < _pauseWindows.Count; i++)
+                {
+                    var index = i;
+                    <div class="col-sm-4" @key="index">
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" @bind="_pauseWindows[index].StartHour">
+                                @for (var hour = 0; hour < 24; hour++)
+                                {
+                                    <option value="@hour">@hour.ToString("00"):00</option>
+                                }
+                            </select>
+                            <span class="input-group-text">to</span>
+                            <select class="form-select" @bind="_pauseWindows[index].EndHour">
+                                @for (var hour = 0; hour < 24; hour++)
+                                {
+                                    <option value="@hour">@hour.ToString("00"):00</option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-danger" title="Remove this window" @onclick="() => RemovePauseWindow(index)">
+                                &times;
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="form-text mt-1">
+                Equal hours disable a window. An end hour earlier than the start hour (for example 22:00 to 07:00) crosses midnight.
+            </div>
+        }
+    </div>
+</div>
+
+@if (_showFolderPicker)
+{
+    <FolderPickerModal InitialPath="@_directory"
+                       OnFolderSelected="FolderSelected"
+                       OnCancel="() => _showFolderPicker = false" />
+}
+
+@if (_clips.Count == 0)
+{
+    <div class="text-muted">No clips have been recorded yet.</div>
+}
+else
+{
+    <div style="max-height: 50vh; overflow-y: auto;">
+        @foreach (var clip in _clips)
+        {
+            <div class="border rounded p-2 mb-2" @key="clip.ID">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="small text-muted">
+                        @clip.TimeStamp.ToString("yyyy-MM-dd HH:mm:ss") &middot;
+                        @clip.Quality &middot;
+                        @clip.DurationSeconds second(s) &middot;
+                        @(string.IsNullOrWhiteSpace(clip.CameraName) ? "Unknown camera" : clip.CameraName)
+                    </span>
+                    <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => DeleteClip(clip)" disabled="@_isBusy">
+                        Delete
+                    </button>
+                </div>
+                <video controls preload="metadata" class="img-fluid rounded border" style="max-height: 40vh;"
+                       src="@GetClipUrl(clip.FileName)">
+                </video>
+            </div>
+        }
+    </div>
+}

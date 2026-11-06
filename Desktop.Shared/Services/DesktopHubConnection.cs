@@ -1,4 +1,5 @@
 ﻿using Remotely.Desktop.Shared.Abstractions;
+using Remotely.Desktop.Shared.Enums;
 using Remotely.Desktop.Shared.Messages;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Interfaces;
@@ -33,6 +34,25 @@ public interface IDesktopHubConnection
     Task SendConnectionRequestDenied(string viewerID);
     Task SendDtoToViewer<T>(T dto, string viewerId);
 
+    /// <summary>
+    /// Sends the cameras of this device to the server.
+    /// </summary>
+    Task SendCameraDevices(CameraDeviceInfo[] cameras);
+
+    /// <summary>
+    /// Sends a chunk of a recorded camera clip to the server.
+    /// </summary>
+    Task SendCameraClipChunk(string clipId, int chunkIndex, byte[] chunk);
+
+    /// <summary>
+    /// Tells the server that every chunk of a camera clip was sent.
+    /// </summary>
+    Task SendCameraClipUploadCompleted(
+        string clipId,
+        int quality,
+        int durationSeconds,
+        string cameraName);
+
     Task SendMessageToViewer(string viewerID, string message);
     Task SendScreenshot(byte[] screenshotBytes);
     Task<Result> SendUnattendedSessionInfo(string sessionId, string accessKey, string machineName, string requesterName, string organizationName);
@@ -47,6 +67,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     private readonly IRemoteControlAccessService _remoteControlAccessService;
     private readonly IServiceProvider _serviceProvider;
     private readonly IScreenMonitor _screenMonitor;
+    private readonly ICameraMonitor _cameraMonitor;
 
     public DesktopHubConnection(
         IDtoMessageHandler messageHandler,
@@ -54,6 +75,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         IAppState appState,
         IRemoteControlAccessService remoteControlAccessService,
         IScreenMonitor screenMonitor,
+        ICameraMonitor cameraMonitor,
         IMessenger messenger,
         ILogger<DesktopHubConnection> logger)
     {
@@ -62,6 +84,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         _serviceProvider = serviceProvider;
         _appState = appState;
         _screenMonitor = screenMonitor;
+        _cameraMonitor = cameraMonitor;
         _logger = logger;
 
         messenger.Register<WindowsSessionEndingMessage>(this, HandleWindowsSessionEnding);
@@ -408,6 +431,151 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Called by the server to record a video clip from one of the cameras of
+    /// this device.
+    /// </summary>
+    public Task StartCameraCapture(string deviceId, string cameraId, int quality, int durationSeconds)
+    {
+        _logger.LogInformation(
+            "Server requested a camera recording.  Quality: {quality}.  Duration: {duration} seconds.",
+            quality,
+            durationSeconds);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // The camera capture service is resolved here, because it
+                // depends on this connection, and taking it as a constructor
+                // dependency would create a circular dependency.
+                var cameraCaptureService = _serviceProvider.GetRequiredService<ICameraCaptureService>();
+
+                // The cameras are always sent, so the administrator can see
+                // which ones this device has.
+                await cameraCaptureService.SendCameraDevices();
+
+                if (durationSeconds <= 0)
+                {
+                    // Only the list of cameras was requested.
+                    return;
+                }
+
+                var request = new CameraCaptureRequest(
+                    cameraId,
+                    (CameraQuality)quality,
+                    durationSeconds);
+
+                await cameraCaptureService.CaptureAsync(deviceId, request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while recording a camera clip.");
+            }
+        });
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to stop the camera recording that is running.
+    /// </summary>
+    public Task StopCameraCapture()
+    {
+        _logger.LogInformation("Server requested that the camera recording stop.");
+
+        try
+        {
+            _serviceProvider.GetRequiredService<ICameraCaptureService>().Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while stopping the camera recording.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to start recurring camera recordings.
+    /// </summary>
+    public Task StartCameraMonitoring(
+        string deviceId,
+        CameraCaptureRequest request,
+        int intervalSeconds,
+        int[] pauseStartHours,
+        int[] pauseEndHours)
+    {
+        _logger.LogInformation(
+            "Server requested scheduled camera recording. Interval: {interval} seconds. Duration: {duration} seconds.",
+            intervalSeconds,
+            request.DurationSeconds);
+
+        return _cameraMonitor.StartAsync(
+            deviceId,
+            request,
+            intervalSeconds,
+            pauseStartHours,
+            pauseEndHours);
+    }
+
+    /// <summary>
+    /// Called by the server to stop recurring camera recordings.
+    /// </summary>
+    public Task StopCameraMonitoring()
+    {
+        _logger.LogInformation("Server requested that scheduled camera recording stop.");
+        return _cameraMonitor.StopAsync();
+    }
+
+    /// <summary>
+    /// Sends the cameras of this device to the server.
+    /// </summary>
+    public Task SendCameraDevices(CameraDeviceInfo[] cameras)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendCameraDevices", cameras);
+    }
+
+    /// <summary>
+    /// Sends a chunk of a recorded camera clip to the server.
+    /// </summary>
+    public Task SendCameraClipChunk(string clipId, int chunkIndex, byte[] chunk)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendCameraClipChunk", clipId, chunkIndex, chunk);
+    }
+
+    /// <summary>
+    /// Tells the server that every chunk of a camera clip was sent.
+    /// </summary>
+    public Task SendCameraClipUploadCompleted(
+        string clipId,
+        int quality,
+        int durationSeconds,
+        string cameraName)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync(
+            "CameraClipUploadCompleted",
+            clipId,
+            quality,
+            durationSeconds,
+            cameraName);
+    }
+
     public async Task<Result> SendUnattendedSessionInfo(string unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
         if (Connection is null)
@@ -452,6 +620,48 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         connection.On<int, int[], int[]>(nameof(StartMonitoring), StartMonitoring);
         connection.On(nameof(StopMonitoring), StopMonitoring);
         connection.On(nameof(CaptureScreenshotNow), CaptureScreenshotNow);
+        connection.On<string, string, int, int>(nameof(StartCameraCapture), StartCameraCapture);
+        connection.On(nameof(StopCameraCapture), StopCameraCapture);
+        connection.On<string, CameraCaptureRequest, int, int[], int[]>(
+            nameof(StartCameraMonitoring),
+            StartCameraMonitoring);
+        connection.On(nameof(StopCameraMonitoring), StopCameraMonitoring);
+
+        connection.Reconnected += HandleReconnected;
+    }
+
+    private async Task HandleReconnected(string? connectionId)
+    {
+        if (_appState.Mode != AppMode.Unattended || !_appState.IsCameraMonitoring)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await SendUnattendedSessionInfo(
+                _appState.SessionId,
+                _appState.AccessKey,
+                Environment.MachineName,
+                _appState.RequesterName,
+                _appState.OrganizationName);
+
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("Could not restore the camera session after reconnect: {reason}", result.Reason);
+                await _cameraMonitor.StopAsync();
+                return;
+            }
+
+            if (Connection is not null)
+            {
+                await Connection.InvokeAsync("ResumeCameraMonitoring");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not restore scheduled camera recording after reconnect.");
+        }
     }
 
     private Result<HubConnection> BuildConnection()

@@ -1,23 +1,97 @@
-﻿hr {
+﻿/*
+ * Remotely console - design tokens (light theme).
+ *
+ * Same token names as the dark theme, so every component rule can be written
+ * once. The light palette mirrors the dark one: three surfaces, one chromatic
+ * family (a deeper slate blue, because #008cba on white is only 3.84:1).
+ */
+:root {
+    /* Surfaces */
+    --rm-surface-canvas: #ffffff;
+    --rm-surface-raised: #f8f9fa;
+    --rm-surface-sidebar: #f8f9fa;
+    --rm-border: #dee2e6;
+    --rm-border-soft: rgba(0, 0, 0, 0.08);
+    --rm-navbar-scrim: rgba(0, 0, 0, 0.04);
+
+    /* Ink */
+    --rm-ink: #222222;
+    --rm-ink-muted: rgba(34, 34, 34, 0.75);
+    --rm-ink-faint: rgba(34, 34, 34, 0.60);
+
+    /* Accent - one family, four steps */
+    --rm-accent: #0b6a94;
+    --rm-accent-strong: #08506f;
+    --rm-accent-soft: rgba(11, 106, 148, 0.10);
+    --rm-accent-line: rgba(11, 106, 148, 0.45);
+    --rm-focus-ring: rgba(11, 106, 148, 0.35);
+
+    /* Status */
+    --rm-status-ok: #00bc8c;
+
+    /* Primary action - the fill is darkened so white text passes AA */
+    --rm-primary-fill: #0b6a94;
+    --rm-primary-fill-hover: #095a7d;
+    --rm-primary-edge: #08506f;
+
+    /* Fields */
+    --rm-field-bg: #ffffff;
+    --rm-field-ink: #222222;
+    --rm-field-border: #ced4da;
+    --rm-field-placeholder: rgba(34, 34, 34, 0.45);
+
+    /* Shape + metrics */
+    --rm-radius-control: 6px;
+    --rm-control-height: 38px;
+
+    /* Bootstrap bridges */
+    --bs-border-radius: var(--rm-radius-control);
+    --bs-border-radius-sm: var(--rm-radius-control);
+    --bs-border-radius-lg: var(--rm-radius-control);
+    --bs-focus-ring-color: var(--rm-focus-ring);
+    --bs-link-color: var(--rm-accent);
+    --bs-link-hover-color: var(--rm-accent-strong);
+    --bs-info: var(--rm-accent);
+    --bs-info-rgb: 11, 106, 148;
+}
+
+/*
+ * The primary action keeps its slate-blue fill but gains a visible edge:
+ * #375a7f on the #222 canvas is 2.22:1 - under the 3:1 non-text floor for a
+ * component boundary. The edge keeps the button quiet and makes it findable.
+ */
+.btn.btn-primary {
+    --bs-btn-bg: var(--rm-primary-fill);
+    --bs-btn-border-color: var(--rm-primary-edge);
+    --bs-btn-hover-bg: var(--rm-primary-fill-hover);
+    --bs-btn-hover-border-color: var(--rm-primary-edge);
+    --bs-btn-active-bg: var(--rm-primary-fill);
+    --bs-btn-active-border-color: var(--rm-primary-edge);
+}
+
+/*
+ * Links carry the accent. Green is reserved for "online", so a green link
+ * would read as a status instead of an action.
+ */
+a, .btn-link {
+    color: var(--rm-accent);
+}
+
+hr {
     border-top: 1px solid #282828;
 }
 
-.console-prompt {
-    color: slategray;
-}
-
-.console-output {
-    color: darkgreen;
+.navbar-brand {
+    font-size: 1.5rem !important;
 }
 
 .logo-title {
-    font-size: 1.25rem !important;
-    font-weight: bold;
+    font-weight: 500;
 }
 
 .logo-subtitle {
-    font-size: .75em;
-    color: lightgray;
+    font-size: .5em;
+    color: var(--rm-ink-muted);
 }
 
 .jumbotron {

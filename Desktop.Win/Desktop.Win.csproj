@@ -46,6 +46,20 @@
     <PackageReference Include="SkiaSharp.Views.Desktop.Common" Version="2.88.8" />
   </ItemGroup>
 
+  <!--
+    The camera capture uses ScreenRecorderLib, whose native library only
+    supports the x86, x64, and ARM64 platforms.  The package fails the build
+    on AnyCPU, so it is only referenced for the platforms that support it.
+    The camera capture is not available in the AnyCPU build.
+  -->
+  <PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(Platform)' == 'x86' Or '$(Platform)' == 'Win32' Or '$(Platform)' == 'ARM64'">
+    <DefineConstants>$(DefineConstants);SCREEN_RECORDER_LIB</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Platform)' == 'x64' Or '$(Platform)' == 'x86' Or '$(Platform)' == 'Win32' Or '$(Platform)' == 'ARM64'">
+    <PackageReference Include="ScreenRecorderLib" Version="7.0.1" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Desktop.Shared\Desktop.Shared.csproj" />
     <ProjectReference Include="..\Desktop.UI\Desktop.UI.csproj" />

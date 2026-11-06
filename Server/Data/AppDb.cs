@@ -29,6 +29,7 @@ public class AppDb : IdentityDbContext
 
     public DbSet<ApiToken> ApiTokens { get; set; }
     public DbSet<BrandingInfo> BrandingInfos { get; set; }
+    public DbSet<CameraClip> CameraClips { get; set; }
     public DbSet<DeviceGroup> DeviceGroups { get; set; }
     public DbSet<Device> Devices { get; set; }
     public DbSet<InviteLink> InviteLinks { get; set; }

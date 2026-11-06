@@ -65,7 +65,9 @@ public class IdleTimer : IIdleTimer
         try
         {
             if (_appState.Mode == Enums.AppMode.Unattended &&
-                !_desktopHubConnection.IsConnected)
+                !_desktopHubConnection.IsConnected &&
+                !_appState.IsMonitoring &&
+                !_appState.IsCameraMonitoring)
             {
                 _logger.LogWarning(
                     "App is in unattended mode and is disconnected " +
@@ -74,10 +76,11 @@ public class IdleTimer : IIdleTimer
                 return;
             }
 
-            if (_appState.IsMonitoring)
+            if (_appState.IsMonitoring || _appState.IsCameraMonitoring)
             {
-                // The app is capturing periodic screenshots for the server.
-                // It has no viewers, but it must stay alive to keep capturing.
+                // The app is capturing periodic screenshots or camera clips
+                // for the server. It has no viewers, but it must stay alive
+                // to keep capturing and reconnecting.
                 ViewersLastSeen = DateTimeOffset.Now;
                 return;
             }

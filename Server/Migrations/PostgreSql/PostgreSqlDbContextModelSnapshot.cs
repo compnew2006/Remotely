@@ -378,6 +378,42 @@ namespace Remotely.Server.Migrations.PostgreSql
                     b.ToTable("BrandingInfos");
                 });
 
+            modelBuilder.Entity("Remotely.Shared.Entities.CameraClip", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CameraName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Quality")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("TimeStamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("CameraClips");
+                });
+
             modelBuilder.Entity("Remotely.Shared.Entities.Device", b =>
                 {
                     b.Property<string>("ID")
@@ -389,6 +425,20 @@ namespace Remotely.Server.Migrations.PostgreSql
                     b.Property<string>("Alias")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CameraDirectory")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CameraPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("CameraRetentionCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CameraRetentionHours")
+                        .HasColumnType("integer");
 
                     b.Property<double>("CpuUtilization")
                         .HasColumnType("double precision");

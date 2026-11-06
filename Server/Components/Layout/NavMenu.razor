@@ -4,7 +4,7 @@
 @inject IDataService DataService
 @inject IDataService DataService
 
-<div class="ps-4 pb-1 pe-0 pt-0 navbar navbar-dark" style="background-color: rgba(0,0,0,0.3)">
+<div class="ps-4 pb-1 pe-0 pt-0 navbar">
     <a class="navbar-brand text-start" href="">
         <div class="logo-title">
             @if (!string.IsNullOrWhiteSpace(_organization?.OrganizationName))
@@ -113,7 +113,7 @@
         <AuthorizeView>
             <Authorized>
                 <li class="px-3 mt-3">
-                    <a class="btn btn-link text-light" href="Account/Manage">
+                    <a class="btn btn-link" href="Account/Manage">
                         Account
                     </a>
                 </li>
@@ -121,7 +121,7 @@
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@_currentUrl" />
-                        <button type="submit" class="btn btn-link text-light">
+                        <button type="submit" class="btn btn-link">
                             Logout
                         </button>
                     </form>
@@ -129,19 +129,19 @@
             </Authorized>
             <NotAuthorized>
                 <li class="px-3 mt-3">
-                    <a class="btn btn-link text-light" href="Account/Login">Log in</a>
+                    <a class="btn btn-link" href="Account/Login">Log in</a>
                 </li>
                 @if (_isRegistrationEnabled)
                 {
                     <li class="px-3">
-                        <a class="btn btn-link text-light" href="Account/Register">Register</a>
+                        <a class="btn btn-link" href="Account/Register">Register</a>
                     </li>
                 }
             </NotAuthorized>
         </AuthorizeView>
 
         <li class="px-3 mt-3">
-            <a class="btn btn-link text-light" href="/about">About</a>
+            <a class="btn btn-link" href="/about">About</a>
         </li>
     </ul>
 </div>

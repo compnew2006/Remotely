@@ -10,4 +10,10 @@ public class AppConstants
     public const double ScriptRunExpirationMinutes = 30;
     public const string ApiKeyHeaderName = "X-Api-Key";
     public const string ExpiringTokenHeaderName = "X-Expiring-Token";
+
+    /// <summary>
+    /// The header that a device uses to authenticate a camera clip upload
+    /// with the access key of its session.
+    /// </summary>
+    public const string SessionKeyHeaderName = "X-Remotely-Session-Key";
 }

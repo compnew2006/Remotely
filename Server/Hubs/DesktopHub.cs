@@ -5,6 +5,7 @@ using Remotely.Server.Services;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Extensions;
 using Remotely.Shared.Interfaces;
+using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
 using Bitbound.SimpleMessenger;
 using Microsoft.AspNetCore.SignalR;
@@ -14,6 +15,7 @@ namespace Remotely.Server.Hubs;
 public class DesktopHub : Hub<IDesktopHubClient>
 {
     private readonly IAgentHubSessionCache _agentCache;
+    private readonly ICameraService _cameraService;
     private readonly IDataService _dataService;
     private readonly ILogger<DesktopHub> _logger;
     private readonly IMessenger _messenger;
@@ -28,6 +30,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         IDesktopStreamCache streamCache,
         IAgentHubSessionCache agentCache,
         IScreenshotService screenshotService,
+        ICameraService cameraService,
         IDataService dataService,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IHubContext<ViewerHub, IViewerHubClient> viewerHub,
@@ -38,6 +41,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         _agentCache = agentCache;
         _streamCache = streamCache;
         _screenshotService = screenshotService;
+        _cameraService = cameraService;
         _dataService = dataService;
         _viewerHub = viewerHub;
         _agentHub = agentHub;
@@ -190,6 +194,19 @@ public class DesktopHub : Hub<IDesktopHubClient>
         }
         else if (
             SessionInfo.Mode == RemoteControlMode.Unattended &&
+            SessionInfo.IsCameraMonitoring)
+        {
+            // Keep the schedule in the server cache while the desktop hub
+            // reconnects. The client will re-register the same session and
+            // receive the schedule again when it is back online.
+            if (SessionInfo.DesktopConnectionId == Context.ConnectionId)
+            {
+                SessionInfo.DesktopConnectionId = string.Empty;
+                SessionInfo.StreamerState = StreamerState.Disconnected;
+            }
+        }
+        else if (
+            SessionInfo.Mode == RemoteControlMode.Unattended &&
             !SessionInfo.StreamerState.HasFlag(StreamerState.DisconnectExpected))
         {
             // Don't restart if consent wasn't granted on the first request.
@@ -283,7 +300,64 @@ public class DesktopHub : Hub<IDesktopHubClient>
             await Clients.Caller.CaptureScreenshotNow();
         }
 
+        if (SessionInfo.IsCameraMonitoring)
+        {
+            await StartCameraMonitoringForCaller();
+        }
+        else if (SessionInfo.IsCameraCapture)
+        {
+            // The device was asked to record a video clip from one of its
+            // cameras, so the recording starts as soon as it connects.
+            var request = SessionInfo.CameraCapture ?? new CameraCaptureRequest();
+
+            _logger.LogInformation(
+                "Starting camera capture on device {deviceId}.  Quality: {quality}.  Duration: {duration} seconds.",
+                SessionInfo.DeviceId,
+                request.Quality,
+                request.DurationSeconds);
+
+            await Clients.Caller.StartCameraCapture(
+                SessionInfo.DeviceId,
+                request.CameraId,
+                (int)request.Quality,
+                request.DurationSeconds);
+        }
+
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Re-applies the server-owned camera schedule after the desktop client
+    /// reconnects. A client-side schedule without a matching server session is
+    /// stopped rather than trusted or resumed.
+    /// </summary>
+    public async Task ResumeCameraMonitoring()
+    {
+        if (!SessionInfo.IsCameraMonitoring)
+        {
+            await Clients.Caller.StopCameraMonitoring();
+            return;
+        }
+
+        await StartCameraMonitoringForCaller();
+    }
+
+    private async Task StartCameraMonitoringForCaller()
+    {
+        var request = SessionInfo.CameraCapture ?? new CameraCaptureRequest();
+        var pauseWindows = ScreenshotPause.Deserialize(SessionInfo.CameraPauseWindows);
+
+        _logger.LogInformation(
+            "Starting scheduled camera recording on device {deviceId}. Interval: {interval} seconds.",
+            SessionInfo.DeviceId,
+            SessionInfo.CameraMonitoringIntervalSeconds);
+
+        await Clients.Caller.StartCameraMonitoring(
+            SessionInfo.DeviceId,
+            request,
+            SessionInfo.CameraMonitoringIntervalSeconds,
+            pauseWindows.Select(x => x.StartHour).ToArray(),
+            pauseWindows.Select(x => x.EndHour).ToArray());
     }
 
     /// <summary>
@@ -332,6 +406,117 @@ public class DesktopHub : Hub<IDesktopHubClient>
         {
             await _messenger.Send(
                 new ScreenshotReceivedMessage(deviceId, screenshot.FileName, screenshot.TimeStamp),
+                SessionInfo.UserConnectionId);
+        }
+    }
+
+    /// <summary>
+    /// Receives the list of cameras that a device has.  It is sent by the
+    /// device when it connects for a camera recording.
+    /// </summary>
+    public async Task SendCameraDevices(CameraDeviceInfo[] cameras)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return;
+        }
+
+        SessionInfo.CameraDevices = cameras?.ToList() ?? new List<CameraDeviceInfo>();
+
+        _logger.LogInformation(
+            "Device {deviceId} reported {count} cameras.",
+            deviceId,
+            SessionInfo.CameraDevices.Count);
+
+        if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            await _messenger.Send(
+                new CameraDevicesReceivedMessage(deviceId, SessionInfo.CameraDevices.ToArray()),
+                SessionInfo.UserConnectionId);
+        }
+    }
+
+    /// <summary>
+    /// Receives a chunk of a camera clip that a device recorded.  It is used
+    /// when the clip can't be uploaded with a single HTTP request.
+    /// </summary>
+    public async Task SendCameraClipChunk(string clipId, int chunkIndex, byte[] chunk)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId) || !SessionInfo.IsCameraCapture)
+        {
+            return;
+        }
+
+        if (chunk is null || chunk.Length == 0)
+        {
+            return;
+        }
+
+        if (chunkIndex == 0)
+        {
+            // The first chunk starts a new upload, so anything that was left
+            // over from an earlier attempt is discarded.
+            var deviceResult = await _dataService.GetDevice(deviceId);
+            if (!deviceResult.IsSuccess ||
+                _cameraService.BeginUpload(deviceResult.Value, clipId) is null)
+            {
+                return;
+            }
+        }
+
+        _cameraService.AppendChunk(clipId, chunk);
+    }
+
+    /// <summary>
+    /// Completes a camera clip that was uploaded in chunks.
+    /// </summary>
+    public async Task CameraClipUploadCompleted(
+        string clipId,
+        int quality,
+        int durationSeconds,
+        string cameraName)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId) || !SessionInfo.IsCameraCapture)
+        {
+            return;
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            _cameraService.AbortUpload(clipId);
+            return;
+        }
+
+        var clip = await _cameraService.CompleteUpload(
+            deviceResult.Value,
+            clipId,
+            quality.ToString(),
+            durationSeconds,
+            cameraName);
+
+        if (clip is null)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Received a camera clip from device {deviceId}.  Size: {size} bytes.",
+            deviceId,
+            clip.SizeBytes);
+
+        if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            await _messenger.Send(
+                new CameraClipReceivedMessage(
+                    deviceId,
+                    clip.FileName,
+                    clip.TimeStamp,
+                    clip.Quality,
+                    clip.DurationSeconds),
                 SessionInfo.UserConnectionId);
         }
     }

@@ -1,9 +1,84 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-06T15:20:00Z",
+  "generatedAt": "2026-11-06T20:20:00Z",
   "title": "Design System: Remotely",
   "extensions": {
     "colorMeta": {
+      "console-accent": {
+        "role": "accent",
+        "displayName": "Console Accent",
+        "canonical": "oklch(77% 0.073 248)",
+        "tonalRamp": [
+          "oklch(42% 0.073 248)",
+          "oklch(55% 0.073 248)",
+          "oklch(65% 0.073 248)",
+          "oklch(77% 0.073 248)",
+          "oklch(86% 0.073 248)",
+          "oklch(95% 0.073 248)",
+          "oklch(97% 0.073 248)",
+          "oklch(97% 0.073 248)"
+        ]
+      },
+      "console-accent-strong": {
+        "role": "accent",
+        "displayName": "Console Accent Strong",
+        "canonical": "oklch(85% 0.054 248)",
+        "tonalRamp": [
+          "oklch(47% 0.054 248)",
+          "oklch(61% 0.054 248)",
+          "oklch(72% 0.054 248)",
+          "oklch(85% 0.054 248)",
+          "oklch(95% 0.054 248)",
+          "oklch(97% 0.054 248)",
+          "oklch(97% 0.054 248)",
+          "oklch(97% 0.054 248)"
+        ]
+      },
+      "console-status-ok": {
+        "role": "status",
+        "displayName": "Console Status OK",
+        "canonical": "oklch(71% 0.145 167)",
+        "tonalRamp": [
+          "oklch(39% 0.145 167)",
+          "oklch(51% 0.145 167)",
+          "oklch(60% 0.145 167)",
+          "oklch(71% 0.145 167)",
+          "oklch(79% 0.145 167)",
+          "oklch(87% 0.145 167)",
+          "oklch(96% 0.145 167)",
+          "oklch(97% 0.145 167)"
+        ]
+      },
+      "light-accent": {
+        "role": "accent",
+        "displayName": "Light Console Accent",
+        "canonical": "oklch(50% 0.103 236)",
+        "tonalRamp": [
+          "oklch(27% 0.103 236)",
+          "oklch(36% 0.103 236)",
+          "oklch(42% 0.103 236)",
+          "oklch(50% 0.103 236)",
+          "oklch(56% 0.103 236)",
+          "oklch(61% 0.103 236)",
+          "oklch(67% 0.103 236)",
+          "oklch(74% 0.103 236)"
+        ]
+      },
+      "light-accent-strong": {
+        "role": "accent",
+        "displayName": "Light Console Accent Strong",
+        "canonical": "oklch(41% 0.082 234)",
+        "tonalRamp": [
+          "oklch(22% 0.082 234)",
+          "oklch(29% 0.082 234)",
+          "oklch(35% 0.082 234)",
+          "oklch(41% 0.082 234)",
+          "oklch(46% 0.082 234)",
+          "oklch(50% 0.082 234)",
+          "oklch(55% 0.082 234)",
+          "oklch(61% 0.082 234)"
+        ]
+      },
       "signal-cyan": {
         "role": "primary",
         "displayName": "Signal Cyan",
@@ -325,7 +400,7 @@
       "refersTo": "console-button-primary",
       "description": "The console's primary action — quiet, soft, and low-contrast against the dark canvas.",
       "html": "<button class=\"ds-console-btn-primary\">Refresh</button>",
-      "css": ".ds-console-btn-primary { background: #375a7f; color: #ffffff; border: 1px solid #375a7f; border-radius: 4px; padding: 4px 8px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 21px; font-weight: 400; cursor: pointer; } .ds-console-btn-primary:hover { background: #2f4a69; border-color: #2f4a69; } .ds-console-btn-primary:focus-visible { outline: 2px solid #7aa7d0; outline-offset: 2px; }"
+      "css": ".ds-console-btn-primary { background: #375a7f; color: #ffffff; border: 1px solid rgba(143, 184, 224, 0.55); border-radius: 6px; padding: 4px 8px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 21px; font-weight: 400; cursor: pointer; } .ds-console-btn-primary:hover { background: #2f4a69; border-color: rgba(143, 184, 224, 0.55); } .ds-console-btn-primary:focus-visible { outline: 2px solid #8fb8e0; outline-offset: 2px; }"
     },
     {
       "name": "Console Ghost Button",
@@ -333,7 +408,7 @@
       "refersTo": "console-button-ghost",
       "description": "Secondary console actions — transparent, grey ink, 6px radius.",
       "html": "<button class=\"ds-console-btn-ghost\">Account</button>",
-      "css": ".ds-console-btn-ghost { background: transparent; color: #adb5bd; border: 1px solid transparent; border-radius: 6px; padding: 6px 12px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; cursor: pointer; } .ds-console-btn-ghost:hover { color: #ffffff; } .ds-console-btn-ghost:focus-visible { outline: 2px solid #7aa7d0; outline-offset: 2px; }"
+      "css": ".ds-console-btn-ghost { background: transparent; color: rgba(255, 255, 255, 0.75); border: 1px solid transparent; border-radius: 6px; padding: 6px 12px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; cursor: pointer; } .ds-console-btn-ghost:hover { color: #ffffff; } .ds-console-btn-ghost:focus-visible { outline: 2px solid #8fb8e0; outline-offset: 2px; }"
     },
     {
       "name": "Device Card",
@@ -341,7 +416,7 @@
       "refersTo": "console-card",
       "description": "The console's unit of meaning — a status readout with an online glyph, a device name and a field grid.",
       "html": "<div class=\"ds-device-card\"><div class=\"ds-device-card-head\"><svg class=\"ds-dot\" width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"5\" fill=\"#00bc8c\"/></svg><span class=\"ds-device-name\">ARKAN-DC02</span></div><div class=\"ds-device-body\"><div class=\"ds-field\"><span class=\"ds-field-label\">Platform</span><span class=\"ds-field-value\">Windows</span></div><div class=\"ds-field\"><span class=\"ds-field-label\">CPU</span><span class=\"ds-field-value\">7 %</span></div></div></div>",
-      "css": ".ds-device-card { background: #303030; color: #ffffff; border: 1px solid #444444; border-radius: 6px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; overflow: hidden; } .ds-device-card-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; } .ds-dot { display: block; flex: none; } .ds-device-name { font-weight: 400; } .ds-device-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding: 0 16px 16px; } .ds-field { display: flex; flex-direction: column; } .ds-field-label { font-size: 14.4px; line-height: 21.6px; color: rgba(255, 255, 255, 0.75); } .ds-field-value { font-size: 16px; line-height: 24px; }"
+      "css": ".ds-device-card { background: #303030; color: #ffffff; border: 1px solid #444444; border-radius: 6px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; overflow: hidden; } .ds-device-card-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; } .ds-dot { display: block; flex: none; } .ds-device-name { font-weight: 400; } .ds-device-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding: 0 16px 16px; } .ds-field { display: flex; flex-direction: column; } .ds-field-label { font-size: 14.4px; line-height: 21.6px; color: #8fb8e0; } .ds-field-value { font-size: 16px; line-height: 24px; }"
     },
     {
       "name": "Console Field",
@@ -349,7 +424,7 @@
       "refersTo": "console-field",
       "description": "Console inputs and selects — white surface, 6px radius, 1px dark border.",
       "html": "<input class=\"ds-console-field\" type=\"text\" placeholder=\"Search device properties\" />",
-      "css": ".ds-console-field { background: #ffffff; color: #303030; border: 1px solid #222222; border-radius: 6px; padding: 6px 12px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; } .ds-console-field:focus { outline: 0; border-color: #375a7f; box-shadow: 0 0 0 2px rgba(55, 90, 127, 0.35); } .ds-console-field:disabled, .ds-console-field[readonly] { background: #adadad; }"
+      "css": ".ds-console-field { background: #ffffff; color: #303030; border: 1px solid #222222; border-radius: 6px; padding: 6px 12px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; } .ds-console-field:focus { outline: 0; border-color: #8fb8e0; box-shadow: 0 0 0 2px rgba(143, 184, 224, 0.45); } .ds-console-field:disabled, .ds-console-field[readonly] { background: #adadad; }"
     },
     {
       "name": "Console Nav Link",
@@ -357,7 +432,7 @@
       "refersTo": "console-nav-link",
       "description": "Vertical navigation item; the active one is filled with a 25% white wash.",
       "html": "<a class=\"ds-console-nav-link ds-console-nav-link--active\" href=\"#\">Home</a>",
-      "css": ".ds-console-nav-link { display: block; color: #ffffff; background: transparent; border-radius: 4px; padding: 8px 32px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14.4px; line-height: 21.6px; text-decoration: none; } .ds-console-nav-link:hover { background: rgba(255, 255, 255, 0.12); } .ds-console-nav-link--active { background: rgba(255, 255, 255, 0.25); } .ds-console-nav-link:focus-visible { outline: 2px solid #7aa7d0; outline-offset: 2px; }"
+      "css": ".ds-console-nav-link { display: block; color: rgba(255, 255, 255, 0.75); background: transparent; border-radius: 6px; padding: 8px 32px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14.4px; line-height: 21.6px; text-decoration: none; } .ds-console-nav-link:hover { background: rgba(143, 184, 224, 0.12); color: #ffffff; } .ds-console-nav-link--active { background: rgba(143, 184, 224, 0.12); color: #b3d2f0; } .ds-console-nav-link:focus-visible { outline: 2px solid #8fb8e0; outline-offset: 2px; }"
     },
     {
       "name": "Viewer Button",
@@ -405,18 +480,26 @@
       "refersTo": "console-card",
       "description": "Dense tabular data in the console — Bootstrap's table-sm, striped, hover vocabulary, never a custom table style.",
       "html": "<table class=\"ds-console-table\"><thead><tr><th>Process</th><th>Id</th><th>Memory (MB)</th><th></th></tr></thead><tbody><tr><td>Remotely_Desktop</td><td>1420</td><td>44.4</td><td><button class=\"ds-console-btn-end\">End</button></td></tr></tbody></table>",
-      "css": ".ds-console-table { width: 100%; border-collapse: collapse; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 21px; color: #ffffff; } .ds-console-table thead th { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.75); font-weight: 400; text-align: left; padding: 4px 8px; border-bottom: 1px solid #444444; } .ds-console-table tbody td { padding: 4px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); } .ds-console-table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.04); } .ds-console-table tbody tr:hover { background: rgba(255, 255, 255, 0.1); } .ds-console-btn-end { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 4px; padding: 0 6px; font-size: 14px; cursor: pointer; } .ds-console-btn-end:hover { background: #e74c3c; color: #ffffff; } .ds-console-btn-end:focus-visible { outline: 2px solid #e74c3c; outline-offset: 2px; }"
+      "css": ".ds-console-table { width: 100%; border-collapse: collapse; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 21px; color: #ffffff; } .ds-console-table thead th { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.75); font-weight: 400; text-align: left; padding: 4px 8px; border-bottom: 1px solid #444444; } .ds-console-table tbody td { padding: 4px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); } .ds-console-table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.04); } .ds-console-table tbody tr:hover { background: rgba(255, 255, 255, 0.1); } .ds-console-btn-end { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 6px; padding: 0 6px; font-size: 14px; cursor: pointer; } .ds-console-btn-end:hover { background: #e74c3c; color: #ffffff; } .ds-console-btn-end:focus-visible { outline: 2px solid #e74c3c; outline-offset: 2px; }"
+    },
+    {
+      "name": "Console Toolbar",
+      "kind": "toolbar",
+      "refersTo": "console-toolbar",
+      "description": "The device toolbar: filters on the left, view controls on the right, a micro-label above every field, 38px controls on one baseline, and a 1px hairline closing the bar.",
+      "html": "<div class=\"ds-toolbar\"><div class=\"ds-toolbar-group\"><div class=\"ds-field\"><span class=\"ds-micro-label\">Device Group</span><div class=\"ds-field-control\"><select class=\"ds-console-field ds-select\"><option>All</option></select><button class=\"ds-console-btn-ghost ds-icon\" title=\"Wake devices in group\"><span class=\"ds-icon-glyph\">&#9211;</span></button></div></div><div class=\"ds-field\"><span class=\"ds-micro-label\">Sort</span><div class=\"ds-field-control\"><select class=\"ds-console-field ds-select\"><option>Device Name</option></select><button class=\"ds-console-btn-ghost ds-icon\" title=\"Sort direction\"><span class=\"ds-icon-glyph\">&#8645;</span></button></div></div></div><div class=\"ds-toolbar-group ds-toolbar-group--end\"><div class=\"ds-field\"><span class=\"ds-micro-label\">Search</span><input class=\"ds-console-field ds-search\" type=\"text\" placeholder=\"Search device properties\" /></div></div></div>",
+      "css": ".ds-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid #444444; } .ds-toolbar-group { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; } .ds-toolbar-group--end { justify-content: flex-end; } .ds-field { display: flex; flex-direction: column; gap: 4px; } .ds-field-control { display: flex; align-items: center; gap: 8px; } .ds-micro-label { font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); } .ds-console-field.ds-select { width: 150px; height: 38px; } .ds-console-field.ds-search { width: 200px; height: 38px; } .ds-console-btn-ghost.ds-icon { width: 40px; height: 38px; padding: 0; background: #444444; border: 1px solid #444444; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; } .ds-console-btn-ghost.ds-icon:hover { background: #555555; }"
     }
   ],
   "narrative": {
     "northStar": "The Operations Room",
-    "overview": "Remotely is a room with one bright thing in it. A technician opens the console, finds the machine that is in trouble, and opens it; from that moment the remote screen is the only object in the room that matters, and every piece of interface around it is instrumentation — a switch, a readout, a way out. The system is built around that one relationship, and it shows in the code: the viewer gives the remote canvas the entire viewport (#workAreaGrid is a fixed inset-0 grid with grid-template-rows: auto 1fr), while the console stays a quiet directory of devices waiting to be chosen.\n\nTwo surfaces, one product, two deliberately different manners. The operator console is a Bootstrap 5.3.2 application wearing a Bootswatch theme (Darkly for dark, Yeti for light) — soft 4–6px radii, tonal grey layering, Lato. The remote viewer is hand-written CSS with no framework at all — square 0px controls, hard 1px borders, Lucida Sans, and a single electric accent that only ever appears on the connect and toggle affordances. The console is furniture; the viewer is an instrument. The difference is not drift — it is the difference between a waiting room and the console of a machine.\n\nThe governing personality is strictly functional: every element serves the session. Nothing in either surface is decorative. The console has no shadows, no gradients, no illustrations — depth is carried entirely by three greys (#222 canvas → #303030 card → #444 border) and by 1px borders. The viewer has exactly one shadow in the entire system, on the one element that genuinely floats (.modal-prompt). Color is used as signal, never as mood: the console's slate blue marks the primary action, the viewer's Signal Cyan marks the one thing you can act on, and crimson appears once, on the button that ends the session. Where the system is incomplete, it says so plainly — the viewer's light theme is a TODO in Server/Pages/Viewer.cshtml.cs:42, and the console's site.css still declares a font and a link color that the theme has since overridden, so both facts are recorded here rather than papered over.",
+    "overview": "Remotely is a room with one bright thing in it. A technician opens the console, finds the machine that is in trouble, and opens it; from that moment the remote screen is the only object in the room that matters, and every piece of interface around it is instrumentation — a switch, a readout, a way out. The system is built around that one relationship, and it shows in the code: the viewer gives the remote canvas the entire viewport (#workAreaGrid is a fixed inset-0 grid with grid-template-rows: auto 1fr), while the console stays a quiet directory of devices waiting to be chosen.\n\nTwo surfaces, one product, two deliberately different manners. The operator console is a Bootstrap 5.3.2 application wearing a Bootswatch theme (Darkly for dark, Yeti for light) — soft 4–6px radii, tonal grey layering, Lato. The remote viewer is hand-written CSS with no framework at all — square 0px controls, hard 1px borders, Lucida Sans, and a single electric accent that only ever appears on the connect and toggle affordances. The console is furniture; the viewer is an instrument. The difference is not drift — it is the difference between a waiting room and the console of a machine.\n\nThe governing personality is strictly functional: every element serves the session. Nothing in either surface is decorative. The console has no shadows, no gradients, no illustrations — depth is carried entirely by three greys (#222 canvas → #303030 card → #444 border) and by 1px borders. The viewer has exactly one shadow in the entire system, on the one element that genuinely floats (.modal-prompt). Color is used as signal, never as mood: the console's slate blue marks the primary action, the viewer's Signal Cyan marks the one thing you can act on, and crimson appears once, on the button that ends the session. Where the system is incomplete, it says so plainly — the viewer's light theme is a TODO in Server/Pages/Viewer.cshtml.cs:42 — and where the console drifted, it was corrected rather than excused: site.css no longer declares a font or a link colour that the theme overrides, the sidebar's steelblue gradient is gone, and every console colour now comes from one token layer (--rm-*) shared by both themes.",
     "keyCharacteristics": [
       "The remote screen owns the viewport; all chrome floats over it as a thin, square-edged overlay.",
       "Two type systems with different jobs: Lato for the console's readability, Lucida Sans for the viewer's deliberate plainness.",
       "Zero decorative color, zero ornament, zero resting shadows.",
       "One accent per surface, reserved for action: Signal Cyan in the viewer, slate blue in the console.",
-      "Radii are a vocabulary, not a gradient: 6px and 4px in the console, 5px on floating panels, 0px on viewer controls."
+      "Radii are a vocabulary, not a gradient: a single 6px in the console, 5px on floating panels, 0px on viewer controls."
     ],
     "rules": [
       {
@@ -431,7 +514,17 @@
       },
       {
         "name": "The Cascade Rule",
-        "body": "The theme stylesheet is loaded after site.css, so any declaration in site.css that the theme also sets is dead. The file still declares font-family: 'Helvetica Neue' on html, body and a { color: #0366d6 }; the rendered console uses Lato and white links. Verify against computed styles in the running app, never against the source file.",
+        "body": "The theme stylesheet is loaded after site.css, so any declaration in site.css that the theme also sets is dead. The file used to declare font-family: 'Helvetica Neue' on html, body and a { color: #0366d6 } while the rendered console used Lato and theme-coloured links; both declarations are now deleted rather than left to be overridden. Verify against computed styles in the running app, never against the source file.",
+        "section": "colors"
+      },
+      {
+        "name": "The One-Hue Rule",
+        "body": "The console has one chromatic family — slate blue — plus status colours. Green means online and nothing else, so links are the accent, never green: a green link reads as a status. Yellow means outdated agent, red means destructive. A new colour must be a signal or it does not ship.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Rule",
+        "body": "Every colour the console paints comes from a --rm-* token declared in Server/wwwroot/css/Themes/*.custom.css (dark: darkly.custom.css, light: yeti.custom.css). A raw hex value in a component rule is drift waiting to happen: it will not survive a theme switch. Both themes must declare the same token names.",
         "section": "colors"
       },
       {
@@ -451,13 +544,14 @@
       },
       {
         "name": "The One Vocabulary Rule",
-        "body": "Never mix radii within a surface. A 6px button next to a 4px button in the console is a bug; a rounded button in the viewer is a bug.",
+        "body": "Never mix radii within a surface. The console has exactly one radius, 6px, enforced by overriding --bs-border-radius, --bs-border-radius-sm and --bs-border-radius-lg in both themes — a 6px button next to a 4px button in the console is a bug, and so is a rounded button in the viewer.",
         "section": "shapes"
       }
     ],
     "dos": [
       "Do let the remote screen occupy the whole viewport in the viewer, and float the chrome above it.",
       "Do keep the console's depth in the three greys (#222 / #303030 / #444) and 1px borders.",
+      "Do take every console colour from a --rm-* token, and declare the same token in both themes.",
       "Do reserve Signal Cyan for the connect and toggle affordances, and slate blue #375a7f for the console's primary action.",
       "Do verify a change against computed styles in the running app — the theme stylesheet loads after site.css and overrides it.",
       "Do keep every control in the viewer at 40px height so the target size stays constant across the toolbar.",
@@ -467,10 +561,11 @@
     "donts": [
       "Don't add a shadow to a resting surface. The only shadow belongs to the floating prompt.",
       "Don't introduce a second accent color in either surface, and don't carry Signal Cyan into the console.",
-      "Don't round a viewer control, mix a 6px and a 4px radius in the console, or soften a square edge.",
+      "Don't use green for anything but \"online\" — a green link reads as a status, not an action.",
+      "Don't round a viewer control, mix two radii in the console, or soften a square edge.",
       "Don't decorate, illustrate, or add an empty state that isn't about a device or a session.",
-      "Don't trust site.css for the console's font or link color — both are overridden by the theme at load time.",
-      "Don't assume the viewer has a light theme; Server/Pages/Viewer.cshtml.cs:42 hard-codes dark with a TODO."
+      "Don't assume the viewer has a light theme; Server/Pages/Viewer.cshtml.cs:42 hard-codes dark with a TODO.",
+      "Don't declare a colour in site.css that the theme also sets — it is dead code by construction; the console's colours belong to the --rm-* tokens."
     ]
   }
 }

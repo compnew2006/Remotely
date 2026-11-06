@@ -30,5 +30,6 @@ public static class IServiceCollectionExtensions
         services.AddSingleton<IAppStartup, AppStartup>();
         services.AddTransient<IFileTransferService, FileTransferServiceWin>();
         services.AddTransient<IScreenCapturer, ScreenCapturerWin>();
+        services.AddSingleton<ICameraCapturer, CameraCapturerWin>();
     }
 }

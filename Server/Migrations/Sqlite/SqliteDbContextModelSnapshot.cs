@@ -370,6 +370,43 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.ToTable("BrandingInfos");
                 });
 
+            modelBuilder.Entity("Remotely.Shared.Entities.CameraClip", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Quality")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TimeStamp")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("CameraClips");
+                });
+
             modelBuilder.Entity("Remotely.Shared.Entities.Device", b =>
                 {
                     b.Property<string>("ID")
@@ -381,6 +418,20 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.Property<string>("Alias")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraDirectory")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CameraPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CameraRetentionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CameraRetentionHours")
+                        .HasColumnType("INTEGER");
 
                     b.Property<double>("CpuUtilization")
                         .HasColumnType("REAL");

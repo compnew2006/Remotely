@@ -1,12 +1,12 @@
 @import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
+/*
+ * The theme stylesheet is loaded after this file and owns the console's
+ * typography and link colour, so nothing is declared here that it would
+ * override (see the Cascade Rule in DESIGN.md).
+ */
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     overscroll-behavior-y: contain;
-}
-
-a, .btn-link {
-    color: #0366d6;
 }
 
 /*.btn-primary {

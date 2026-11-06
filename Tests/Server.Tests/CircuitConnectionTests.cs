@@ -25,6 +25,7 @@ public class CircuitConnectionTests
     private HubContextFixture<AgentHub, IAgentHubClient> _agentHubContextFixture;
     private HubContextFixture<DesktopHub, IDesktopHubClient> _desktopHubContextFixture;
     private Mock<IScreenshotService> _screenshotService = new Mock<IScreenshotService>();
+    private Mock<ICameraService> _cameraService = new Mock<ICameraService>();
     private Mock<ICircuitManager> _circuitManager;
     private Mock<IToastService> _toastService;
     private Mock<IExpiringTokenService> _expiringTokenService;
@@ -65,6 +66,7 @@ public class CircuitConnectionTests
             _expiringTokenService.Object,
             _remoteControlSessionCache.Object,
             _screenshotService.Object,
+            _cameraService.Object,
             _agentSessionCache.Object,
             _messenger.Object,
             _logger.Object);

@@ -77,6 +77,30 @@ public class Device
     [StringLength(500)]
     public string? ScreenshotPauseWindows { get; set; }
 
+    /// <summary>
+    /// The folder on the server where camera clips from this device are
+    /// stored. When empty, the server's default location is used.
+    /// </summary>
+    [StringLength(500)]
+    public string? CameraDirectory { get; set; }
+
+    /// <summary>
+    /// The maximum number of camera clips kept for this device.
+    /// </summary>
+    public int CameraRetentionCount { get; set; } = 200;
+
+    /// <summary>
+    /// How long a camera clip is kept for this device, in hours.
+    /// </summary>
+    public int CameraRetentionHours { get; set; } = 24;
+
+    /// <summary>
+    /// The windows of the day during which camera clips are not recorded,
+    /// stored as JSON.
+    /// </summary>
+    [StringLength(500)]
+    public string? CameraPauseWindows { get; set; }
+
     [JsonIgnore]
     public Organization? Organization { get; set; }
 

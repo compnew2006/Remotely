@@ -2,6 +2,7 @@ using Remotely.Server.Enums;
 using Remotely.Server.Services;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Helpers;
+using Remotely.Shared.Models;
 
 namespace Remotely.Server.Models;
 
@@ -102,6 +103,38 @@ public class RemoteControlSession : IDisposable
     /// How often the device captures a screenshot while monitoring.
     /// </summary>
     public int MonitoringIntervalSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Whether this session is a camera capture session, in which case the
+    /// device records a video clip from one of its cameras.
+    /// </summary>
+    public bool IsCameraCapture { get; set; }
+
+    /// <summary>
+    /// Whether this camera session repeatedly records clips without a viewer.
+    /// </summary>
+    public bool IsCameraMonitoring { get; set; }
+
+    /// <summary>
+    /// How often the device records a camera clip while monitoring, in seconds.
+    /// </summary>
+    public int CameraMonitoringIntervalSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// The windows of the day during which scheduled camera recordings are
+    /// paused, stored as JSON.
+    /// </summary>
+    public string? CameraPauseWindows { get; set; }
+
+    /// <summary>
+    /// The camera recording that was requested for this session.
+    /// </summary>
+    public CameraCaptureRequest? CameraCapture { get; set; }
+
+    /// <summary>
+    /// The cameras that the device reported when it connected.
+    /// </summary>
+    public List<CameraDeviceInfo> CameraDevices { get; set; } = new();
 
     /// <summary>
     /// Current state of the streamer (desktop process) that's associated

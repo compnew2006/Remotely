@@ -1,22 +1,98 @@
-﻿hr {
+﻿/*
+ * Remotely console - design tokens (dark theme).
+ *
+ * The console keeps exactly three surfaces (canvas #222, raised #303030,
+ * border #444) and one chromatic family (slate blue). Status colours are the
+ * only other hue in the console, and they are signals rather than decoration:
+ * green = online, yellow = outdated agent, red = destructive.
+ */
+:root {
+    /* Surfaces */
+    --rm-surface-canvas: #222222;
+    --rm-surface-raised: #303030;
+    --rm-surface-sidebar: #222222;
+    --rm-border: #444444;
+    --rm-border-soft: rgba(255, 255, 255, 0.08);
+    --rm-navbar-scrim: rgba(0, 0, 0, 0.3);
+
+    /* Ink */
+    --rm-ink: #ffffff;
+    --rm-ink-muted: rgba(255, 255, 255, 0.75);
+    --rm-ink-faint: rgba(255, 255, 255, 0.60);
+
+    /* Accent - one family, four steps */
+    --rm-accent: #8fb8e0;
+    --rm-accent-strong: #b3d2f0;
+    --rm-accent-soft: rgba(143, 184, 224, 0.12);
+    --rm-accent-line: rgba(143, 184, 224, 0.55);
+    --rm-focus-ring: rgba(143, 184, 224, 0.45);
+
+    /* Status */
+    --rm-status-ok: #00bc8c;
+
+    /* Primary action - quiet fill, visible edge */
+    --rm-primary-fill: #375a7f;
+    --rm-primary-fill-hover: #2f4e6f;
+    --rm-primary-edge: rgba(143, 184, 224, 0.55);
+
+    /* Fields */
+    --rm-field-bg: #ffffff;
+    --rm-field-ink: #303030;
+    --rm-field-border: #222222;
+    --rm-field-placeholder: rgba(48, 48, 48, 0.45);
+
+    /* Shape + metrics */
+    --rm-radius-control: 6px;
+    --rm-control-height: 38px;
+
+    /* Bootstrap bridges */
+    --bs-border-radius: var(--rm-radius-control);
+    --bs-border-radius-sm: var(--rm-radius-control);
+    --bs-border-radius-lg: var(--rm-radius-control);
+    --bs-focus-ring-color: var(--rm-focus-ring);
+    --bs-link-color: var(--rm-accent);
+    --bs-link-hover-color: var(--rm-accent-strong);
+    --bs-info: var(--rm-accent);
+    --bs-info-rgb: 143, 184, 224;
+}
+
+/*
+ * The primary action keeps its slate-blue fill but gains a visible edge:
+ * #375a7f on the #222 canvas is 2.22:1 - under the 3:1 non-text floor for a
+ * component boundary. The edge keeps the button quiet and makes it findable.
+ */
+.btn.btn-primary {
+    --bs-btn-bg: var(--rm-primary-fill);
+    --bs-btn-border-color: var(--rm-primary-edge);
+    --bs-btn-hover-bg: var(--rm-primary-fill-hover);
+    --bs-btn-hover-border-color: var(--rm-primary-edge);
+    --bs-btn-active-bg: var(--rm-primary-fill);
+    --bs-btn-active-border-color: var(--rm-primary-edge);
+}
+
+/*
+ * Links carry the accent. Green is reserved for "online", so a green link
+ * would read as a status instead of an action.
+ */
+a, .btn-link {
+    color: var(--rm-accent);
+}
+
+hr {
     border-top: 1px solid #282828;
-}
-
-.console-prompt {
-    color: royalblue;
-}
-
-.console-output {
-    color: limegreen;
 }
 
 .navbar-brand {
     font-size: 1.5rem !important;
 }
 
+.logo-title {
+    font-weight: 500;
+}
+
 .logo-subtitle {
     font-size: .5em;
-    color: deepskyblue;
+    color: var(--rm-ink-muted);
 }
 
 .form-floating > label {
