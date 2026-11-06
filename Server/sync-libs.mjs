@@ -41,11 +41,10 @@ const msgpackProtocolCopied = copyFiles(
 );
 console.log(`  @microsoft/signalr-protocol-msgpack: ${msgpackProtocolCopied} file(s)`);
 
-// 3. @msgpack/msgpack -> lib/msgpack/dist.es5+umd/
+// 3. @msgpack/msgpack -> lib/msgpack/dist.umd/ (3.x layout; was dist.es5+umd in 3.0.0-beta2)
 const msgpackCopied = copyFiles(
-  join(modulesDir, "@msgpack", "msgpack", "dist.es5+umd"),
-  join(libDir, "msgpack", "dist.es5+umd"),
-  (name) => name.startsWith("msgpack.")
+  join(modulesDir, "@msgpack", "msgpack", "dist.umd"),
+  join(libDir, "msgpack", "dist.umd")
 );
 console.log(`  @msgpack/msgpack: ${msgpackCopied} file(s)`);
 

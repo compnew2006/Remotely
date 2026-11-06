@@ -57,6 +57,14 @@ public class ViewerHub : Hub<IViewerHubClient>
         }
     }
 
+    private bool ViewerViewOnly
+    {
+        get => Context.Items.TryGetValue(nameof(ViewerViewOnly), out var stored) &&
+            stored is bool isViewOnly &&
+            isViewOnly;
+        set => Context.Items[nameof(ViewerViewOnly)] = value;
+    }
+
     private RemoteControlSession SessionInfo
     {
         get
@@ -184,14 +192,19 @@ public class ViewerHub : Hub<IViewerHubClient>
     {
         var settings = await _dataService.GetSettings();
 
-        // SPEC-001 / FR-002, FR-007: the viewer UI receives the session's
-        // server-owned access mode. The client fetches this after the session
-        // attach request, so SessionInfo is the server-owned session record.
-        // The viewer's link and URL parameters are never consulted.
+        // SPEC-001 / FR-002, FR-007 (OD-11 audit B-2): the viewer UI receives
+        // THIS viewer's effective access mode — the session's server-owned mode
+        // narrowed by the per-attach control evaluation recorded at
+        // SendScreenCastRequestToDevice time. The viewer's link and URL
+        // parameters are never consulted.
+        var viewerViewOnly = Context.Items.ContainsKey(nameof(ViewerViewOnly))
+            ? ViewerViewOnly
+            : SessionInfo.ViewOnly;
+
         return new RemoteControlViewerOptions()
         {
             ShouldRecordSession = settings.EnableRemoteControlRecording,
-            ViewOnly = SessionInfo.ViewOnly
+            ViewOnly = viewerViewOnly
         };
     }
 
@@ -314,6 +327,76 @@ public class ViewerHub : Hub<IViewerHubClient>
         }
     }
 
+    /// <summary>
+    /// SPEC-001 / FR-005, FR-006, FR-015, FR-024 (OD-11 audit B-2/B-3): the
+    /// control authority of THIS viewer is evaluated at attach and at every
+    /// subsequent server evaluation point. Basis: an authenticated connection
+    /// whose device-group membership still holds. Possession of a session id,
+    /// access key, or viewer link alone never widens authority, and a revoked
+    /// basis is withdrawn immediately (fail-closed on any evaluation failure).
+    /// Attended sessions keep their consent-on-device basis (OD-13).
+    /// </summary>
+    private async Task<bool> ViewerMayControl()
+    {
+        if (SessionInfo.ViewOnly)
+        {
+            return false;
+        }
+
+        if (SessionInfo.Mode == RemoteControlMode.Attended)
+        {
+            // Attended authority basis: the employee's consent on the device
+            // (see the attach decision log; owner decision candidate OD-13).
+            return true;
+        }
+
+        if (Context.User?.Identity?.IsAuthenticated != true)
+        {
+            _logger.LogWarning(
+                "Privilege decision: REFUSED.  " +
+                "Action: ViewerControlAttach.  " +
+                "Basis: unauthenticated viewer on a FullControl session — a link alone does not grant control.  " +
+                "Session ID: {sessionId}.  " +
+                "Connection ID: {connectionId}.",
+                SessionInfo.UnattendedSessionId,
+                Context.ConnectionId);
+            return false;
+        }
+
+        // FR-015: re-evaluate the device-group basis at this server evaluation
+        // point; withdrawal is immediate for this viewer (fail-closed).
+        var userResult = await _dataService.GetUserByName($"{Context.User.Identity.Name}");
+        if (!userResult.IsSuccess)
+        {
+            _logger.LogWarning(
+                "Privilege decision: REFUSED.  " +
+                "Action: ViewerControlAttach.  " +
+                "Basis: identity could not be resolved (fail-closed).  " +
+                "Session ID: {sessionId}.  " +
+                "Connection ID: {connectionId}.",
+                SessionInfo.UnattendedSessionId,
+                Context.ConnectionId);
+            return false;
+        }
+
+        if (!_dataService.DoesUserHaveAccessToDevice(SessionInfo.DeviceId, userResult.Value))
+        {
+            _logger.LogWarning(
+                "Privilege decision: WITHDRAWN.  " +
+                "Action: ViewerControlAttach.  " +
+                "Basis: device-group membership no longer holds.  " +
+                "Session ID: {sessionId}.  " +
+                "Device ID: {deviceId}.  " +
+                "Identity: {identity}.",
+                SessionInfo.UnattendedSessionId,
+                SessionInfo.DeviceId,
+                userResult.Value.UserName);
+            return false;
+        }
+
+        return true;
+    }
+
     public async Task<Result> SendScreenCastRequestToDevice(string sessionId, string accessKey, string requesterName)
     {
         if (string.IsNullOrWhiteSpace(sessionId))
@@ -343,6 +426,15 @@ public class ViewerHub : Hub<IViewerHubClient>
         SessionInfo.ViewerList.Add(Context.ConnectionId);
         SessionInfo.StreamId = Guid.NewGuid();
         RequesterDisplayName = requesterName;
+
+        // SPEC-001 / FR-006, FR-015, FR-024 (OD-11 audit B-2/B-3): control
+        // authority is evaluated per attach, per viewer. A FullControl session
+        // grants THIS viewer control only when the viewer's own connection is
+        // authenticated and its device-group basis still holds. A shared link
+        // alone never widens authority, and a revoked basis is withdrawn at the
+        // next server evaluation.
+        var viewerViewOnly = !(await ViewerMayControl());
+        ViewerViewOnly = viewerViewOnly;
 
         if (Context.User?.Identity?.IsAuthenticated == true)
         {
@@ -389,7 +481,7 @@ public class ViewerHub : Hub<IViewerHubClient>
                     RequesterDisplayName,
                     SessionInfo.NotifyUserOnStart,
                     SessionInfo.StreamId,
-                    SessionInfo.ViewOnly);
+                    viewerViewOnly);
         }
         else
         {
@@ -401,6 +493,9 @@ public class ViewerHub : Hub<IViewerHubClient>
             // specification reuse. That consent is the authority basis for
             // FullControl here; the decision is recorded (FR-008). This preserves
             // the attended support workflow (Principle II: preserve function).
+            // NOTE: this basis deviates from FR-005's literal
+            // "authenticated caller + device-group" precondition and is recorded
+            // as an owner decision candidate (OD-13).
             SessionInfo.AccessMode = Shared.Enums.RemoteAccessMode.FullControl;
             _logger.LogInformation(
                 "Privilege decision: GRANTED.  " +
@@ -420,7 +515,7 @@ public class ViewerHub : Hub<IViewerHubClient>
                     RequesterDisplayName,
                     SessionInfo.NotifyUserOnStart,
                     SessionInfo.StreamId,
-                    SessionInfo.ViewOnly);
+                    viewerViewOnly);
         }
 
         return Result.Ok();

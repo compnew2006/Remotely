@@ -130,19 +130,44 @@ public class RemoteControlAuthorizationTests
     }
 
     [TestMethod]
-    [Description("SC-002 completeness: every DtoType value is classified either way - none may be silently unhandled.")]
+    [Description("SC-002 completeness: every DtoType value is explicitly classified in the control or view test lists - no value may be silently unhandled.")]
     public void ControlTypes_Coverage_EveryDtoTypeAccountedFor()
     {
+        DtoType[] controlTypes =
+        {
+            DtoType.MouseMove, DtoType.MouseDown, DtoType.MouseUp, DtoType.Tap,
+            DtoType.MouseWheel, DtoType.KeyDown, DtoType.KeyUp, DtoType.CtrlAltDel,
+            DtoType.ToggleBlockInput, DtoType.TextTransfer, DtoType.KeyPress,
+            DtoType.SetKeyStatesUp, DtoType.File
+        };
+
+        DtoType[] viewTypes =
+        {
+            DtoType.ScreenData, DtoType.ScreenSize, DtoType.ClipboardText,
+            DtoType.AudioSample, DtoType.CursorChange, DtoType.SelectScreen,
+            DtoType.ToggleAudio, DtoType.WindowsSessions, DtoType.FrameReceived,
+            DtoType.OpenFileTransferWindow, DtoType.SessionMetrics
+        };
+
         var allValues = Enum.GetValues<DtoType>();
 
-        foreach (var value in allValues)
-        {
-            // The classifier must return a definitive answer for every value
-            // without throwing, so neither enforcement point can have an
-            // unhandled gap.
-            _ = value.IsControlMessage();
-        }
+        // No overlap between the two classification sets.
+        Assert.IsFalse(
+            controlTypes.Intersect(viewTypes).Any(),
+            "A DTO type cannot be both control and view traffic.");
 
-        Assert.AreEqual(allValues.Length, allValues.Distinct().Count());
+        // Every defined enum value is explicitly classified (OD-11: a newly
+        // added DtoType must fail this test until it is deliberately
+        // classified, instead of silently defaulting to view traffic).
+        var unclassified = allValues
+            .Except(controlTypes)
+            .Except(viewTypes)
+            .ToList();
+
+        Assert.AreEqual(
+            0,
+            unclassified.Count,
+            "Unclassified DtoType values (must be added to the control or view list): " +
+            string.Join(", ", unclassified));
     }
 }

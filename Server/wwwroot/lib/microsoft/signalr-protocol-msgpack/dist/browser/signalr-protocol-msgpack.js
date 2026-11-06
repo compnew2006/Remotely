@@ -75,18 +75,18 @@ module.exports = __WEBPACK_EXTERNAL_MODULE__1__;
 /******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+// This entry needs to be wrapped in an IIFE because it needs to be isolated against other modules in the chunk.
 (() => {
 // ESM COMPAT FLAG
 __webpack_require__.r(__webpack_exports__);
 
 // EXPORTS
 __webpack_require__.d(__webpack_exports__, {
-  "MessagePackHubProtocol": () => (/* reexport */ MessagePackHubProtocol),
-  "VERSION": () => (/* reexport */ VERSION)
+  MessagePackHubProtocol: () => (/* reexport */ MessagePackHubProtocol),
+  VERSION: () => (/* reexport */ VERSION)
 });
 
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/int.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/int.mjs
 // Integer Utility
 var UINT32_MAX = 4294967295;
 // DataView extension to handle int64 / uint64,
@@ -114,7 +114,7 @@ function getUint64(view, offset) {
     return high * 4294967296 + low;
 }
 //# sourceMappingURL=int.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/utf8.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/utf8.mjs
 var _a, _b, _c;
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 
@@ -275,7 +275,7 @@ function utf8DecodeTD(bytes, inputOffset, byteLength) {
     return sharedTextDecoder.decode(stringBytes);
 }
 //# sourceMappingURL=utf8.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/ExtData.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/ExtData.mjs
 /**
  * ExtData is used to handle Extension Types that are not registered to ExtensionCodec.
  */
@@ -288,7 +288,7 @@ var ExtData = /** @class */ (function () {
 }());
 
 //# sourceMappingURL=ExtData.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/DecodeError.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/DecodeError.mjs
 var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -322,7 +322,7 @@ var DecodeError = /** @class */ (function (_super) {
 }(Error));
 
 //# sourceMappingURL=DecodeError.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/timestamp.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/timestamp.mjs
 // https://github.com/msgpack/msgpack/blob/master/spec.md#timestamp-extension-type
 
 
@@ -420,7 +420,7 @@ var timestampExtension = {
     decode: decodeTimestampExtension,
 };
 //# sourceMappingURL=timestamp.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/ExtensionCodec.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/ExtensionCodec.mjs
 // ExtensionCodec to handle MessagePack extensions
 
 
@@ -492,7 +492,7 @@ var ExtensionCodec = /** @class */ (function () {
 }());
 
 //# sourceMappingURL=ExtensionCodec.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/typedArrays.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/typedArrays.mjs
 function ensureUint8Array(buffer) {
     if (buffer instanceof Uint8Array) {
         return buffer;
@@ -516,7 +516,7 @@ function createDataView(buffer) {
     return new DataView(bufferView.buffer, bufferView.byteOffset, bufferView.byteLength);
 }
 //# sourceMappingURL=typedArrays.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/Encoder.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/Encoder.mjs
 
 
 
@@ -934,12 +934,12 @@ var Encoder = /** @class */ (function () {
 }());
 
 //# sourceMappingURL=Encoder.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/prettyByte.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/utils/prettyByte.mjs
 function prettyByte(byte) {
     return "".concat(byte < 0 ? "-" : "", "0x").concat(Math.abs(byte).toString(16).padStart(2, "0"));
 }
 //# sourceMappingURL=prettyByte.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/CachedKeyDecoder.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/CachedKeyDecoder.mjs
 
 var DEFAULT_MAX_KEY_LENGTH = 16;
 var DEFAULT_MAX_LENGTH_PER_KEY = 16;
@@ -1004,7 +1004,7 @@ var CachedKeyDecoder = /** @class */ (function () {
 }());
 
 //# sourceMappingURL=CachedKeyDecoder.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@msgpack/msgpack/dist.es5+esm/Decoder.mjs
+;// ./node_modules/@msgpack/msgpack/dist.es5+esm/Decoder.mjs
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -1279,7 +1279,8 @@ var Decoder = /** @class */ (function () {
                         _b.trys.push([4, 9, , 10]);
                         _b.label = 5;
                     case 5:
-                        if (false) {}
+                        if (false) // removed by dead control flow
+{}
                         return [4 /*yield*/, __await(this.doDecodeSync())];
                     case 6: return [4 /*yield*/, _b.sent()];
                     case 7:
@@ -1741,7 +1742,7 @@ var Decoder = /** @class */ (function () {
 //# sourceMappingURL=Decoder.mjs.map
 // EXTERNAL MODULE: external "signalR"
 var external_signalR_ = __webpack_require__(1);
-;// CONCATENATED MODULE: ./src/BinaryMessageFormat.ts
+;// ./src/BinaryMessageFormat.ts
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // Not exported from index.
@@ -1801,7 +1802,7 @@ class BinaryMessageFormat {
     }
 }
 
-;// CONCATENATED MODULE: ./src/Utils.ts
+;// ./src/Utils.ts
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // Copied from signalr/Utils.ts
@@ -1813,7 +1814,7 @@ function isArrayBuffer(val) {
             (val.constructor && val.constructor.name === "ArrayBuffer"));
 }
 
-;// CONCATENATED MODULE: ./src/MessagePackHubProtocol.ts
+;// ./src/MessagePackHubProtocol.ts
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -2107,15 +2108,15 @@ class MessagePackHubProtocol {
     }
 }
 
-;// CONCATENATED MODULE: ./src/index.ts
+;// ./src/index.ts
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // Version token that will be replaced by the prepack command
 /** The version of the SignalR Message Pack protocol library. */
-const VERSION = "8.0.7";
+const VERSION = "8.0.29";
 
 
-;// CONCATENATED MODULE: ./src/browser-index.ts
+;// ./src/browser-index.ts
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // This is where we add any polyfills we'll need for the browser. It is the entry module for browser-specific builds.

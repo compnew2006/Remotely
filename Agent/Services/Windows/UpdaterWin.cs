@@ -129,9 +129,19 @@ public class UpdaterWin : IUpdater
 
             _logger.LogInformation("Service Updater: Downloading install package.");
 
-            var zipPath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.zip");
+            // G2 (OD-11 audit): use a fresh randomized working directory instead
+            // of fixed %TEMP% paths, closing most of the verify-then-execute
+            // TOCTOU window (replacing a fixed-path file between verification
+            // and Process.Start). Residual local-replacement risk is documented
+            // in the evidence map.
+            var workDir = Path.Combine(
+                Path.GetTempPath(),
+                "RemotelyUpdate_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(workDir);
 
-            var installerPath = Path.Combine(Path.GetTempPath(), "Install-Remotely.ps1");
+            var zipPath = Path.Combine(workDir, "RemotelyUpdate.zip");
+
+            var installerPath = Path.Combine(workDir, "Install-Remotely.ps1");
             var platform = Environment.Is64BitOperatingSystem ? "x64" : "x86";
 
             await _updateDownloader.DownloadFile(
@@ -188,8 +198,8 @@ public class UpdaterWin : IUpdater
     {
         try
         {
-            var manifestPath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.manifest.json");
-            var signaturePath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.manifest.sig");
+            var manifestPath = Path.Combine(Path.GetDirectoryName(zipPath)!, "RemotelyUpdate.manifest.json");
+            var signaturePath = Path.Combine(Path.GetDirectoryName(zipPath)!, "RemotelyUpdate.manifest.sig");
 
             await _updateDownloader.DownloadFile(
                 $"{serverUrl}/Content/Remotely-Win-{platform}.zip.manifest.json",

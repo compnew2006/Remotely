@@ -198,11 +198,12 @@ public class FileTransferServiceWin : IFileTransferService
             return;
         }
 
-        // G3 / least privilege: instead of granting Modify to the entire
-        // Builtin Users group, grant it only to the current interactive user.
-        // SYSTEM, Administrators, and TrustedInstaller rights remain via
-        // inherited rules from ProgramData; every other local account loses
-        // direct write access to the transfer directory.
+        // G3 / least privilege: new grants are narrowed from the entire
+        // Builtin Users group to the current interactive user only. Note
+        // (OD-11 audit): inherited rules from ProgramData are NOT stripped by
+        // this method, so broader existing access may remain on the base
+        // directory; a full lockdown requires an explicit inheritance break
+        // (documented follow-up, not silently claimed here).
         var account = new NTAccount(Environment.UserDomainName, Environment.UserName);
 
         var accessAlreadySet = false;
