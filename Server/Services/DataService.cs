@@ -225,6 +225,13 @@ public interface IDataService
         int retentionHours,
         string? pauseWindows = null);
 
+    Task<Result> UpdateAudioSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
     Task<Result> UpdateUserOptions(string userName, RemotelyUserOptions options);
     Task<bool> ValidateApiKey(string keyId, string apiSecret, string requestPath, string remoteIP);
 }
@@ -2297,6 +2304,48 @@ public class DataService : IDataService
         device.CameraRetentionCount = retentionCount > 0 ? Math.Clamp(retentionCount, 1, 2000) : 200;
         device.CameraRetentionHours = retentionHours > 0 ? Math.Clamp(retentionHours, 1, 8760) : 24;
         device.CameraPauseWindows = pauseWindows;
+
+        await dbContext.SaveChangesAsync();
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Updates where the audio clips of a device are stored, how many are
+    /// kept, and the windows during which scheduled recordings are paused.
+    /// </summary>
+    public async Task<Result> UpdateAudioSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        directory = string.IsNullOrWhiteSpace(directory) ? null : directory.Trim();
+        pauseWindows = string.IsNullOrWhiteSpace(pauseWindows) ? null : pauseWindows;
+
+        if (directory?.Length > 500)
+        {
+            return Result.Fail("The audio directory must be 500 characters or fewer.");
+        }
+
+        if (pauseWindows?.Length > 500)
+        {
+            return Result.Fail("The audio pause windows exceed the storage limit.");
+        }
+
+        using var dbContext = _appDbFactory.GetContext();
+
+        var device = await dbContext.Devices.FindAsync(deviceId);
+        if (device is null)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        device.AudioDirectory = directory;
+        device.AudioRetentionCount = retentionCount > 0 ? Math.Clamp(retentionCount, 1, 2000) : 200;
+        device.AudioRetentionHours = retentionHours > 0 ? Math.Clamp(retentionHours, 1, 8760) : 24;
+        device.AudioPauseWindows = pauseWindows;
 
         await dbContext.SaveChangesAsync();
 

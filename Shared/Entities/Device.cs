@@ -101,6 +101,30 @@ public class Device
     [StringLength(500)]
     public string? CameraPauseWindows { get; set; }
 
+    /// <summary>
+    /// The folder on the server where audio clips from this device are
+    /// stored. When empty, the server's default location is used.
+    /// </summary>
+    [StringLength(500)]
+    public string? AudioDirectory { get; set; }
+
+    /// <summary>
+    /// The maximum number of audio clips kept for this device.
+    /// </summary>
+    public int AudioRetentionCount { get; set; } = 200;
+
+    /// <summary>
+    /// How long an audio clip is kept for this device, in hours.
+    /// </summary>
+    public int AudioRetentionHours { get; set; } = 24;
+
+    /// <summary>
+    /// The windows of the day during which scheduled audio recordings are
+    /// paused, stored as JSON.
+    /// </summary>
+    [StringLength(500)]
+    public string? AudioPauseWindows { get; set; }
+
     [JsonIgnore]
     public Organization? Organization { get; set; }
 

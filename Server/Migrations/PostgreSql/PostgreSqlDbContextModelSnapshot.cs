@@ -352,6 +352,42 @@ namespace Remotely.Server.Migrations.PostgreSql
                     b.ToTable("ApiTokens");
                 });
 
+            modelBuilder.Entity("Remotely.Shared.Entities.AudioClip", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Quality")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("TimeStamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("AudioClips");
+                });
+
             modelBuilder.Entity("Remotely.Shared.Entities.BrandingInfo", b =>
                 {
                     b.Property<string>("Id")
@@ -425,6 +461,20 @@ namespace Remotely.Server.Migrations.PostgreSql
                     b.Property<string>("Alias")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("AudioDirectory")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("AudioPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("AudioRetentionCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AudioRetentionHours")
+                        .HasColumnType("integer");
 
                     b.Property<string>("CameraDirectory")
                         .HasMaxLength(500)

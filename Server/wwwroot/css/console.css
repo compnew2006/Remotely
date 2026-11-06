@@ -1,0 +1,325 @@
+/*
+ * Remotely console - page composition.
+ *
+ * This file is the console's last stylesheet: App.razor loads it after the
+ * theme, so these rules win the cascade (the Cascade Rule in DESIGN.md).
+ * Every colour is a --rm-* token, so the dark and light themes stay in sync
+ * without a second copy of the rules.
+ *
+ * Vocabulary: a "panel" is the console's raised surface (--rm-surface-raised)
+ * with a 1px border; a "well" is a code block inside a panel, cut back to
+ * the canvas tone. Nothing here introduces a fourth surface, a shadow, or a
+ * second hue.
+ */
+
+/* ------------------------------------------------------------------ *
+ * Type roles                                                           *
+ * ------------------------------------------------------------------ */
+
+.rm-page-title {
+    font-size: 32px;
+    line-height: 38.4px;
+    font-weight: 500;
+    color: var(--rm-ink);
+    margin: 0 0 8px;
+}
+
+.rm-section-title {
+    font-size: 20px;
+    line-height: 30px;
+    font-weight: 500;
+    color: var(--rm-ink);
+    margin: 0;
+}
+
+.rm-panel-title {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+    color: var(--rm-ink);
+    margin: 0 0 12px;
+}
+
+.rm-lead {
+    font-size: 16px;
+    line-height: 24px;
+    color: var(--rm-ink-muted);
+    margin: 8px 0 16px;
+    max-width: 70ch;
+}
+
+.rm-note {
+    font-size: 14px;
+    line-height: 21.6px;
+    color: var(--rm-ink-muted);
+    margin: 8px 0 0;
+}
+
+.rm-label {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rm-ink-faint);
+    margin: 0 0 8px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Ghost button - the console's secondary action                        *
+ * ------------------------------------------------------------------ */
+
+.rm-btn-ghost {
+    --bs-btn-color: var(--rm-ink-muted);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: var(--rm-border);
+    --bs-btn-hover-color: var(--rm-ink);
+    --bs-btn-hover-bg: var(--rm-accent-soft);
+    --bs-btn-hover-border-color: var(--rm-accent-line);
+    --bs-btn-active-color: var(--rm-ink);
+    --bs-btn-active-bg: var(--rm-accent-soft);
+    --bs-btn-active-border-color: var(--rm-accent-line);
+    --bs-btn-disabled-color: var(--rm-ink-faint);
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-disabled-border-color: var(--rm-border);
+}
+
+/* ------------------------------------------------------------------ *
+ * Home - the signed-out landing                                        *
+ * ------------------------------------------------------------------ */
+
+.rm-landing {
+    max-width: 34rem;
+    margin-top: 48px;
+}
+
+.rm-landing-panel {
+    background-color: var(--rm-surface-raised);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    padding: 32px;
+}
+
+.rm-landing-lead {
+    font-size: 16px;
+    line-height: 24px;
+    color: var(--rm-ink-muted);
+    margin: 0 0 24px;
+    max-width: 44ch;
+}
+
+.rm-landing-rule {
+    border-top: 1px solid var(--rm-border);
+    margin: 0 0 24px;
+    opacity: 1;
+}
+
+.rm-landing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Page frame - Downloads and other text pages                          *
+ * ------------------------------------------------------------------ */
+
+.rm-page {
+    max-width: 1180px;
+    padding-bottom: 48px;
+}
+
+.rm-page-header {
+    margin-bottom: 32px;
+}
+
+.rm-section {
+    margin-bottom: 48px;
+}
+
+.rm-section:last-child {
+    margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Panels and grids                                                     *
+ * ------------------------------------------------------------------ */
+
+.rm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 16px;
+    /* Panels keep their own height; a short panel must not be stretched to
+       match a tall neighbour. */
+    align-items: start;
+}
+
+.rm-grid-wide {
+    grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr));
+}
+
+.rm-grid-single {
+    grid-template-columns: 1fr;
+}
+
+.rm-panel {
+    background-color: var(--rm-surface-raised);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    padding: 16px;
+}
+
+.rm-panel + .rm-panel {
+    /* nothing - the grid owns the spacing */
+}
+
+.rm-panel-body {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rm-border);
+}
+
+/* ------------------------------------------------------------------ *
+ * Download links                                                       *
+ * ------------------------------------------------------------------ */
+
+.rm-link-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rm-link {
+    color: var(--rm-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+}
+
+.rm-link:hover,
+.rm-link:focus {
+    color: var(--rm-accent-strong);
+}
+
+.rm-link .oi {
+    color: var(--rm-ink-faint);
+    margin-right: 8px;
+    font-size: 0.9em;
+}
+
+/* ------------------------------------------------------------------ *
+ * Inline code                                                          *
+ * ------------------------------------------------------------------ */
+
+/*
+ * The theme paints inline code in its own pink (Darkly #d63384), a hue the
+ * console does not use anywhere else. Inline code is data, not decoration,
+ * so it takes the console's ink on the canvas tone instead.
+ */
+
+code {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.9em;
+    color: var(--rm-ink);
+    background-color: var(--rm-surface-canvas);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    padding: 1px 6px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Code - a well cut into a panel                                       *
+ * ------------------------------------------------------------------ */
+
+.rm-code {
+    font-family: var(--bs-font-monospace);
+    font-size: 13px;
+    line-height: 20px;
+    color: var(--rm-ink);
+    background-color: var(--rm-surface-canvas);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    padding: 12px;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Numbered steps - the helper scripts                                  *
+ * ------------------------------------------------------------------ */
+
+.rm-step + .rm-step {
+    margin-top: 16px;
+}
+
+.rm-step-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+}
+
+.rm-step-title {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+    color: var(--rm-ink);
+    margin: 0;
+}
+
+.rm-step-actions {
+    margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Callout - the console's inline message                               *
+ * ------------------------------------------------------------------ */
+
+.rm-callout {
+    background-color: var(--rm-accent-soft);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    line-height: 21.6px;
+    color: var(--rm-ink-muted);
+}
+
+.rm-callout a {
+    color: var(--rm-accent-strong);
+}
+
+/* ------------------------------------------------------------------ *
+ * Narrow screens                                                       *
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 640.98px) {
+    .rm-landing {
+        margin-top: 24px;
+    }
+
+    .rm-landing-panel {
+        padding: 24px;
+    }
+
+    .rm-landing-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rm-page-title {
+        font-size: 28px;
+        line-height: 34px;
+    }
+
+    .rm-step-actions {
+        margin-left: 0;
+    }
+}

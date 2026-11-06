@@ -232,6 +232,8 @@ A two-tone system: a near-black neutral scale that carries the whole product, an
 
 **The Cascade Rule.** The theme stylesheet is loaded *after* `site.css`, so any declaration in `site.css` that the theme also sets is dead. The file used to declare `font-family: 'Helvetica Neue'` on `html, body` and `a { color: #0366d6 }` while the rendered console used **Lato** and theme-coloured links; both declarations are now **deleted** rather than left to be overridden. Verify against computed styles in the running app, never against the source file.
 
+The console therefore has **three** stylesheet layers, in this order: `site.css` (site-wide basics), the theme pair (`darkly`/`yeti` + the matching `.custom.css` that owns the `--rm-*` tokens), and **`css/console.css`**, loaded last from `App.razor`. `console.css` is the console's own component layer — the landing panel, the page/section/panel/well composition, the callout, and the ghost button — and it wins the cascade by being last. Because every rule in it reads a `--rm-*` token, one file serves both themes; nothing about a colour is duplicated per theme except the token declaration itself.
+
 **The One-Hue Rule.** The console has one chromatic family — slate blue — plus status colours. Green means *online* and nothing else, so links are the accent, never green: a green link reads as a status. Yellow means *outdated agent*, red means *destructive*. A new colour must be a signal or it does not ship.
 
 **The Token Rule.** Every colour the console paints comes from a `--rm-*` token declared in `Server/wwwroot/css/Themes/*.custom.css` (dark: `darkly.custom.css`, light: `yeti.custom.css`). A raw hex value in a component rule is drift waiting to happen: it will not survive a theme switch. The two themes must declare the same token names, or one of the two surfaces silently keeps the old behaviour.
@@ -360,7 +362,32 @@ Borders are `1px solid` everywhere, always in the surface's own border color. Th
 
 ### Navigation
 
-Console: a fixed Bootstrap navbar with a 24px brand (`navbar-brand` at `1.5rem` in both themes) over a `--rm-navbar-scrim`, and a vertical list of `nav-link` items at `14.4px`, `padding: 8px 32px`, 6px radius, in `--rm-ink-muted`; the active item is filled with `--rm-accent-soft` and set in `--rm-accent-strong`, so "where am I" reads as an accent state rather than a white wash. The rail itself is the flat `--rm-surface-sidebar` with a 1px right border — no gradient. Viewer: no navigation — a single menu button opens `#menuFrame`, whose three columns place the logo left, the actions center, and secondary tools right.
+Console: the brand block sits at the top of the rail — the product name at `1.25rem`/500 in `--rm-ink`, with "Support Portal" beneath it as a **micro-label** (12px, uppercase, `0.06em`, `--rm-ink-faint`), not a second title. The brand colour is set through `--bs-navbar-brand-color: var(--rm-ink)`, because Darkly's own value is `#222` — the same value as the canvas, which rendered the product name invisible.
+
+Every rail row is one flex line: a **fixed 20px icon column** (`flex: 0 0 20px`, 1rem Open Iconic), a 12px gap, then the label — so all the labels start at the same x and the icons sit on one axis. Rows are 40px tall (`min-height: 2.5rem`, `padding: 4px 32px`), 6px radius, in `--rm-ink-muted`; the icon is `--rm-ink-faint` until the row is hovered or active, where both the icon and the label go to `--rm-accent-strong` on an `--rm-accent-soft` fill. The active item therefore reads as an accent state rather than a white wash.
+
+The rail is grouped: the ordinary destinations, then a hairline (`--rm-border`) and the micro-label heading **Admin** aligned to the label column (`padding-left: 80px`), then the admin destinations, then a second hairline and the session actions — **Account**, **Logout**, **About** — which are rail rows with icons (`oi-account-login`, `oi-account-logout`, `oi-question-mark`), not `btn btn-link` links dropped in from elsewhere. The rail itself is the flat `--rm-surface-sidebar` with a 1px right border — no gradient. Viewer: no navigation — a single menu button opens `#menuFrame`, whose three columns place the logo left, the actions center, and secondary tools right.
+
+### Console Page Composition
+
+Text pages (Home's landing, Downloads) are composed from four console components, all defined in `css/console.css` on `--rm-*` tokens:
+
+| Component | Surface | Role |
+|---|---|---|
+| `.rm-page` | — | The page frame: `max-width: 1180px`, so a text page never runs to the full width of a wide console. |
+| `.rm-section` | — | One section: a headline (`.rm-section-title`, 20px/500), a lead (`.rm-lead`, `--rm-ink-muted`, capped at 70ch), then its content. Sections are 48px apart. |
+| `.rm-panel` | `--rm-surface-raised` + 1px `--rm-border`, 6px radius | A content group: a platform, a download, a step. Panels in a grid keep their **own** height (`align-items: start`) — a short panel is never stretched to match a tall neighbour. |
+| `.rm-code` | `--rm-surface-canvas` + 1px `--rm-border`, 6px radius | A **well** cut into a panel, in `var(--bs-font-monospace)` at 13px. The canvas tone inside the raised panel is the console's third grey, not a fourth surface — the old downloads page used a hard-coded `#1e1e1e` with a 4px radius, which was both off-palette and off-radius. |
+
+The page title (`.rm-page-title`, 32px/500) is the display step; sections are 20px; panel titles are 16px/500. A link inside a panel is an `.rm-link` (accent, underlined with a 2px offset) with a quiet download icon in `--rm-ink-faint`; body copy is never painted in the accent, because the accent marks an action or a state.
+
+### Landing (signed-out Home)
+
+`.rm-landing` is one panel on the canvas: the product name at the display step, the existing one-line description in `--rm-ink-muted`, a 1px `--rm-border` rule, and two actions — **Log In** as the primary button and **Register** as a ghost button (`.rm-btn-ghost`: transparent fill, `--rm-border` edge, `--rm-ink-muted` label, accent on hover). Bootstrap's `.jumbotron` was removed from the markup: it does not exist in Bootstrap 5, so the old landing rendered as unstyled text on the canvas.
+
+### Callout (console)
+
+`.rm-callout` is the console's inline note: an `--rm-accent-soft` fill, a 1px `--rm-border` edge, 6px radius, 14px text, with its link in `--rm-accent-strong`. It replaces the downloads page's `alert alert-info`, whose Blue (`#3498db` in Darkly) was a second, saturated hue on the console's only page of links. Recoverable failures still use `alert alert-warning py-2` — the callout is for information, not for failure.
 
 ### Device Card (signature component)
 
@@ -394,6 +421,7 @@ The overlay system around the remote canvas: a square `#menuButton` that rotates
 - **Do** keep every control in the viewer at 40px height so the target size stays constant across the toolbar.
 - **Do** use Bootstrap's dense vocabulary (`table-sm`, `striped`, `hover`, `thead.table-light`, `btn-sm`) for tabular console data instead of inventing a table style.
 - **Do** use `Lato` in the console and `Lucida Sans` in the viewer, and not the other way round.
+- **Do** check that an `oi-*` class exists in Open Iconic before using it: the set has `oi-task`, not `oi-tasks`, and `oi-image`, not `oi-camera`. A missing class renders as nothing, which is how the Actions dropdown lost its Task Manager and Screenshots icons.
 
 ### Don't:
 
@@ -403,4 +431,5 @@ The overlay system around the remote canvas: a square `#menuButton` that rotates
 - **Don't** round a viewer control, mix two radii in the console, or soften a square edge.
 - **Don't** decorate, illustrate, or add an empty state that isn't about a device or a session.
 - **Don't** declare a colour in `site.css` that the theme also sets — it is dead code by construction; the console's colours belong to the `--rm-*` tokens.
+- **Don't** use a raw hex or a theme palette colour for console content: the theme's `code` pink (`#d63384`), `alert-info` blue (`#3498db`) and `navbar-brand` `#222` are all outside the console's one-hue system, and `css/console.css` now overrides them with tokens.
 - **Don't** assume the viewer has a light theme; `Server/Pages/Viewer.cshtml.cs:42` hard-codes dark with a `TODO`.

@@ -93,6 +93,64 @@ public interface ICircuitConnection
 
     Task<Result> ClearCameraClips(string deviceId);
 
+    /// <summary>
+    /// Asks a device to record an audio clip from its system audio or
+    /// microphone.
+    /// </summary>
+    Task<Result> StartAudioCapture(
+        string deviceId,
+        AudioSource source,
+        string microphoneId,
+        int quality,
+        int durationSeconds);
+
+    /// <summary>
+    /// Stops an audio recording that is running on a device.
+    /// </summary>
+    Task<Result> StopAudioCapture(string deviceId);
+
+    Task<Result> StartAudioMonitoring(
+        string deviceId,
+        AudioSource source,
+        string microphoneId,
+        int quality,
+        int durationSeconds,
+        int intervalMinutes);
+
+    Task<Result> StopAudioMonitoring(string deviceId);
+
+    AudioMonitoringStatus? GetAudioMonitoringStatus(string deviceId);
+
+    Task<Result> UpdateAudioSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
+    /// <summary>
+    /// Returns the microphones that the device reported the last time it was
+    /// asked to record.
+    /// </summary>
+    AudioDeviceInfo[] GetAudioDevices(string deviceId);
+
+    Task<Result> DeleteAudioClip(string deviceId, string fileName);
+
+    Task<Result> ClearAudioClips(string deviceId);
+
+    /// <summary>
+    /// Starts a live audio stream from a device to the requesting browser.
+    /// </summary>
+    Task<Result> StartAudioLive(
+        string deviceId,
+        AudioSource source,
+        string microphoneId);
+
+    /// <summary>
+    /// Stops the live audio stream of a device.
+    /// </summary>
+    Task<Result> StopAudioLive(string deviceId);
+
     Task RemoveDevices(string[] deviceIDs);
 
     Task RunScript(IEnumerable<string> deviceIds, Guid savedScriptId, int scriptRunId, ScriptInputType scriptInputType, bool runAsHostedService);
@@ -134,6 +192,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     private readonly ILogger<CircuitConnection> _logger;
     private readonly IAgentHubSessionCache _agentSessionCache;
     private readonly ICameraService _cameraService;
+    private readonly IAudioService _audioService;
     private readonly IMessenger _messenger;
     private readonly IToastService _toastService;
     private RemotelyUser? _user;
@@ -150,6 +209,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         IRemoteControlSessionCache remoteControlSessionCache,
         IScreenshotService screenshotService,
         ICameraService cameraService,
+        IAudioService audioService,
         IAgentHubSessionCache agentSessionCache,
         IMessenger messenger,
         ILogger<CircuitConnection> logger)
@@ -165,6 +225,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         _remoteControlSessionCache = remoteControlSessionCache;
         _screenshotService = screenshotService;
         _cameraService = cameraService;
+        _audioService = audioService;
         _agentSessionCache = agentSessionCache;
         _messenger = messenger;
         _logger = logger;
@@ -1108,8 +1169,588 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         }
     }
 
-    private async Task StopExistingMonitoring(string deviceId)    {
-        foreach (var session in _remoteControlSessionCache.Sessions.Where(x => x.DeviceId == deviceId && x.IsMonitoring))
+    /// <summary>
+    /// Asks a device to record an audio clip from its system audio or
+    /// microphone.  The device records the clip and sends it to the server.
+    /// </summary>
+    public async Task<Result> StartAudioCapture(
+        string deviceId,
+        AudioSource source,
+        string microphoneId,
+        int quality,
+        int durationSeconds)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            _logger.LogWarning(
+                "An audio recording was attempted by an unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
+                deviceId,
+                User.UserName);
+
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
+        {
+            return Result.Fail("Service connection not found.");
+        }
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        // A duration of zero means that only the list of microphones is asked
+        // for, so nothing is recorded.
+        var duration = durationSeconds <= 0 ?
+            0 :
+            AudioQualityPresets.ClampDurationSeconds(durationSeconds);
+        var captureRequest = new AudioCaptureRequest(
+            source,
+            AudioQualityPresets.ParseQuality(((AudioQuality)quality).ToString()),
+            duration,
+            microphoneId ?? string.Empty);
+
+        // A manual request can share the active scheduled session.
+        var monitoringSession = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsAudioMonitoring);
+
+        if (monitoringSession is not null)
+        {
+            if (string.IsNullOrWhiteSpace(monitoringSession.DesktopConnectionId))
+            {
+                return Result.Fail("Audio monitoring is waiting for the device to reconnect.");
+            }
+
+            await _desktopHubContext.Clients
+                .Client(monitoringSession.DesktopConnectionId)
+                .StartAudioCapture(
+                    deviceId,
+                    captureRequest.Source,
+                    captureRequest.MicrophoneId,
+                    (int)captureRequest.Quality,
+                    duration);
+
+            return Result.Ok();
+        }
+
+        // Replace any one-shot recording left over for this device.
+        await StopExistingAudioCapture(deviceId);
+
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var session = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            IsAudioCapture = true,
+            AudioCapture = captureRequest
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
+
+        _logger.LogInformation(
+            "Audio capture requested.  Device ID: {deviceId}.  Source: {source}.  Quality: {quality}.  Duration: {duration} seconds.  Identity: {identity}.",
+            deviceId,
+            captureRequest.Source,
+            captureRequest.Quality,
+            captureRequest.DurationSeconds,
+            User.UserName);
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops an audio recording that is running on a device.
+    /// </summary>
+    public async Task<Result> StopAudioCapture(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var monitoringSession = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsAudioMonitoring);
+
+        if (monitoringSession is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(monitoringSession.DesktopConnectionId))
+            {
+                await _desktopHubContext.Clients
+                    .Client(monitoringSession.DesktopConnectionId)
+                    .StopAudioCapture();
+            }
+        }
+        else
+        {
+            await StopExistingAudioCapture(deviceId);
+        }
+
+        _logger.LogInformation(
+            "Audio capture stopped.  Device ID: {deviceId}.  Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Starts recurring audio recordings at the selected interval.
+    /// </summary>
+    public async Task<Result> StartAudioMonitoring(
+        string deviceId,
+        AudioSource source,
+        string microphoneId,
+        int quality,
+        int durationSeconds,
+        int intervalMinutes)
+    {
+        if (intervalMinutes < 1 || intervalMinutes > 30)
+        {
+            return Result.Fail("The audio recording interval must be between 1 and 30 minutes.");
+        }
+
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
+        {
+            return Result.Fail("Service connection not found.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail(deviceResult.Reason);
+        }
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        await StopExistingAudioMonitoring(deviceId);
+        await StopExistingAudioCapture(deviceId);
+
+        var captureRequest = new AudioCaptureRequest(
+            source,
+            AudioQualityPresets.ParseQuality(((AudioQuality)quality).ToString()),
+            AudioQualityPresets.ClampDurationSeconds(durationSeconds),
+            microphoneId ?? string.Empty);
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var session = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            IsAudioCapture = true,
+            IsAudioMonitoring = true,
+            AudioMonitoringIntervalSeconds = intervalMinutes * 60,
+            AudioPauseWindows = deviceResult.Value.AudioPauseWindows,
+            AudioCapture = captureRequest
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
+
+        _logger.LogInformation(
+            "Scheduled audio recording started. Device ID: {deviceId}. Interval: {interval} seconds. Identity: {identity}.",
+            deviceId,
+            session.AudioMonitoringIntervalSeconds,
+            User.UserName);
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops recurring audio recordings for a device.
+    /// </summary>
+    public async Task<Result> StopAudioMonitoring(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        await StopExistingAudioMonitoring(deviceId);
+
+        _logger.LogInformation(
+            "Scheduled audio recording stopped. Device ID: {deviceId}. Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        return Result.Ok();
+    }
+
+    public AudioMonitoringStatus? GetAudioMonitoringStatus(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return null;
+        }
+
+        var session = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsAudioMonitoring);
+
+        if (session?.AudioCapture is null)
+        {
+            return null;
+        }
+
+        return new AudioMonitoringStatus(
+            session.AudioMonitoringIntervalSeconds / 60,
+            new AudioCaptureRequest(
+                session.AudioCapture.Source,
+                session.AudioCapture.Quality,
+                session.AudioCapture.DurationSeconds,
+                session.AudioCapture.MicrophoneId));
+    }
+
+    public async Task<Result> UpdateAudioSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var result = await _dataService.UpdateAudioSettings(
+            deviceId,
+            directory,
+            retentionCount,
+            retentionHours,
+            pauseWindows);
+
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var monitoringSession = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsAudioMonitoring);
+
+        if (monitoringSession is null)
+        {
+            return result;
+        }
+
+        monitoringSession.AudioPauseWindows = pauseWindows;
+
+        if (string.IsNullOrWhiteSpace(monitoringSession.DesktopConnectionId) ||
+            monitoringSession.AudioCapture is null)
+        {
+            // The updated settings will be applied when the desktop client
+            // reconnects and the server re-sends its schedule.
+            return result;
+        }
+
+        var pauseWindowList = ScreenshotPause.Deserialize(pauseWindows);
+
+        try
+        {
+            await _desktopHubContext.Clients
+                .Client(monitoringSession.DesktopConnectionId)
+                .StartAudioMonitoring(
+                    deviceId,
+                    monitoringSession.AudioCapture,
+                    monitoringSession.AudioMonitoringIntervalSeconds,
+                    pauseWindowList.Select(x => x.StartHour).ToArray(),
+                    pauseWindowList.Select(x => x.EndHour).ToArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Audio settings were saved, but the active schedule could not be updated for device {deviceId}.",
+                deviceId);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns the microphones that the device reported the last time it was
+    /// asked to record.
+    /// </summary>
+    public AudioDeviceInfo[] GetAudioDevices(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Array.Empty<AudioDeviceInfo>();
+        }
+
+        var session = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && x.IsAudioCapture);
+
+        return session?.AudioDevices.ToArray() ?? Array.Empty<AudioDeviceInfo>();
+    }
+
+    /// <summary>
+    /// Deletes a single audio clip of a device.
+    /// </summary>
+    public async Task<Result> DeleteAudioClip(string deviceId, string fileName)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _audioService.DeleteClip(deviceResult.Value, fileName);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Deletes every audio clip that was recorded from a device.
+    /// </summary>
+    public async Task<Result> ClearAudioClips(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _audioService.ClearClips(deviceResult.Value);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Starts a live audio stream from a device to this browser.  The stream
+    /// is delivered to the circuit as audio chunk messages.
+    /// </summary>
+    public async Task<Result> StartAudioLive(
+        string deviceId,
+        AudioSource source,
+        string microphoneId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            _logger.LogWarning(
+                "A live audio stream was attempted by an unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
+                deviceId,
+                User.UserName);
+
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
+        {
+            return Result.Fail("Service connection not found.");
+        }
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        await StopExistingAudioLive(deviceId);
+
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var session = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            IsAudioCapture = true,
+            IsAudioLive = true,
+            AudioLiveSource = source
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
+
+        _logger.LogInformation(
+            "Live audio stream requested.  Device ID: {deviceId}.  Source: {source}.  Identity: {identity}.",
+            deviceId,
+            source,
+            User.UserName);
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops the live audio stream of a device, and removes its session.
+    /// </summary>
+    public async Task<Result> StopAudioLive(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        await StopExistingAudioLive(deviceId);
+
+        _logger.LogInformation(
+            "Live audio stream stopped.  Device ID: {deviceId}.  Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops the one-shot audio recordings that are running for a device, and
+    /// removes their sessions.  A live stream and an active schedule are left
+    /// alone, because they have their own sessions and their own stop
+    /// actions.
+    /// </summary>
+    private async Task StopExistingAudioCapture(string deviceId)
+    {
+        foreach (var session in _remoteControlSessionCache.Sessions
+            .Where(x => x.DeviceId == deviceId && x.IsAudioCapture && !x.IsAudioLive && !x.IsAudioMonitoring))
+        {
+            if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                try
+                {
+                    // Tell the device to stop recording before the session is
+                    // removed, so the desktop app doesn't keep recording with
+                    // nowhere to send the result.
+                    await _desktopHubContext.Clients
+                        .Client(session.DesktopConnectionId)
+                        .StopAudioCapture();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while stopping an audio recording on device {deviceId}.", deviceId);
+                }
+            }
+
+            _remoteControlSessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
+    }
+
+    private async Task StopExistingAudioMonitoring(string deviceId)
+    {
+        foreach (var session in _remoteControlSessionCache.Sessions
+            .Where(x => x.DeviceId == deviceId && x.IsAudioMonitoring))
+        {
+            if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                try
+                {
+                    await _desktopHubContext.Clients
+                        .Client(session.DesktopConnectionId)
+                        .StopAudioMonitoring();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while stopping scheduled audio recording on device {deviceId}.", deviceId);
+                }
+            }
+
+            _remoteControlSessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
+    }
+
+    private async Task StopExistingAudioLive(string deviceId)
+    {
+        foreach (var session in _remoteControlSessionCache.Sessions
+            .Where(x => x.DeviceId == deviceId && x.IsAudioLive))
+        {
+            if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                try
+                {
+                    await _desktopHubContext.Clients
+                        .Client(session.DesktopConnectionId)
+                        .StopAudioLive();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while stopping a live audio stream on device {deviceId}.", deviceId);
+                }
+            }
+
+            _remoteControlSessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
+    }
+
+    private async Task StopExistingMonitoring(string deviceId)    {        foreach (var session in _remoteControlSessionCache.Sessions.Where(x => x.DeviceId == deviceId && x.IsMonitoring))
         {
             if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
             {

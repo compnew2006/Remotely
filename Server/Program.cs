@@ -282,6 +282,7 @@ services.AddSingleton<IEmbeddedServerDataProvider, EmbeddedServerDataProvider>()
 services.AddSingleton<ILogsManager, LogsManager>();
 services.AddScoped<IScreenshotService, ScreenshotService>();
     services.AddScoped<ICameraService, CameraService>();
+    services.AddScoped<IAudioService, AudioService>();
 services.AddScoped<IThemeProvider, ThemeProvider>();
 services.AddScoped<IChatSessionStore, ChatSessionStore>();
 services.AddScoped<ITerminalStore, TerminalStore>();

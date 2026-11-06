@@ -31,5 +31,6 @@ public static class IServiceCollectionExtensions
         services.AddTransient<IFileTransferService, FileTransferServiceWin>();
         services.AddTransient<IScreenCapturer, ScreenCapturerWin>();
         services.AddSingleton<ICameraCapturer, CameraCapturerWin>();
+        services.AddSingleton<IAudioRecorder, AudioRecorderWin>();
     }
 }

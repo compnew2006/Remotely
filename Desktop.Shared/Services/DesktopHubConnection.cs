@@ -53,6 +53,30 @@ public interface IDesktopHubConnection
         int durationSeconds,
         string cameraName);
 
+    /// <summary>
+    /// Sends the microphones of this device to the server.
+    /// </summary>
+    Task SendAudioDevices(AudioDeviceInfo[] devices);
+
+    /// <summary>
+    /// Sends a chunk of a recorded audio clip to the server.
+    /// </summary>
+    Task SendAudioClipChunk(string clipId, int chunkIndex, byte[] chunk);
+
+    /// <summary>
+    /// Tells the server that every chunk of an audio clip was sent.
+    /// </summary>
+    Task SendAudioClipUploadCompleted(
+        string clipId,
+        int quality,
+        int durationSeconds,
+        int source);
+
+    /// <summary>
+    /// Sends one chunk of the live audio stream to the server.
+    /// </summary>
+    Task SendAudioLiveChunk(byte[] chunk);
+
     Task SendMessageToViewer(string viewerID, string message);
     Task SendScreenshot(byte[] screenshotBytes);
     Task<Result> SendUnattendedSessionInfo(string sessionId, string accessKey, string machineName, string requesterName, string organizationName);
@@ -68,6 +92,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     private readonly IServiceProvider _serviceProvider;
     private readonly IScreenMonitor _screenMonitor;
     private readonly ICameraMonitor _cameraMonitor;
+    private readonly IAudioMonitor _audioMonitor;
 
     public DesktopHubConnection(
         IDtoMessageHandler messageHandler,
@@ -76,6 +101,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         IRemoteControlAccessService remoteControlAccessService,
         IScreenMonitor screenMonitor,
         ICameraMonitor cameraMonitor,
+        IAudioMonitor audioMonitor,
         IMessenger messenger,
         ILogger<DesktopHubConnection> logger)
     {
@@ -85,6 +111,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         _appState = appState;
         _screenMonitor = screenMonitor;
         _cameraMonitor = cameraMonitor;
+        _audioMonitor = audioMonitor;
         _logger = logger;
 
         messenger.Register<WindowsSessionEndingMessage>(this, HandleWindowsSessionEnding);
@@ -529,6 +556,162 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     }
 
     /// <summary>
+    /// Called by the server to record an audio clip from the system audio or
+    /// the microphone of this device.
+    /// </summary>
+    public Task StartAudioCapture(
+        string deviceId,
+        AudioSource source,
+        string microphoneId,
+        int quality,
+        int durationSeconds)
+    {
+        _logger.LogInformation(
+            "Server requested an audio recording.  Source: {source}.  Quality: {quality}.  Duration: {duration} seconds.",
+            source,
+            quality,
+            durationSeconds);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // The audio capture service is resolved here, because it
+                // depends on this connection, and taking it as a constructor
+                // dependency would create a circular dependency.
+                var audioCaptureService = _serviceProvider.GetRequiredService<IAudioCaptureService>();
+
+                // The microphones are always sent, so the administrator can
+                // see which ones this device has.
+                await audioCaptureService.SendAudioDevices();
+
+                if (durationSeconds <= 0)
+                {
+                    // Only the list of microphones was requested.
+                    return;
+                }
+
+                var request = new AudioCaptureRequest(
+                    source,
+                    (AudioQuality)quality,
+                    durationSeconds,
+                    microphoneId);
+
+                await audioCaptureService.CaptureAsync(deviceId, request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while recording an audio clip.");
+            }
+        });
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to stop the audio recording that is running.
+    /// </summary>
+    public Task StopAudioCapture()
+    {
+        _logger.LogInformation("Server requested that the audio recording stop.");
+
+        try
+        {
+            _serviceProvider.GetRequiredService<IAudioCaptureService>().Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while stopping the audio recording.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to start recurring audio recordings.
+    /// </summary>
+    public Task StartAudioMonitoring(
+        string deviceId,
+        AudioCaptureRequest request,
+        int intervalSeconds,
+        int[] pauseStartHours,
+        int[] pauseEndHours)
+    {
+        _logger.LogInformation(
+            "Server requested scheduled audio recording. Interval: {interval} seconds. Duration: {duration} seconds. Source: {source}.",
+            intervalSeconds,
+            request.DurationSeconds,
+            request.Source);
+
+        return _audioMonitor.StartAsync(
+            deviceId,
+            request,
+            intervalSeconds,
+            pauseStartHours,
+            pauseEndHours);
+    }
+
+    /// <summary>
+    /// Called by the server to stop recurring audio recordings.
+    /// </summary>
+    public Task StopAudioMonitoring()
+    {
+        _logger.LogInformation("Server requested that scheduled audio recording stop.");
+        return _audioMonitor.StopAsync();
+    }
+
+    /// <summary>
+    /// Called by the server to stream the audio of this device in real time.
+    /// </summary>
+    public Task StartAudioLive(
+        string deviceId,
+        AudioSource source,
+        string microphoneId)
+    {
+        _logger.LogInformation("Server requested a live audio stream.  Source: {source}.", source);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var audioLiveStreamer = _serviceProvider.GetRequiredService<IAudioLiveStreamer>();
+
+                await audioLiveStreamer.StartAsync(
+                    new AudioCaptureRequest(
+                        source,
+                        AudioQuality.Low,
+                        0,
+                        microphoneId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while starting the live audio stream.");
+            }
+        });
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to stop the live audio stream.
+    /// </summary>
+    public Task StopAudioLive()
+    {
+        _logger.LogInformation("Server requested that the live audio stream stop.");
+
+        try
+        {
+            _serviceProvider.GetRequiredService<IAudioLiveStreamer>().StopAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while stopping the live audio stream.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Sends the cameras of this device to the server.
     /// </summary>
     public Task SendCameraDevices(CameraDeviceInfo[] cameras)
@@ -574,6 +757,67 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
             quality,
             durationSeconds,
             cameraName);
+    }
+
+    /// <summary>
+    /// Sends the microphones of this device to the server.
+    /// </summary>
+    public Task SendAudioDevices(AudioDeviceInfo[] devices)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendAudioDevices", devices);
+    }
+
+    /// <summary>
+    /// Sends a chunk of a recorded audio clip to the server.
+    /// </summary>
+    public Task SendAudioClipChunk(string clipId, int chunkIndex, byte[] chunk)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendAudioClipChunk", clipId, chunkIndex, chunk);
+    }
+
+    /// <summary>
+    /// Tells the server that every chunk of an audio clip was sent.
+    /// </summary>
+    public Task SendAudioClipUploadCompleted(
+        string clipId,
+        int quality,
+        int durationSeconds,
+        int source)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync(
+            "AudioClipUploadCompleted",
+            clipId,
+            quality,
+            durationSeconds,
+            source);
+    }
+
+    /// <summary>
+    /// Sends one chunk of the live audio stream to the server.
+    /// </summary>
+    public Task SendAudioLiveChunk(byte[] chunk)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendAudioLiveChunk", chunk);
     }
 
     public async Task<Result> SendUnattendedSessionInfo(string unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
@@ -626,17 +870,42 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
             nameof(StartCameraMonitoring),
             StartCameraMonitoring);
         connection.On(nameof(StopCameraMonitoring), StopCameraMonitoring);
+        connection.On<string, AudioSource, string, int, int>(
+            nameof(StartAudioCapture),
+            StartAudioCapture);
+        connection.On(nameof(StopAudioCapture), StopAudioCapture);
+        connection.On<string, AudioCaptureRequest, int, int[], int[]>(
+            nameof(StartAudioMonitoring),
+            StartAudioMonitoring);
+        connection.On(nameof(StopAudioMonitoring), StopAudioMonitoring);
+        connection.On<string, AudioSource, string>(
+            nameof(StartAudioLive),
+            StartAudioLive);
+        connection.On(nameof(StopAudioLive), StopAudioLive);
 
         connection.Reconnected += HandleReconnected;
     }
 
     private async Task HandleReconnected(string? connectionId)
     {
-        if (_appState.Mode != AppMode.Unattended || !_appState.IsCameraMonitoring)
+        if (_appState.Mode != AppMode.Unattended)
         {
             return;
         }
 
+        if (_appState.IsCameraMonitoring)
+        {
+            await ResumeCameraMonitoringAfterReconnect();
+        }
+
+        if (_appState.IsAudioMonitoring)
+        {
+            await ResumeAudioMonitoringAfterReconnect();
+        }
+    }
+
+    private async Task ResumeCameraMonitoringAfterReconnect()
+    {
         try
         {
             var result = await SendUnattendedSessionInfo(
@@ -661,6 +930,35 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Could not restore scheduled camera recording after reconnect.");
+        }
+    }
+
+    private async Task ResumeAudioMonitoringAfterReconnect()
+    {
+        try
+        {
+            var result = await SendUnattendedSessionInfo(
+                _appState.SessionId,
+                _appState.AccessKey,
+                Environment.MachineName,
+                _appState.RequesterName,
+                _appState.OrganizationName);
+
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("Could not restore the audio session after reconnect: {reason}", result.Reason);
+                await _audioMonitor.StopAsync();
+                return;
+            }
+
+            if (Connection is not null)
+            {
+                await Connection.InvokeAsync("ResumeAudioMonitoring");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not restore scheduled audio recording after reconnect.");
         }
     }
 

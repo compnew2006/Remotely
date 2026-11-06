@@ -33,6 +33,10 @@ public static class IServiceCollectionExtensions
         services.AddSingleton<ICameraMonitor, CameraMonitor>();
         services.AddSingleton<ICameraCaptureService, CameraCaptureService>();
         services.AddSingleton<ICameraCapturer, UnavailableCameraCapturer>();
+        services.AddSingleton<IAudioMonitor, AudioMonitor>();
+        services.AddSingleton<IAudioCaptureService, AudioCaptureService>();
+        services.AddSingleton<IAudioLiveStreamer, AudioLiveStreamer>();
+        services.AddSingleton<IAudioRecorder, UnavailableAudioRecorder>();
         services.AddTransient<IScreenCaster, ScreenCaster>();
         services.AddTransient<IHubConnectionBuilder>(s => new HubConnectionBuilder());
     }

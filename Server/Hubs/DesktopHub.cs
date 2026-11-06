@@ -16,6 +16,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
 {
     private readonly IAgentHubSessionCache _agentCache;
     private readonly ICameraService _cameraService;
+    private readonly IAudioService _audioService;
     private readonly IDataService _dataService;
     private readonly ILogger<DesktopHub> _logger;
     private readonly IMessenger _messenger;
@@ -31,6 +32,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         IAgentHubSessionCache agentCache,
         IScreenshotService screenshotService,
         ICameraService cameraService,
+        IAudioService audioService,
         IDataService dataService,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IHubContext<ViewerHub, IViewerHubClient> viewerHub,
@@ -42,6 +44,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         _streamCache = streamCache;
         _screenshotService = screenshotService;
         _cameraService = cameraService;
+        _audioService = audioService;
         _dataService = dataService;
         _viewerHub = viewerHub;
         _agentHub = agentHub;
@@ -323,6 +326,35 @@ public class DesktopHub : Hub<IDesktopHubClient>
                 request.DurationSeconds);
         }
 
+        if (SessionInfo.IsAudioLive)
+        {
+            await StartAudioLiveForCaller();
+        }
+        else if (SessionInfo.IsAudioMonitoring)
+        {
+            await StartAudioMonitoringForCaller();
+        }
+        else if (SessionInfo.IsAudioCapture)
+        {
+            // The device was asked to record an audio clip, so the recording
+            // starts as soon as it connects.
+            var request = SessionInfo.AudioCapture ?? new AudioCaptureRequest();
+
+            _logger.LogInformation(
+                "Starting audio capture on device {deviceId}.  Source: {source}.  Quality: {quality}.  Duration: {duration} seconds.",
+                SessionInfo.DeviceId,
+                request.Source,
+                request.Quality,
+                request.DurationSeconds);
+
+            await Clients.Caller.StartAudioCapture(
+                SessionInfo.DeviceId,
+                request.Source,
+                request.MicrophoneId,
+                (int)request.Quality,
+                request.DurationSeconds);
+        }
+
         return Result.Ok();
     }
 
@@ -519,6 +551,197 @@ public class DesktopHub : Hub<IDesktopHubClient>
                     clip.DurationSeconds),
                 SessionInfo.UserConnectionId);
         }
+    }
+
+    /// <summary>
+    /// Re-applies the server-owned audio schedule after the desktop client
+    /// reconnects.  A client-side schedule without a matching server session
+    /// is stopped rather than trusted or resumed.
+    /// </summary>
+    public async Task ResumeAudioMonitoring()
+    {
+        if (!SessionInfo.IsAudioMonitoring)
+        {
+            await Clients.Caller.StopAudioMonitoring();
+            return;
+        }
+
+        await StartAudioMonitoringForCaller();
+    }
+
+    private async Task StartAudioMonitoringForCaller()
+    {
+        var request = SessionInfo.AudioCapture ?? new AudioCaptureRequest();
+        var pauseWindows = ScreenshotPause.Deserialize(SessionInfo.AudioPauseWindows);
+
+        _logger.LogInformation(
+            "Starting scheduled audio recording on device {deviceId}. Interval: {interval} seconds. Source: {source}.",
+            SessionInfo.DeviceId,
+            SessionInfo.AudioMonitoringIntervalSeconds,
+            request.Source);
+
+        await Clients.Caller.StartAudioMonitoring(
+            SessionInfo.DeviceId,
+            request,
+            SessionInfo.AudioMonitoringIntervalSeconds,
+            pauseWindows.Select(x => x.StartHour).ToArray(),
+            pauseWindows.Select(x => x.EndHour).ToArray());
+    }
+
+    private async Task StartAudioLiveForCaller()
+    {
+        var source = SessionInfo.AudioLiveSource ?? AudioSource.SystemAudio;
+
+        _logger.LogInformation(
+            "Starting live audio stream on device {deviceId}. Source: {source}.",
+            SessionInfo.DeviceId,
+            source);
+
+        await Clients.Caller.StartAudioLive(
+            SessionInfo.DeviceId,
+            source,
+            string.Empty);
+    }
+
+    /// <summary>
+    /// Receives the list of microphones that a device has.  It is sent by the
+    /// device when it connects for an audio recording.
+    /// </summary>
+    public async Task SendAudioDevices(AudioDeviceInfo[] devices)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return;
+        }
+
+        SessionInfo.AudioDevices = devices?.ToList() ?? new List<AudioDeviceInfo>();
+
+        _logger.LogInformation(
+            "Device {deviceId} reported {count} microphones.",
+            deviceId,
+            SessionInfo.AudioDevices.Count);
+
+        if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            await _messenger.Send(
+                new AudioDevicesReceivedMessage(deviceId, SessionInfo.AudioDevices.ToArray()),
+                SessionInfo.UserConnectionId);
+        }
+    }
+
+    /// <summary>
+    /// Receives a chunk of an audio clip that a device recorded.  It is used
+    /// when the clip can't be uploaded with a single HTTP request.
+    /// </summary>
+    public async Task SendAudioClipChunk(string clipId, int chunkIndex, byte[] chunk)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId) || !SessionInfo.IsAudioCapture)
+        {
+            return;
+        }
+
+        if (chunk is null || chunk.Length == 0)
+        {
+            return;
+        }
+
+        if (chunkIndex == 0)
+        {
+            // The first chunk starts a new upload, so anything that was left
+            // over from an earlier attempt is discarded.
+            var deviceResult = await _dataService.GetDevice(deviceId);
+            if (!deviceResult.IsSuccess ||
+                _audioService.BeginUpload(deviceResult.Value, clipId) is null)
+            {
+                return;
+            }
+        }
+
+        _audioService.AppendChunk(clipId, chunk);
+    }
+
+    /// <summary>
+    /// Completes an audio clip that was uploaded in chunks.
+    /// </summary>
+    public async Task AudioClipUploadCompleted(
+        string clipId,
+        int quality,
+        int durationSeconds,
+        int source)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId) || !SessionInfo.IsAudioCapture)
+        {
+            return;
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            _audioService.AbortUpload(clipId);
+            return;
+        }
+
+        var clip = await _audioService.CompleteUpload(
+            deviceResult.Value,
+            clipId,
+            (AudioQuality)quality,
+            durationSeconds,
+            (AudioSource)source);
+
+        if (clip is null)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Received an audio clip from device {deviceId}.  Size: {size} bytes.",
+            deviceId,
+            clip.SizeBytes);
+
+        if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            await _messenger.Send(
+                new AudioClipReceivedMessage(
+                    deviceId,
+                    clip.FileName,
+                    clip.TimeStamp,
+                    clip.Quality,
+                    clip.DurationSeconds,
+                    clip.Source),
+                SessionInfo.UserConnectionId);
+        }
+    }
+
+    /// <summary>
+    /// Receives one chunk of a live audio stream, and forwards it to the
+    /// circuit that is listening to it.
+    /// </summary>
+    public async Task SendAudioLiveChunk(byte[] chunk)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId) || !SessionInfo.IsAudioLive)
+        {
+            return;
+        }
+
+        if (chunk is null || chunk.Length == 0)
+        {
+            return;
+        }
+
+        SessionInfo.LastActivity = DateTimeOffset.Now;
+
+        if (string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            return;
+        }
+
+        await _messenger.Send(
+            new AudioLiveChunkMessage(deviceId, chunk),
+            SessionInfo.UserConnectionId);
     }
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)

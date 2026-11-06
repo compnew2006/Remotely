@@ -354,6 +354,19 @@ public partial class DeviceCard : AuthComponentBase
         await ModalService.ShowModal($"Camera - {Device.DeviceName}", showModal, size: "lg");
     }
 
+    private async Task ShowAudio()
+    {
+        void showModal(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<AudioModal>(0);
+            builder.AddAttribute(1, "DeviceId", Device.ID);
+            builder.AddAttribute(2, "DeviceName", Device.DeviceName);
+            builder.CloseComponent();
+        }
+
+        await ModalService.ShowModal($"Audio - {Device.DeviceName}", showModal, size: "lg");
+    }
+
     private async Task StartRemoteControl(bool viewOnly)
     {
         if (!ServiceSessionCache.TryGetConnectionId(Device.ID, out _))

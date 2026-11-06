@@ -3,20 +3,24 @@
  
 <AuthorizeView>
     <NotAuthorized>
-        <div class="jumbotron">
-            <h3 class="display-4">Remotely</h3>
-            <p class="lead">
+        <div class="rm-landing">
+            <div class="rm-landing-panel">
+                <h1 class="rm-page-title">Remotely</h1>
+                <p class="rm-landing-lead">
                 An open-source remote support solution.
-            </p>
-            <hr class="my-4">
-            <p class="lead">
-                <a class="btn btn-primary btn-lg me-2" href="Account/Login" role="button">Log In</a>
+                </p>
+                <hr class="rm-landing-rule">
+                <div class="rm-landing-actions">
+                    <a class="btn btn-primary btn-lg" href="Account/Login" role="button">
+                        <span class="oi oi-account-login" aria-hidden="true"></span> Log In
+                    </a>
 
-                @if (_isRegistrationEnabled)
-                {
-                    <a class="btn btn-primary btn-lg" href="Account/Register" role="button">Register</a>
-                }
-            </p>
+                    @if (_isRegistrationEnabled)
+                    {
+                        <a class="btn btn-lg rm-btn-ghost" href="Account/Register" role="button">Register</a>
+                    }
+                </div>
+            </div>
         </div>
     </NotAuthorized>
     <Authorized>

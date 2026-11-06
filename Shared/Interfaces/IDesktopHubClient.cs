@@ -76,5 +76,52 @@ public interface IDesktopHubClient
     /// </summary>
     Task StopCameraMonitoring();
 
+    /// <summary>
+    /// Starts recording an audio clip from the system audio or the microphone
+    /// of this device.  A duration of zero only asks for the list of
+    /// microphones.  The quality is one of the values of
+    /// <see cref="AudioQuality"/>, and the duration is in seconds.
+    /// </summary>
+    Task StartAudioCapture(
+        string deviceId,
+        AudioSource source,
+        string microphoneId,
+        int quality,
+        int durationSeconds);
+
+    /// <summary>
+    /// Stops the audio recording that is currently running, if any.
+    /// </summary>
+    Task StopAudioCapture();
+
+    /// <summary>
+    /// Starts periodic audio recordings without a viewer attached.  No clips
+    /// are recorded during the pause windows.
+    /// </summary>
+    Task StartAudioMonitoring(
+        string deviceId,
+        AudioCaptureRequest request,
+        int intervalSeconds,
+        int[] pauseStartHours,
+        int[] pauseEndHours);
+
+    /// <summary>
+    /// Stops periodic audio recordings.
+    /// </summary>
+    Task StopAudioMonitoring();
+
+    /// <summary>
+    /// Starts streaming the audio of this device to the server in real time.
+    /// </summary>
+    Task StartAudioLive(
+        string deviceId,
+        AudioSource source,
+        string microphoneId);
+
+    /// <summary>
+    /// Stops the live audio stream.
+    /// </summary>
+    Task StopAudioLive();
+
     Task ViewerDisconnected(string viewerId);
 }

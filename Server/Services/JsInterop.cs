@@ -20,6 +20,16 @@ public interface IJsInterop
 
     void OpenWindow(string url, string target);
 
+    /// <summary>
+    /// Plays one chunk of a live audio stream in the browser.
+    /// </summary>
+    ValueTask PlayAudioChunk(string base64Chunk);
+
+    /// <summary>
+    /// Stops the playback of the live audio stream.
+    /// </summary>
+    ValueTask StopAudioPlayback();
+
     void PreventTabOut(ElementReference terminalInput);
 
     ValueTask<string> Prompt(string message);
@@ -80,6 +90,16 @@ public class JsInterop : IJsInterop
     public void OpenWindow(string url, string target)
     {
         _jsRuntime.InvokeVoidAsync("openWindow", url, target);
+    }
+
+    public ValueTask PlayAudioChunk(string base64Chunk)
+    {
+        return _jsRuntime.InvokeVoidAsync("remotelyAudio.playChunk", base64Chunk);
+    }
+
+    public ValueTask StopAudioPlayback()
+    {
+        return _jsRuntime.InvokeVoidAsync("remotelyAudio.stop");
     }
 
     public void PreventTabOut(ElementReference terminalInput)

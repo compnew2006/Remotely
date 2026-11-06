@@ -11,239 +11,298 @@
 @inject IToastService Toasts
 @inject ILogger<Downloads> Logger 
 
-@if (_isAuthenticated)
-{
-    <div class="alert alert-info">
-        Check out the <a href="/deploy">Deploy</a> page for a copy-and-paste deploy script!
-    </div>
-}
-
-
-<div class="row mb-3">
-    <h4>Portable Instant Support Clients</h4>
-    <p class="text-info col-sm-12 mb-2">
-        Instant desktop sharing.  No account required.
-    </p>
-    <div class="col-sm-6 mb-3">
-        <strong>Windows (64-Bit)</strong>
-        <p>
-            <a target="_blank" href="/api/ClientDownloads/Desktop/WindowsDesktop-x64/@_organizationId">Windows EXE</a>
+<div class="rm-page">
+    <header class="rm-page-header">
+        <h1 class="rm-page-title">Downloads</h1>
+        <p class="rm-lead">
+            Portable clients, resident agents, and install commands for this server.
         </p>
-    </div>
-    <div class="col-sm-6">
-        <strong>Windows (32-Bit)</strong>
-        <p>
-            <a target="_blank" href="/api/ClientDownloads/Desktop/WindowsDesktop-x86/@_organizationId">Windows EXE</a>
-        </p>
-    </div>
-    <div class="col-sm-6 mb-3">
-        <strong>Linux 64-Bit</strong>
-        <p>
-            <a target="_blank" href="/api/ClientDownloads/Desktop/UbuntuDesktop/@_organizationId">Ubuntu Executable</a>
-        </p>
-    </div>
-    @*<div class="col-sm-6 mb-3">
-    <strong>macOS x64 (10.12 - 10.15)</strong>
-    <p>
-    <a target="_blank" href="/api/ClientDownloads/Desktop/MacOS-x64/@_organizationId">macOS x64 Executable</a>
-    </p>
-    <strong>macOS arm64 (11.01)</strong>
-    <p>
-    <a target="_blank" href="/api/ClientDownloads/Desktop/MacOS-arm64/@_organizationId">macOS arm64 Executable</a>
-    </p>
-    </div>*@
-</div>
+    </header>
 
-
-<div class="row">
-    <h4>Resident Agents</h4>
-
-    <p class="text-info col-sm-12 mb-2">
-        Installable background agents that provide unattended access and remote scripting.
-    </p>
-
-    @if (!_isAuthenticated)
+    @if (_isAuthenticated)
     {
-        <div class="col-sm-6 mb-3">
-            <h6>Must be logged in to download.</h6>
-        </div>
-
-    }
-    else
-    {
-        <div class="col-sm-6 mb-3">
-            <strong>Windows 10 / 11 (64-Bit and 32-Bit)</strong>
-            <p>
-                <a target="_blank" href="/API/ClientDownloads/WindowsInstaller/@_organizationId">Windows PowerShell Installer</a>
-                <br />
-                <a target="_blank" href="/Content/Remotely-Win-x64.zip">Windows x64 Files Only</a>
-                <br />
-                <a target="_blank" href="/Content/Remotely-Win-x86.zip">Windows x86 Files Only</a>
-            </p>
-
-            <p>
-                <div class="small">Example Quiet Install:</div>
-
-                <code class="label label-default small">
-                    powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
-                    -install
-                    -quiet
-                    -organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
-                    -serverurl "https://remotely.mytechshop.com"
-                </code>
-            </p>
-            <p>
-                <div class="small">Example Quiet Uninstall:</div>
-
-                <code class="label label-default small">powershell.exe -ExecutionPolicy Bypass -F Install-Remotely.ps1 -uninstall -quiet</code>
-            </p>
-            <p>
-                <div class="small">Example Local Install:</div>
-
-                <code class="label label-default small">
-                    powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
-                    -install
-                    -quiet
-                    -organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
-                    -serverurl "https://remotely.mytechshop.com"
-                    -path "[path]\Remotely-Win-x64.zip"
-                </code>
-            </p>
-            <p>
-                <div class="small">All Override Options:</div>
-
-                <code class="label label-default small">
-                    powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
-                    -install -quiet -supportshortcut
-                    -organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
-                    -serverurl "https://remotely.mytechshop.com"
-                    -devicegroup "Customer Group 1"
-                    -devicealias "Front Desk"
-                    -deviceuuid "eebb4d87-5459-4976-989e-a7876dffc69c"
-                </code>
-            </p>
-        </div>
-
-        <div class="col-sm-6 mb-3">
-            <strong>Linux 64-Bit</strong>
-            <p>
-                <a target="_blank" href="/API/ClientDownloads/UbuntuInstaller-x64/@_organizationId">Ubuntu x64 Bash Installer</a>
-                <br />
-                <a target="_blank" href="/API/ClientDownloads/ManjaroInstaller-x64/@_organizationId">Manjaro x64 Bash Installer</a>
-                <br />
-                <a target="_blank" href="/Content/Remotely-Linux.zip">Linux x64 Files Only</a>
-            </p>
-            <p>
-                <div class="small">Example Install:</div>
-
-                <code class="label label-default small">sudo [path]/Install-Ubuntu-x64.sh</code>
-            </p>
-            <p>
-                <div class="small">Example Local Install:</div>
-
-                <code class="label label-default small">sudo [path]/Install-Ubuntu-x64.sh --path [path]/Remotely-Linux.zip</code>
-            </p>
-            <p>
-                <div class="small">Uninstall:</div>
-
-                <code class="label label-default small">sudo [path]/Install-Ubuntu-x64.sh --uninstall</code>
-            </p>
-        </div>
-
-        <div class="col-sm-6 mb-3">
-            <strong>macOS x64 (10.12 - 10.15)</strong>
-            <p>
-                <a target="_blank" href="/API/ClientDownloads/MacOSInstaller-x64/@_organizationId">macOS x64 Bash Installer</a>
-                <br />
-                <a target="_blank" href="/Content/Remotely-MacOS-x64.zip">macOS x64 Files Only</a>
-            </p>
-
-            <p>
-                <div class="small">Example Install:</div>
-
-                <code class="label label-default small">sudo [path]/Install-MacOS-x64.sh</code>
-            </p>
-            <p>
-                <div class="small">Example Local Install:</div>
-
-                <code class="label label-default small">sudo [path]/Install-MacOS-x64.sh --path [path]/Remotely-MacOS-x64.zip</code>
-            </p>
-            <p>
-                <div class="small">Example Uninstall:</div>
-
-                <code class="label label-default small">sudo [path]/Install-MacOS-x64.sh --uninstall</code>
-            </p>
-        </div>
-
-        <div class="col-sm-6 mb-3">
-            <strong>macOS arm64</strong>
-            <p>
-                <a target="_blank" href="/API/ClientDownloads/MacOSInstaller-arm64/@_organizationId">macOS arm64 Bash Installer</a>
-                <br />
-                <a target="_blank" href="/Content/Remotely-MacOS-arm64.zip">macOS arm64 Files Only</a>
-            </p>
-
-            <p>
-                <div class="small">Example Install:</div>
-
-                <code class="label label-default small">sudo [path]/Install-MacOS-arm64.sh</code>
-            </p>
-            <p>
-                <div class="small">Example Local Install:</div>
-
-                <code class="label label-default small">sudo [path]/Install-MacOS-arm64.sh --path [path]/Remotely-MacOS-arm64.zip</code>
-            </p>
-            <p>
-                <div class="small">Example Uninstall:</div>
-
-                <code class="label label-default small">sudo [path]/Install-MacOS-arm64.sh --uninstall</code>
-            </p>
+        <div class="rm-callout">
+            Check out the <a href="/deploy">Deploy</a> page for a copy-and-paste deploy script!
         </div>
     }
 
-</div>
+    <section class="rm-section">
+        <h2 class="rm-section-title">Portable Instant Support Clients</h2>
+        <p class="rm-lead">
+            Instant desktop sharing. No account required.
+        </p>
 
-<div class="row mt-4">
-    <h4>Helper Scripts</h4>
+        <div class="rm-grid">
+            <article class="rm-panel">
+                <h3 class="rm-panel-title">Windows (64-Bit)</h3>
+                <ul class="rm-link-list">
+                    <li>
+                        <a class="rm-link" target="_blank" href="/api/ClientDownloads/Desktop/WindowsDesktop-x64/@_organizationId">
+                            <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Windows EXE
+                        </a>
+                    </li>
+                </ul>
+            </article>
 
-    <p class="text-info col-sm-12 mb-3">
-        Copy-and-paste commands for this server. Run them in an elevated PowerShell window on the target Windows machine.
-    </p>
+            <article class="rm-panel">
+                <h3 class="rm-panel-title">Windows (32-Bit)</h3>
+                <ul class="rm-link-list">
+                    <li>
+                        <a class="rm-link" target="_blank" href="/api/ClientDownloads/Desktop/WindowsDesktop-x86/@_organizationId">
+                            <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Windows EXE
+                        </a>
+                    </li>
+                </ul>
+            </article>
 
-    <div class="col-sm-12 mb-4">
-        <div class="d-flex align-items-center mb-2">
-            <strong>1. Install the Windows agent (no account required)</strong>
-            <button class="btn btn-sm btn-primary ms-3" type="button" @onclick="() => CopyScript(_installAgentScript)">Copy</button>
+            <article class="rm-panel">
+                <h3 class="rm-panel-title">Linux 64-Bit</h3>
+                <ul class="rm-link-list">
+                    <li>
+                        <a class="rm-link" target="_blank" href="/api/ClientDownloads/Desktop/UbuntuDesktop/@_organizationId">
+                            <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Ubuntu Executable
+                        </a>
+                    </li>
+                </ul>
+            </article>
         </div>
-        <pre style="white-space: pre-wrap; word-break: break-word; background-color: #1e1e1e; color: #e6e6e6; padding: 12px; border-radius: 4px; font-size: 13px;">@_installAgentScript</pre>
-        <div class="small text-info">
-            Downloads the installer for this server, installs the persistent agent, and registers Remotely_Service.
-        </div>
-    </div>
+    </section>
 
-    <div class="col-sm-12 mb-4">
-        <div class="d-flex align-items-center mb-2">
-            <strong>2. Protect the agent service (watchdog)</strong>
-            <button class="btn btn-sm btn-primary ms-3" type="button" @onclick="() => CopyScript(_protectServiceScript)">Copy</button>
-        </div>
-        <pre style="white-space: pre-wrap; word-break: break-word; background-color: #1e1e1e; color: #e6e6e6; padding: 12px; border-radius: 4px; font-size: 13px;">@_protectServiceScript</pre>
-        <div class="small text-info">
-            Gives the service a clear name, restarts it automatically when it fails, registers a SYSTEM watchdog
-            that restarts it within a minute, and parks a stray portable Quick Support copy.  It never touches
-            <code>Remotely\Desktop\Remotely_Desktop.exe</code>, which the agent needs for unattended control.
-        </div>
-    </div>
+    <section class="rm-section">
+        <h2 class="rm-section-title">Resident Agents</h2>
+        <p class="rm-lead">
+            Installable background agents that provide unattended access and remote scripting.
+        </p>
 
-    <div class="col-sm-12 mb-4">
-        <div class="d-flex align-items-center mb-2">
-            <strong>3. Undo the service protection</strong>
-            <button class="btn btn-sm btn-secondary ms-3" type="button" @onclick="() => CopyScript(_undoProtectionScript)">Copy</button>
+        @if (!_isAuthenticated)
+        {
+            <div class="rm-panel">
+                <h3 class="rm-panel-title">Log in to download</h3>
+                <p class="rm-note">
+                    Resident agents are registered to your organization, so downloading one needs a signed-in account.
+                </p>
+                <a class="btn btn-primary mt-3" href="Account/Login">
+                    <span class="oi oi-account-login" aria-hidden="true"></span> Log In
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="rm-grid rm-grid-wide">
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">Windows 10 / 11 (64-Bit and 32-Bit)</h3>
+                    <ul class="rm-link-list">
+                        <li>
+                            <a class="rm-link" target="_blank" href="/API/ClientDownloads/WindowsInstaller/@_organizationId">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Windows PowerShell Installer
+                            </a>
+                        </li>
+                        <li>
+                            <a class="rm-link" target="_blank" href="/Content/Remotely-Win-x64.zip">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Windows x64 Files Only
+                            </a>
+                        </li>
+                        <li>
+                            <a class="rm-link" target="_blank" href="/Content/Remotely-Win-x86.zip">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Windows x86 Files Only
+                            </a>
+                        </li>
+                    </ul>
+                </article>
+
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">Linux 64-Bit</h3>
+                    <ul class="rm-link-list">
+                        <li>
+                            <a class="rm-link" target="_blank" href="/API/ClientDownloads/UbuntuInstaller-x64/@_organizationId">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Ubuntu x64 Bash Installer
+                            </a>
+                        </li>
+                        <li>
+                            <a class="rm-link" target="_blank" href="/API/ClientDownloads/ManjaroInstaller-x64/@_organizationId">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Manjaro x64 Bash Installer
+                            </a>
+                        </li>
+                        <li>
+                            <a class="rm-link" target="_blank" href="/Content/Remotely-Linux.zip">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>Linux x64 Files Only
+                            </a>
+                        </li>
+                    </ul>
+                </article>
+
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">macOS x64 (10.12 - 10.15)</h3>
+                    <ul class="rm-link-list">
+                        <li>
+                            <a class="rm-link" target="_blank" href="/API/ClientDownloads/MacOSInstaller-x64/@_organizationId">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>macOS x64 Bash Installer
+                            </a>
+                        </li>
+                        <li>
+                            <a class="rm-link" target="_blank" href="/Content/Remotely-MacOS-x64.zip">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>macOS x64 Files Only
+                            </a>
+                        </li>
+                    </ul>
+                </article>
+
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">macOS arm64</h3>
+                    <ul class="rm-link-list">
+                        <li>
+                            <a class="rm-link" target="_blank" href="/API/ClientDownloads/MacOSInstaller-arm64/@_organizationId">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>macOS arm64 Bash Installer
+                            </a>
+                        </li>
+                        <li>
+                            <a class="rm-link" target="_blank" href="/Content/Remotely-MacOS-arm64.zip">
+                                <span class="oi oi-data-transfer-download" aria-hidden="true"></span>macOS arm64 Files Only
+                            </a>
+                        </li>
+                    </ul>
+                </article>
+            </div>
+        }
+    </section>
+
+    @if (_isAuthenticated)
+    {
+        <section class="rm-section">
+            <h2 class="rm-section-title">Install Examples</h2>
+            <p class="rm-lead">
+                Commands for installing and removing an agent on the target machine.
+            </p>
+
+            <div class="rm-grid rm-grid-wide">
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">Windows 10 / 11</h3>
+
+                    <p class="rm-label">Example quiet install</p>
+                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
+-install
+-quiet
+-organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
+-serverurl "https://remotely.mytechshop.com"</pre>
+
+                    <p class="rm-label mt-3">Example quiet uninstall</p>
+                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F Install-Remotely.ps1 -uninstall -quiet</pre>
+
+                    <p class="rm-label mt-3">Example local install</p>
+                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
+-install
+-quiet
+-organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
+-serverurl "https://remotely.mytechshop.com"
+-path "[path]\Remotely-Win-x64.zip"</pre>
+
+                    <p class="rm-label mt-3">All override options</p>
+                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
+-install -quiet -supportshortcut
+-organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
+-serverurl "https://remotely.mytechshop.com"
+-devicegroup "Customer Group 1"
+-devicealias "Front Desk"
+-deviceuuid "eebb4d87-5459-4976-989e-a7876dffc69c"</pre>
+                </article>
+
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">Linux 64-Bit</h3>
+
+                    <p class="rm-label">Example install</p>
+                    <pre class="rm-code">sudo [path]/Install-Ubuntu-x64.sh</pre>
+
+                    <p class="rm-label mt-3">Example local install</p>
+                    <pre class="rm-code">sudo [path]/Install-Ubuntu-x64.sh --path [path]/Remotely-Linux.zip</pre>
+
+                    <p class="rm-label mt-3">Uninstall</p>
+                    <pre class="rm-code">sudo [path]/Install-Ubuntu-x64.sh --uninstall</pre>
+                </article>
+
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">macOS x64 (10.12 - 10.15)</h3>
+
+                    <p class="rm-label">Example install</p>
+                    <pre class="rm-code">sudo [path]/Install-MacOS-x64.sh</pre>
+
+                    <p class="rm-label mt-3">Example local install</p>
+                    <pre class="rm-code">sudo [path]/Install-MacOS-x64.sh --path [path]/Remotely-MacOS-x64.zip</pre>
+
+                    <p class="rm-label mt-3">Example uninstall</p>
+                    <pre class="rm-code">sudo [path]/Install-MacOS-x64.sh --uninstall</pre>
+                </article>
+
+                <article class="rm-panel">
+                    <h3 class="rm-panel-title">macOS arm64</h3>
+
+                    <p class="rm-label">Example install</p>
+                    <pre class="rm-code">sudo [path]/Install-MacOS-arm64.sh</pre>
+
+                    <p class="rm-label mt-3">Example local install</p>
+                    <pre class="rm-code">sudo [path]/Install-MacOS-arm64.sh --path [path]/Remotely-MacOS-arm64.zip</pre>
+
+                    <p class="rm-label mt-3">Example uninstall</p>
+                    <pre class="rm-code">sudo [path]/Install-MacOS-arm64.sh --uninstall</pre>
+                </article>
+            </div>
+        </section>
+    }
+
+    <section class="rm-section">
+        <h2 class="rm-section-title">Helper Scripts</h2>
+        <p class="rm-lead">
+            Copy-and-paste commands for this server. Run them in an elevated PowerShell window on the target Windows machine.
+        </p>
+
+        <div class="rm-grid rm-grid-single">
+            <article class="rm-panel rm-step">
+                <div class="rm-step-head">
+                    <h3 class="rm-step-title">1. Install the Windows agent (no account required)</h3>
+                    <div class="rm-step-actions">
+                        <button class="btn btn-sm rm-btn-ghost" type="button" @onclick="() => CopyScript(_installAgentScript)">
+                            <span class="oi oi-clipboard" aria-hidden="true"></span> Copy
+                        </button>
+                    </div>
+                </div>
+                <pre class="rm-code">@_installAgentScript</pre>
+                <p class="rm-note">
+                    Downloads the installer for this server, installs the persistent agent, and registers Remotely_Service.
+                </p>
+            </article>
+
+            <article class="rm-panel rm-step">
+                <div class="rm-step-head">
+                    <h3 class="rm-step-title">2. Protect the agent service (watchdog)</h3>
+                    <div class="rm-step-actions">
+                        <button class="btn btn-sm rm-btn-ghost" type="button" @onclick="() => CopyScript(_protectServiceScript)">
+                            <span class="oi oi-clipboard" aria-hidden="true"></span> Copy
+                        </button>
+                    </div>
+                </div>
+                <pre class="rm-code">@_protectServiceScript</pre>
+                <p class="rm-note">
+                    Gives the service a clear name, restarts it automatically when it fails, registers a SYSTEM watchdog
+                    that restarts it within a minute, and parks a stray portable Quick Support copy. It never touches
+                    <code>Remotely\Desktop\Remotely_Desktop.exe</code>, which the agent needs for unattended control.
+                </p>
+            </article>
+
+            <article class="rm-panel rm-step">
+                <div class="rm-step-head">
+                    <h3 class="rm-step-title">3. Undo the service protection</h3>
+                    <div class="rm-step-actions">
+                        <button class="btn btn-sm rm-btn-ghost" type="button" @onclick="() => CopyScript(_undoProtectionScript)">
+                            <span class="oi oi-clipboard" aria-hidden="true"></span> Copy
+                        </button>
+                    </div>
+                </div>
+                <pre class="rm-code">@_undoProtectionScript</pre>
+                <p class="rm-note">
+                    Removes the watchdog and restores the original service name and the Quick Support executable.
+                </p>
+            </article>
         </div>
-        <pre style="white-space: pre-wrap; word-break: break-word; background-color: #1e1e1e; color: #e6e6e6; padding: 12px; border-radius: 4px; font-size: 13px;">@_undoProtectionScript</pre>
-        <div class="small text-info">
-            Removes the watchdog and restores the original service name and the Quick Support executable.
-        </div>
-    </div>
+    </section>
 </div>
 
 @code {

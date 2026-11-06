@@ -1,9 +1,15 @@
 .navbar {
     background-color: var(--rm-navbar-scrim);
+    /*
+     * Darkly sets the navbar brand colour to #222 - the same value as the
+     * console canvas - so the product name renders invisible in the sidebar.
+     */
+    --bs-navbar-brand-color: var(--rm-ink);
+    --bs-navbar-brand-hover-color: var(--rm-ink);
 }
 
 .navbar-toggler {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--rm-border-soft);
 }
 
 .top-row {
@@ -12,18 +18,27 @@
 }
 
 .navbar-brand {
-    font-size: 1.1rem;
+    font-size: 1.25rem !important;
 }
 
-.oi {
-    width: 2rem;
-    font-size: 1.1rem;
-    vertical-align: text-top;
+.logo-title {
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--rm-ink);
+}
+
+/* The subtitle is a micro-label, not a second title. */
+.logo-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rm-ink-faint);
 }
 
 .nav-item {
     font-size: 0.9rem;
-    padding-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
 }
 
     .nav-item:first-of-type {
@@ -34,13 +49,36 @@
         padding-bottom: 1rem;
     }
 
-    .nav-item ::deep a {
-        color: var(--rm-ink-muted);
-        border-radius: var(--rm-radius-control);
-        height: 3rem;
+/*
+ * Every row is a flex line with a fixed icon column, so the labels all start
+ * at the same x and the icons sit on one axis. The icon is quiet until the row
+ * is hovered or active, which is where the accent belongs.
+ */
+    .nav-item ::deep a,
+    .nav-item ::deep button.nav-link {
         display: flex;
         align-items: center;
-        line-height: 3rem;
+        gap: 12px;
+        min-height: 2.5rem;
+        padding: 4px 32px;
+        width: 100%;
+        color: var(--rm-ink-muted);
+        background: none;
+        border: 0;
+        border-radius: var(--rm-radius-control);
+        text-align: left;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .nav-item ::deep a .oi,
+    .nav-item ::deep button.nav-link .oi {
+        flex: 0 0 20px;
+        width: 20px;
+        font-size: 1rem;
+        text-align: center;
+        color: var(--rm-ink-faint);
     }
 
 .nav-item ::deep a.active {
@@ -48,9 +86,39 @@
     color: var(--rm-accent-strong);
 }
 
+.nav-item ::deep a.active .oi {
+    color: var(--rm-accent-strong);
+}
+
 .nav-item ::deep a:hover {
     background-color: var(--rm-accent-soft);
     color: var(--rm-ink);
+}
+
+    .nav-item ::deep a:hover .oi {
+        color: var(--rm-accent-strong);
+    }
+
+/* The group heading: a quiet micro-label over the column of labels. */
+.nav-item-section {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rm-ink-faint);
+    margin-top: 16px;
+    padding-top: 16px;
+    padding-bottom: 8px;
+    padding-left: 80px !important;
+    border-top: 1px solid var(--rm-border);
+}
+
+/* A hairline between the nav groups. */
+.nav-item-divider {
+    height: 0;
+    margin: 16px 16px 8px;
+    border-top: 1px solid var(--rm-border);
 }
 
 @media (min-width: 641px) {

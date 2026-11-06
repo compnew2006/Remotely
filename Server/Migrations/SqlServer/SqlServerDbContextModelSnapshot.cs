@@ -354,6 +354,42 @@ namespace Remotely.Server.Migrations.SqlServer
                     b.ToTable("ApiTokens");
                 });
 
+            modelBuilder.Entity("Remotely.Shared.Entities.AudioClip", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Quality")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("TimeStamp")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("AudioClips");
+                });
+
             modelBuilder.Entity("Remotely.Shared.Entities.BrandingInfo", b =>
                 {
                     b.Property<string>("Id")
@@ -428,6 +464,20 @@ namespace Remotely.Server.Migrations.SqlServer
                     b.Property<string>("Alias")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("AudioDirectory")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("AudioPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("AudioRetentionCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AudioRetentionHours")
+                        .HasColumnType("int");
 
                     b.Property<string>("CameraDirectory")
                         .HasMaxLength(500)

@@ -137,6 +137,50 @@ public class RemoteControlSession : IDisposable
     public List<CameraDeviceInfo> CameraDevices { get; set; } = new();
 
     /// <summary>
+    /// Whether this session is an audio capture session, in which case the
+    /// device records an audio clip from its system audio or microphone.
+    /// </summary>
+    public bool IsAudioCapture { get; set; }
+
+    /// <summary>
+    /// Whether this audio session repeatedly records clips without a viewer.
+    /// </summary>
+    public bool IsAudioMonitoring { get; set; }
+
+    /// <summary>
+    /// How often the device records an audio clip while monitoring, in seconds.
+    /// </summary>
+    public int AudioMonitoringIntervalSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// The windows of the day during which scheduled audio recordings are
+    /// paused, stored as JSON.
+    /// </summary>
+    public string? AudioPauseWindows { get; set; }
+
+    /// <summary>
+    /// The audio recording that was requested for this session.
+    /// </summary>
+    public AudioCaptureRequest? AudioCapture { get; set; }
+
+    /// <summary>
+    /// The microphones that the device reported when it connected.
+    /// </summary>
+    public List<AudioDeviceInfo> AudioDevices { get; set; } = new();
+
+    /// <summary>
+    /// Whether the device is streaming audio to the administrator in real
+    /// time, without recording a clip.
+    /// </summary>
+    public bool IsAudioLive { get; set; }
+
+    /// <summary>
+    /// The source of the live audio stream (system audio or microphone).
+    /// </summary>
+    public AudioSource? AudioLiveSource { get; set; }
+
+
+    /// <summary>
     /// Current state of the streamer (desktop process) that's associated
     /// with this session.
     /// </summary>

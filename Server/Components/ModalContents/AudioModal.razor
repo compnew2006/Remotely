@@ -1,0 +1,237 @@
+@inherits AuthComponentBase
+
+<div class="row mb-3 g-2">
+    <div class="col-sm-3">
+        <label class="form-label mb-1" for="audioSource">Source</label>
+        <select id="audioSource" class="form-select form-select-sm" @bind="_source" disabled="@_isBusy">
+            <option value="@AudioSource.SystemAudio">System audio</option>
+            <option value="@AudioSource.Microphone">Microphone</option>
+        </select>
+    </div>
+    <div class="col-sm-3">
+        <label class="form-label mb-1" for="audioMicrophone">Microphone</label>
+        <select id="audioMicrophone" class="form-select form-select-sm" @bind="_selectedMicrophoneId" disabled="@(_isBusy || _source != AudioSource.Microphone)">
+            @if (_microphones.Count == 0)
+            {
+                <option value="">No microphones have been reported yet</option>
+            }
+            else
+            {
+                @foreach (var microphone in _microphones)
+                {
+                    <option value="@microphone.Id">@microphone.Name</option>
+                }
+            }
+        </select>
+    </div>
+    <div class="col-sm-2">
+        <label class="form-label mb-1" for="audioQuality">Quality</label>
+        <select id="audioQuality" class="form-select form-select-sm" @bind="_quality" disabled="@_isBusy">
+            @foreach (var option in _qualityOptions)
+            {
+                <option value="@option.Value">@option.Label</option>
+            }
+        </select>
+    </div>
+    <div class="col-sm-2">
+        <label class="form-label mb-1" for="audioDuration">Duration (seconds)</label>
+        <input id="audioDuration" type="number" class="form-control form-control-sm" min="5" max="600"
+               @bind="_durationSeconds" disabled="@_isBusy" />
+    </div>
+    <div class="col-sm-2">
+        <label class="form-label mb-1" for="audioInterval">Every (minutes)</label>
+        <input id="audioInterval" type="number" class="form-control form-control-sm" min="1" max="30"
+               @bind="_intervalMinutes" disabled="@_isBusy" />
+    </div>
+</div>
+
+<div class="row mb-3 g-2">
+    <div class="col-12">
+        <button class="btn btn-primary btn-sm me-2" @onclick="RecordClip" disabled="@_isBusy">Record clip</button>
+        <button class="btn btn-danger btn-sm me-2" @onclick="StopRecording" disabled="@_isBusy">Stop</button>
+        @if (_isMonitoring)
+        {
+            <button class="btn btn-danger btn-sm me-2" @onclick="StopMonitoring" disabled="@_isBusy">Stop schedule</button>
+        }
+        else
+        {
+            <button class="btn btn-outline-primary btn-sm me-2" @onclick="StartMonitoring" disabled="@_isBusy">Start schedule</button>
+        }
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshMicrophones" disabled="@_isBusy">Refresh microphones</button>
+        <button class="btn btn-secondary btn-sm" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
+    </div>
+</div>
+
+@if (_isMonitoring)
+{
+    <div class="alert alert-success py-2">
+        Scheduled recording is active. A @_durationSeconds-second clip is recorded every @_intervalMinutes minute(s), outside pause windows.
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-warning py-2">@_errorMessage</div>
+}
+
+<div class="border rounded p-2 mb-3">
+    <div class="fw-bold mb-2">Live listening</div>
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-4">
+            <label class="form-label mb-1" for="audioLiveSource">Source</label>
+            <select id="audioLiveSource" class="form-select form-select-sm" @bind="_liveSource" disabled="@(_isBusy || _isLive)">
+                <option value="@AudioSource.SystemAudio">System audio</option>
+                <option value="@AudioSource.Microphone">Microphone</option>
+            </select>
+        </div>
+        <div class="col-sm-4">
+            <label class="form-label mb-1" for="audioLiveMicrophone">Microphone</label>
+            <select id="audioLiveMicrophone" class="form-select form-select-sm" @bind="_liveMicrophoneId" disabled="@(_isBusy || _isLive || _liveSource != AudioSource.Microphone)">
+                @if (_microphones.Count == 0)
+                {
+                    <option value="">No microphones have been reported yet</option>
+                }
+                else
+                {
+                    @foreach (var microphone in _microphones)
+                    {
+                        <option value="@microphone.Id">@microphone.Name</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-sm-4">
+            @if (_isLive)
+            {
+                <button class="btn btn-danger btn-sm w-100" @onclick="StopLive" disabled="@_isBusy">Stop listening</button>
+            }
+            else
+            {
+                <button class="btn btn-primary btn-sm w-100" @onclick="StartLive" disabled="@_isBusy">Listen live</button>
+            }
+        </div>
+    </div>
+    @if (_isLive)
+    {
+        <div class="form-text mt-2">The audio of the device is streamed to this browser. Nothing is stored on the server.</div>
+    }
+</div>
+
+<div class="d-flex align-items-center mb-1">
+    <span class="fw-bold">Recorded clips</span>
+    <span class="text-muted small ms-2">@_clips.Count kept (max @_retentionCount, up to @_retentionHours hour(s) old)</span>
+    @if (!string.IsNullOrWhiteSpace(_storageDirectory))
+    {
+        <span class="text-muted small ms-2">Stored on the server: @_storageDirectory</span>
+    }
+    <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="ClearClips" disabled="@(_isBusy || _clips.Count == 0)">
+        Clear all
+    </button>
+</div>
+
+<div class="border rounded p-2 mb-3">
+    <div class="fw-bold mb-2">Audio storage settings</div>
+
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-6">
+            <label class="form-label mb-1" for="audioDirectory">Folder on the server</label>
+            <div class="input-group input-group-sm">
+                <input id="audioDirectory" type="text" class="form-control" @bind="_directory" />
+                <button class="btn btn-outline-secondary" @onclick="() => _showFolderPicker = true" disabled="@_isBusy">Browse</button>
+            </div>
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label mb-1" for="audioRetentionCount">Keep (max)</label>
+            <input id="audioRetentionCount" type="number" class="form-control form-control-sm" min="1" max="2000" @bind="_retentionCount" />
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label mb-1" for="audioRetentionHours">Keep for (hours)</label>
+            <input id="audioRetentionHours" type="number" class="form-control form-control-sm" min="1" max="8760" @bind="_retentionHours" />
+        </div>
+        <div class="col-sm-2 text-end">
+            <button class="btn btn-primary btn-sm w-100" @onclick="SaveSettings" disabled="@_isBusy">Save</button>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <div class="d-flex align-items-center mb-1">
+            <span class="fw-bold">Pause windows</span>
+            <span class="text-muted small ms-2">No scheduled audio clips are recorded during these hours</span>
+            <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="AddPauseWindow" disabled="@_isBusy">
+                Add window
+            </button>
+        </div>
+
+        @if (_pauseWindows.Count == 0)
+        {
+            <div class="text-muted small">Scheduled audio recording is never paused.</div>
+        }
+        else
+        {
+            <div class="row g-2">
+                @for (var i = 0; i < _pauseWindows.Count; i++)
+                {
+                    var index = i;
+                    <div class="col-sm-4" @key="index">
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" @bind="_pauseWindows[index].StartHour">
+                                @for (var hour = 0; hour < 24; hour++)
+                                {
+                                    <option value="@hour">@hour.ToString("00"):00</option>
+                                }
+                            </select>
+                            <span class="input-group-text">to</span>
+                            <select class="form-select" @bind="_pauseWindows[index].EndHour">
+                                @for (var hour = 0; hour < 24; hour++)
+                                {
+                                    <option value="@hour">@hour.ToString("00"):00</option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-danger" title="Remove this window" @onclick="() => RemovePauseWindow(index)">
+                                &times;
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="form-text mt-1">
+                Equal hours disable a window. An end hour earlier than the start hour (for example 22:00 to 07:00) crosses midnight.
+            </div>
+        }
+    </div>
+</div>
+
+@if (_showFolderPicker)
+{
+    <FolderPickerModal InitialPath="@_directory"
+                       OnFolderSelected="FolderSelected"
+                       OnCancel="() => _showFolderPicker = false" />
+}
+
+@if (_clips.Count == 0)
+{
+    <div class="text-muted">No clips have been recorded yet.</div>
+}
+else
+{
+    <div style="max-height: 50vh; overflow-y: auto;">
+        @foreach (var clip in _clips)
+        {
+            <div class="border rounded p-2 mb-2" @key="clip.ID">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="small text-muted">
+                        @clip.TimeStamp.ToString("yyyy-MM-dd HH:mm:ss") &middot;
+                        @clip.Quality &middot;
+                        @clip.DurationSeconds second(s) &middot;
+                        @GetSourceName(clip.Source)
+                    </span>
+                    <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => DeleteClip(clip)" disabled="@_isBusy">
+                        Delete
+                    </button>
+                </div>
+                <audio controls preload="metadata" class="w-100" src="@GetClipUrl(clip.FileName)">
+                </audio>
+            </div>
+        }
+    </div>
+}

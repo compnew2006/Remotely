@@ -85,6 +85,100 @@ window.setStyleProperty = (element, propertyName, value) => {
     element.style[propertyName] = value;
 }
 
+/**
+ * Plays the live audio stream of a device.  Every chunk is a complete WAV
+ * frame, and the frames are scheduled one after the other, so the stream
+ * doesn't have gaps between them.
+ */
+window.remotelyAudio = (function () {
+    let context = null;
+    let nextStartTime = 0;
+
+    function ensureContext() {
+        if (!context) {
+            const contextConstructor = window.AudioContext || window["webkitAudioContext"];
+            if (!contextConstructor) {
+                return null;
+            }
+
+            context = new contextConstructor();
+        }
+
+        if (context.state === "suspended") {
+            context.resume();
+        }
+
+        return context;
+    }
+
+    function decode(arrayBuffer, audioContext) {
+        return new Promise((resolve, reject) => {
+            try {
+                audioContext.decodeAudioData(arrayBuffer, resolve, reject);
+            }
+            catch (ex) {
+                reject(ex);
+            }
+        });
+    }
+
+    return {
+        /**
+         * Plays one chunk of the stream.
+         * @param {string} base64Chunk
+         */
+        async playChunk(base64Chunk) {
+            try {
+                const audioContext = ensureContext();
+                if (!audioContext) {
+                    return;
+                }
+
+                const binary = atob(base64Chunk);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+
+                const audioBuffer = await decode(bytes.buffer, audioContext);
+
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+
+                const now = audioContext.currentTime;
+                if (nextStartTime < now) {
+                    nextStartTime = now;
+                }
+
+                source.start(nextStartTime);
+                nextStartTime += audioBuffer.duration;
+            }
+            catch (ex) {
+                console.error(ex);
+            }
+        },
+
+        /**
+         * Stops the playback and releases the audio context.
+         */
+        stop() {
+            nextStartTime = 0;
+
+            if (context) {
+                try {
+                    context.close();
+                }
+                catch (ex) {
+                    console.error(ex);
+                }
+
+                context = null;
+            }
+        }
+    };
+})();
+
 window.startDraggingY = (element, clientY) => {
     if (!element) {
         return;
