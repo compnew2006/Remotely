@@ -20,14 +20,14 @@
 
 | البند | النتيجة |
 |---|---|
-| **اختبارات مُنفَّذة** | **صفر (0)** — `dotnet test` فشل قبل الوصول إلى أي حالة اختبار |
-| **بناء `Server`** | **فشل** — `LIB002` في LibMan يمنع بناء `Server.csproj` ⇒ `Server.Tests` لم يُبنَ |
-| **بناء `Shared` / `Shared.Tests`** | **نجح** — لكن host الاختبار تعذّر تشغيله (لا يوجد .NET 8 runtime) |
-| **بوابات اجتازت** | **0 من 7** |
-| **كود إنتاج معدَّل** | **0 ملف** |
-| **استنتاجات مسنَدة** | **39** (كل واحد بمرجع `مسار:سطر` قابل لإعادة الفحص) |
+| **اختبارات مُنفَّذة** | **19/19 نجحت (جلسة المرحلة صفر 2026-11-06، T-07)** بشرط `DOTNET_ROLL_FORWARD=Major` على runtime 10.0.14 — لا على .NET 8 أصلي؛ سابقًا: صفر |
+| **بناء `Server`** | ✅ **نجح** بعد إزالة إدخالات `libman.json` (كان LIB002 + تلويث شجرة LF) |
+| **بناء الحل كاملًا** | ✅ **نجح** (`dotnet build Remotely.sln`) |
+| **بوابات اجتازت** | **0 من 7** — لم تُنفَّذ فحوص بوابات في هذه الجلسة |
+| **كود إنتاج معدَّل** | ملفان إنشائيان (build-only): `Server/libman.json` · `.github/workflows/run_tests.yml` — بتفويض المالك للمرحلة صفر (ADR-P00-09) |
+| **استنتاجات مسنَدة** | **44** (39 أصلي + E-36…E-40) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
 
-> ⚠️ **الخلاصة التي يجب أن تسبق كل شيء آخر:** المشروع حالياً **لا يملك خط أساس اختباري قابلاً للتنفيذ**. أي ادعاء لاحق عن "الاختبارات تنجح" لن يكون له سند. هذا هو الفجوة P0 رقم 1 (§4).
+> ⚠️ **الخلاصة التي يجب أن تسبق كل شيء آخر (محدَّثة في المرحلة صفر):** خط الأساس الاختباري **أصبح قابلًا للتنفيذ جزئيًا** — 19/19 تعمل بـroll-forward (T-07) — لكنه **غير مُستوفى كاملًا**: لا runtime 8.0 أصلي مثبَّت، وشرط Execution-Environment-Uniformity الدستوري لم يُستوفَ بعد، وCI لم يُسجَّل أخضر. أي ادعاء `[TEST-EVIDENCE]` يجب أن يذكر شرط الـroll-forward صراحةً. (كانت الصيغة الأصلية: "لا خط أساس إطلاقًا" — انظر سجل التغيير §11.)
 
 ---
 
@@ -93,7 +93,7 @@
 | E-26 | **لا يوجد .NET 8 runtime** على جهاز التقييم | `[RUNTIME-VERIFIED]` | `dotnet --list-runtimes` ⇒ 6.0.11 / 9.0.17 / 10.0.14 فقط · `dotnet --list-sdks` ⇒ 9.0.315 فقط |
 | E-27 | **CI لا يمكنه أن ينجح**: يثبّت SDK 7 والمشاريع تستهدف net8.0 | `[SOURCE-VERIFIED]` | `.github/workflows/run_tests.yml` — `dotnet-version: 7` مع `dotnet test` على مستوى الحل · كل المشاريع `net8.0` ⇒ `NETSDK1045` متوقّع |
 | E-28 | متغيّرات CI **ميتة** | `[SOURCE-VERIFIED]` | `.github/workflows/run_tests.yml` — `Test_Project_Path: Tests\Tests.csproj` (ملف غير موجود) |
-| E-29 | مسار مكتبة في الواجهة **مكسور** | `[SOURCE-VERIFIED]` | `Server/Pages/Viewer.cshtml:33,38` يطلب `/lib/microsoft-signalr-protocol-msgpack/dist/browser/...` بينما `Server/libman.json` ينزّل إلى `wwwroot/lib/microsoft/signalr-protocol-msgpack/` (بقطعة `microsoft/` إضافية) ⇒ 404 على السكربت |
+| E-29 | ~~مسار مكتبة في الواجهة **مكسور**~~ — **FALSE POSITIVE (صُحِّح 2026-11-06)**: `Viewer.cshtml:33,38` يطلب `/lib/microsoft/signalr-protocol-msgpack/dist/browser/...` و`libman.json` ينزّل إلى `wwwroot/lib/microsoft/signalr-protocol-msgpack/` — **المسار مطابق**، والملفات موجودة على القرص وملتزَمة | `[SOURCE-VERIFIED]` (إعادة فحص) | `Server/Pages/Viewer.cshtml:33,38` · `Server/libman.json` · وجود `wwwroot/lib/microsoft/signalr-protocol-msgpack/dist/browser/` ✅ |
 | E-30 | `Desktop.Core` **شيفرة ميتة** (مكرّرة لـ`Desktop.Shared`) | `[SOURCE-VERIFIED]` | `Desktop.Core` غير مُدرج في `Remotely.sln` ولا يشير إليه أي مشروع · المسار الحيّ هو `Desktop.Shared` (تستهلكه `Desktop.Win`/`Desktop.Linux`/`Desktop.UI`) |
 | E-31 | `Tests/Desktop.Win.Tests` **خارج الحل** وكل اختباراته `[Ignore]` | `[SOURCE-VERIFIED]` | `Tests/Desktop.Win.Tests/ManualTests.cs` — 7 × `[TestMethod]` تحت `[Ignore("Manual test.")]` · المشروع غير مُدرج في `Remotely.sln` |
 
@@ -105,6 +105,16 @@
 | E-33 | **66 صنف ترحيل** فعلياً | `[SOURCE-VERIFIED]` | 66 ملفاً من أصل 135 تحت `Server\Migrations` يعرّف `class … : Migration` ⇒ **ادعاء الدستور صحيح** |
 | E-34 | **26 طريقة اختبار** إجمالاً، لكن **19 فقط** داخل الحل | `[SOURCE-VERIFIED]` | `Server.Tests` (2+6+8+2 = 18) + `Shared.Tests` (1) = **19** · `Desktop.Win.Tests` (7) خارج الحل و`[Ignore]` ⇒ 26 |
 | E-35 | `AGENTS.md` يوصف "26 test methods total" ⇒ **عدد المصدر صحيح، لكنه مضلِّل** لأنه يُقرأ كـ"26 قابلة للتنفيذ" | `[SOURCE-VERIFIED]` | E-34 |
+
+### 1.7 استنتاجات إضافية (جلسة المرحلة صفر 2026-11-06)
+
+| # | الاستنتاج | التصنيف | الدليل | طريقة التحقق |
+|---|---|---|---|---|
+| E-36 | قالب Docker يضبط `Remotely_ApplicationOptions__DockerGateway` بينما الكود يقرأ `DockerGatewayIp` ⇒ **لا يربط إطلاقًا** في النشر الحاوي | `[SOURCE-VERIFIED]` | `docker-compose/docker-compose.yml:38` مقابل `Server/Options/ApplicationOptions.cs` (`DockerGatewayIp`) و`Server/appsettings.json:25` | قراءة الملفين؛ سلوك runtime غير مُنفَّذ |
+| E-37 | Swagger مكشوف في الإنتاج بلا شرط بيئي | `[SOURCE-VERIFIED]` | `Server/Program.cs:293-294` (`UseSwagger/UseSwaggerUI` خارج `IsDevelopment`) | قراءة مباشرة |
+| E-38 | SQLite يسجّل KnownProxy `0.0.0.0/0` افتراضيًا + ترحيل تلقائي عند كل إقلاع | `[SOURCE-VERIFIED]` | `Server/Data/SqliteDbContext.cs:27` · `Server/Program.cs:88` (`MigrateAsync`) | ظهر في تحذير build + قراءة مباشرة |
+| E-39 | تحذيرات MailKit 4.8.0 وSignalR.Protocols.MessagePack 8.0.10 (NU1902/NU1903) — **أُعيد التحقق منها هذه الجلسة** | `[RUNTIME-VERIFIED]` | مخرج `dotnet build Server` الحرفي: GHSA-9j88-vvj5-vhgr (MailKit) · GHSA-86xp-94pg-8r6r + GHSA-f8h2-vmm9-qhj6 (SignalR msgpack) | تنفيذ build في هذه الجلسة |
+| E-40 | LibMan restore يعيد كتابة الأصول الملتزَمة بنهايات LF عند كل بناء على Windows ⇒ **شجرة git متسخة بعد كل بناء** (~37 ملفًا، محتوى متطابقًا — فروق أسطر فقط) | `[RUNTIME-VERIFIED]` | بعد بناء ناجح: `git status` أظهر 37 ملف M تحت `wwwroot/lib/fontawesome` + `microsoft-signalr`؛ `git diff --ignore-cr-at-eol --name-only` = **صفر** ⇒ أسطر فقط. أُصلح بإزالة **كل** إدخالات libman (وليس unpkg وحدها) | بناءان متكرران في نفس الجلسة + مقارنة diffs |
 
 ---
 
@@ -137,6 +147,10 @@
 | T-02 | `dotnet --list-sdks` / `--list-runtimes` | SDK 9.0.315 فقط · runtimes 6.0.11 / 9.0.17 / 10.0.14 · **لا 8.0** | `[RUNTIME-VERIFIED]` |
 | T-03 | `dotnet --list-sdks` مقابل `net8.0` | البناء بـSDK 9 **نجح** لـ`Shared`/`Shared.Tests` ⇒ `NETSDK1045` محلياً غير حاضر | `[RUNTIME-VERIFIED]` |
 | T-04 | فحص HTTP على unpkg (8 روابط ملفات + `?meta` لكل حزمة) | كلها HTTP 200 ⇒ LibMan وحده هو العطل | `[RUNTIME-VERIFIED]` |
+| T-05 | **(جلسة المرحلة صفر)** إزالة إدخالات unpkg من `libman.json` ثم `dotnet build Server/Server.csproj` | **نجح — 0 Error** (كان LIB002×2 قبلها مباشرة في نفس الجلسة) | `[RUNTIME-VERIFIED]` |
+| T-05b | **(المرحلة صفر)** إزالة **كل** إدخالات libman (E-40: cdnjs كان يلوث الشجرة) ثم بناء متكرر: `Build succeeded · 0 Error` + `git status` نظيفة على `wwwroot` | `[RUNTIME-VERIFIED]` |
+| T-06 | **(جلسة المرحلة صفر)** `dotnet build Remotely.sln` كاملًا | **نجح — Build succeeded** | `[RUNTIME-VERIFIED]` |
+| T-07 | **(جلسة المرحلة صفر)** `DOTNET_ROLL_FORWARD=Major` + `dotnet test` المشروعين | **19/19 نجحت** (Shared.Tests 1/1 · Server.Tests 18/18 · exit 0) — على runtime 10.0.14 بالـroll-forward، لا على .NET 8 أصلي | `[TEST-EVIDENCE]` (بشرط roll-forward الموثق هنا) |
 
 ### 3.2 سلسلة الفشل كما سُجِّلت حرفياً
 
@@ -187,21 +201,24 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | GAP-03 | **P0** | **دورة حياة الجلسة تمسح الفلاج** (`CreateNew` → `ViewOnly = false`) | E-05 | G1 | SPEC-001 / FR-013 · FR-016 | مفتوحة |
 | GAP-04 | **P0** | **بوابة الجهاز معطّلة** (`HasControl = true` دائماً) | E-06 · E-08 | G1 · G4 | SPEC-001 / FR-017…FR-020 | مفتوحة |
 | GAP-05 | **P0** | **جلسات API قابلة للتحكم افتراضياً** | E-07 | G1 · G4 | SPEC-001 / FR-021…FR-024 | مفتوحة |
-| GAP-06 | **P0** | **لا خط أساس اختباري قابل للتنفيذ** — 0/19 اختباراً | T-01 · N-01 · N-02 | Principle X · SC-007 | تثبيت .NET 8 runtime + إصلاح بناء `Server` (§6 ADR-03/04) | مفتوحة — **تحتاج تصريح المالك** |
+| GAP-06 | **P0** | **لا خط أساس اختباري قابل للتنفيذ** — 0/19 اختباراً | T-01 · N-01 · N-02 | Principle X · SC-007 | تثبيت .NET 8 runtime + إصلاح بناء `Server` (§6 ADR-03/04) | 🔶 **مغلقة جزئيًا (2026-11-06 المرحلة صفر)**: البناء يُصلح (T-05/T-06) و19/19 تُنفَّذ بـroll-forward (T-07) — يبقى شرط Execution-Environment-Uniformity غير مستوفى (لا runtime 8.0 أصلي؛ إعادة تثبيت R-08 لم تُعتمد بعد) |
 | GAP-07 | **P1** | إنشاء جهاز بلا مصادقة | E-16 | G4 · شرط إضافي | إغلاق أو قبول خطي من المالك | مفتوحة |
 | GAP-08 | **P1** | تنزيل مثبّت بلا مصادقة | E-17 | شرط إضافي | إغلاق المسار `:117` | مفتوحة |
 | GAP-09 | **P1** | تنزيل ثنائيات مخصّصة بلا مصادقة | E-18 | شرط إضافي | إضافة `ApiAuthorizationFilter` | مفتوحة — **جديدة** |
 | GAP-10 | **P1** | تحديث العميل بلا توقيع/هاش | E-22 | G2 | توقيع + هاش مثبَّت | مفتوحة |
 | GAP-11 | **P1** | اجتياز مسار في نقل الملفات + صلاحية `BuiltinUsersSid` واسع | E-19 · E-20 | G3 | canonicalisation + أقل امتياز | مفتوحة |
 | GAP-12 | **P1** | Named pipe بلا مصادقة | E-21 | G5 | ACL + تحقّق من العميل | مفتوحة |
-| GAP-13 | **P1** | ثغرات `NU1903` عالية الخطورة في الحزم | E-23 | Principle VIII | ترقية الحزم | مفتوحة |
-| GAP-14 | **P1** | **بناء `Server` مكسور** ⇒ `Server.Tests` لا يُبنى | E-24 · E-25 | Principle X | ADR-04 (§6) | مفتوحة — **تحتاج تصريح المالك** |
-| GAP-15 | **P1** | مسار مكتبة الواجهة مكسور (404 على بروتوكول msgpack) | E-29 | Principle X | تصحيح `Viewer.cshtml` أو `libman.json` | مفتوحة |
+| GAP-13 | **P1** | ثغرات `NU1903` عالية الخطورة في الحزم | E-23 · **E-39 (أُعيد التحقق هذه الجلسة)** | Principle VIII | ترقية الحزم | مفتوحة |
+| GAP-14 | **P1** | **بناء `Server` مكسور** ⇒ `Server.Tests` لا يُبنى | E-24 · E-25 · **E-40** | Principle X | ADR-04 (§6) | ✅ **مغلقة (2026-11-06 المرحلة صفر)** — إزالة كل إدخالات `libman.json` (الأصول ملتزَمة أصلًا؛ cdnjs كان يلوث الشجرة LF) · T-05/T-05b/T-06/T-07 |
+| GAP-15 | **P1** | ~~مسار مكتبة الواجهة مكسور~~ | E-29 | Principle X | — | ❌ **ملغاة — false positive** (E-29 صُحح؛ المسار مطابق للموجود على القرص) |
 | GAP-16 | **P1** | تصنيف الأدلة يخلو من طبقة `SOURCE-CAPABILITY` | §2 | Principle XIII | تعديل دستور v2.1.0 (§6) | مفتوحة — **تحتاج تصريح المالك** |
 | GAP-22 | **P1** | **الرابط الذي يولّده السيرفر يكتب `viewonly=False` حرفياً** — يسلّم رابطاً قابلاً للتحكم مهما كان وضع الجلسة | E-02d · E-02e | G1 | يُصلح مع SPEC-001 (FR-003) | مفتوحة — **كامنة** (لا مستهلك اليوم) |
 | GAP-17 | **P2** | `Desktop.Core` شيفرة موتة مكرّرة لـ`Desktop.Shared` | E-30 | Principle I | حذف أو توثيق صراحة | مفتوحة |
 | GAP-18 | **P2** | `Desktop.Win.Tests` خارج الحل و`[Ignore]` | E-31 | Principle X | إدراج في الحل أو حذف | مفتوحة |
-| GAP-19 | **P2** | CI لا ينجح (SDK 7 مقابل net8.0) + متغيّرات ميتة | E-27 · E-28 | Principle X | `setup-dotnet@v4` بـ`8.0.x` | مفتوحة |
+| GAP-19 | **P2** | CI لا ينجح (SDK 7 مقابل net8.0) + متغيّرات ميتة | E-27 · E-28 | Principle X | `setup-dotnet@v4` بـ`8.0.x` | 🔶 **مُصلَح في المصدر (2026-11-06)** — `8.0.x` + حذف المتغير الميت؛ **اجتياز CI نفسه غير مُسجَّل بعد** (لا تشغيل على GitHub Runner في هذه الجلسة) |
+| GAP-23 | **P1** | تباعد اسم متغير Docker gateway (`DockerGateway` مقابل `DockerGatewayIp`) ⇒ الإعداد لا يربط في النشر الحاوي | E-36 | — | تصحيح اسم المتغير في `docker-compose.yml:38` + فحص runtime | مفتوحة — جديدة (مرحلة صفر) |
+| GAP-24 | **P2** | Swagger مكشوف في الإنتاج | E-37 | — | حصره بـDevelopment أو حماية | مفتوحة — جديدة |
+| GAP-25 | **P2** | ترحيل تلقائي عند الإقلاع + KnownProxy `0.0.0.0/0` في SQLite | E-38 | — | قرار مالك: بوابة ترحيل + تضييق proxies | مفتوحة — جديدة |
 | GAP-20 | **P2** | انحراف في الاستشهادات | §5 | Principle XIII | تصحيح الاقتباسات | **مُغلق في هذه الجلسة** |
 | GAP-21 | **P2** | `AGENTS.md` يوحي بأن 26 اختباراً قابلة للتنفيذ | E-34 · E-35 | Principle XIII | تصحيح `AGENTS.md` | **مُغلق في هذه الجلسة** |
 
@@ -218,6 +235,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | C-05 | مسار `Server/Shared/RemoteControlSession.cs` (اقتباس في تقرير المراجعة) | المسار الحقيقي `Server/Models/RemoteControlSession.cs` | E-05 |
 | C-06 | "بناء `Server` مكسور بسبب LibMan" (مُفترض دائماً) |_libMan_ وحده، لا المزوّد ولا الشبكة — كل الأصول تُرجع 200 | E-25 |
 | C-07 | `Desktop.Core` كمسار حيّ | **ميت** — غير مُدرج في الحل ولا مُشار إليه | E-30 |
+| C-08 | E-29/GAP-15: "مسار مكتبة الواجهة مكسور (404)" | **false positive** — النص `/lib/microsoft/signalr-protocol-msgpack/...` في `Viewer.cshtml:33,38` مطابق لوجهة `libman.json` وللموجود على القرص | E-29 (المصحح) · تصحيح جلسة المرحلة صفر |
 
 ---
 
@@ -230,7 +248,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | **ADR-P00-01** | وثائق الحوكمة (Decision Log · Gate Register · Evidence Map) **ملفات مستقلة** يُشير إليها الدستور، لا أقسام داخله | دمجها في نص الدستور | إبقاء v2.0.0 المُصادَق **غير قابل للمس**؛ تعديل الدستور يمرّ بإجراء التعديل الرسمي | **مُقترح — يحتاج التصديق** |
 | **ADR-P00-02** | تصنيف الأدلة يتبع **الدستور** (6 طبقات)، مع جسر صريح إلى مصطلحات التكليف | اعتماد `SOURCE-CAPABILITY` كمصطلح مستقل في وثائقنا | الدستور هو حكم التسوية (§Enforcement)؛ الخلط بين طبقتين يُنتج استنتاجات أوسع مما يسمح به الدليل | **مُطبَّق** |
 | **ADR-P00-03** | **لم** يُثبَّت .NET 8 runtime على جهاز التقييم | `winget install Microsoft.DotNet.Runtime.8` | تغيير نظامي يحتاج تصريح المالك صريحاً؛ و GAP-06 له مسار بديل (ADR-P00-04 + حاوية CI) | **مُقترح — يحتاج التصديق** |
-| **ADR-P00-04** | إصلاح بناء `Server`: **تثبيت الأصول الملتزَمة في المستودع** (الأصول موجودة فعلاً في `wwwroot/lib/`) وإزالة إدخالات `unpkg` من `libman.json`، أو ترقية `Microsoft.Web.LibraryManager.Build` | (أ) `dotnet tool` أحدث · (ب) تبديل المزوّد إلى `jsdelivr` · (ج) تجاهل | الأصول **موجودة وملتزَمة** ⇒ أبسط إصلاح هو استبدال أداة استرجاع قديمة بعملية لا تُحتاج. أيٌّ منها = تعديل في مشروع إنتاج ⇒ يخرج عن "بدون كود إنتاج" | **مُقترح — يحتاج التصديق** |
+| **ADR-P00-04** | إصلاح بناء `Server`: **إزالة كل إدخالات الاسترجاع من `libman.json`** بدل ترقية الأداة — الأصول كلها ملتزَمة في `wwwroot/lib/`، وrestore cdnjs كان يعيد كتابتها LF ويلوّث شجرة git بعد كل بناء (E-40) | (أ) `dotnet tool` أحدث · (ب) تبديل المزوّد إلى `jsdelivr` · (ج) تجاهل/`-LibraryManager` flag | الأداة لا تُحتاج أصلًا؛ والترقية تُبقي تلويث الشجرة (المشكلة الثانية التي كشفها التنفيذ الفعلي ولم تكن في التحليل النظري) | ✅ **نُفِّذ (المرحلة صفر، بتفويض ADR-P00-09)** |
 | **ADR-P00-05** | الفجوات تُسجَّل **بأدلة** (مسار:سطر) لا بوصف عام | كل ادعاء مسنود بمرجع قابل لإعادة الفحص آلياً | **مُطبَّق** |
 | **ADR-P00-06** | بوابة G7 = **UNKNOWN** لا FAIL | وضعها FAIL | لا يوجد سجل تشغيل ⇒ "فشل" و"غير معروف" معنيان مختلفان؛ والفرق يوجّه العمل: UNKNOWN ⇒ نكتسب الدليل | **مُطبَّق** |
 
@@ -305,3 +323,14 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 > **لماذا هذا واحد وليس ثلاثة:** لا يمكن لـ SPEC-001 أن تُنفَّذ بجدوى قبل ذلك. كل بند في SPEC-001 يقابله اختبار، و SC-007 يشترط تشغيل المجموعة في CI. بدون .NET 8 runtime **لا يعمل اختبار واحد**، وبدون بناء `Server` لا يُبنى 18 من الـ19 ⇒ G1 لا يمكن أن يُقاس. وهذا لا يُلغي أي عمل حوكمة، لكنه **يفتح الطريق لكل عمل بعدها**.
 >
 > **يحتاج:** تصريح صريح من المالك (تغيير نظامي + تعديل في مشروع إنتاج). **لم يُنفَّذ.**
+
+> **تحديث المرحلة صفر (2026-11-06):** شقُّ "إصلاح بناء Server" **نُفِّذ** (GAP-14 مغلقة)، وشقُّ "خط الأساس الاختباري" **تحقق جزئيًا** بـroll-forward (T-07: 19/19). المتبقي من هذا الإجراء: تشغيل الاختبارات على .NET 8 أصلي (تثبيت runtime أو حاوية CI) وتسجيل CI أخضر على GitHub Runner.
+
+---
+
+## 11. سجل التغيير
+
+| التاريخ | التغيير |
+|---|---|
+| 2026-11-06 (P00) | إنشاء الخريطة — 39 استنتاجًا مُصنفًا + مصفوفة فجوات P0/P1/P2 |
+| 2026-11-06 (المرحلة صفر) | تصحيح C-08: E-29/GAP-15 **false positive** · إضافة E-36…E-39 وGAP-23…GAP-25 · إغلاق GAP-14 (شطب unpkg من libman.json، T-05/T-06) · تنفيذ T-07: **19/19** بـ`DOTNET_ROLL_FORWARD=Major` · GAP-06 مغلقة جزئيًا · GAP-19 مُصلَحة المصدر (لم تُسجَّل CI green بعد) |
