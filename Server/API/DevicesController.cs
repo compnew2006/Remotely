@@ -122,6 +122,7 @@ public class DevicesController : ControllerBase
     }
 
     [HttpPost]
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     public async Task<IActionResult> Create([FromBody] DeviceSetupOptions deviceOptions)
     {
         var result = await _dataService.CreateDevice(deviceOptions);

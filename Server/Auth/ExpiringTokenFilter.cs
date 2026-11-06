@@ -31,7 +31,10 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
         }
         catch (Exception ex)
         {
+            // Fail closed: if authorization itself faults (e.g. DB unavailable),
+            // deny the request instead of letting MVC proceed to the action.
             _logger.LogError(ex, "Error while authorizing expiring token.");
+            context.Result = new UnauthorizedResult();
         }
     }
 

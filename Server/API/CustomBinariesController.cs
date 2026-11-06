@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Remotely.Server.Auth;
 using Remotely.Server.Services;
 using Remotely.Shared.Models;
 using Remotely.Shared.Services;
@@ -12,6 +13,7 @@ public class CustomBinariesController(
     IWebHostEnvironment _hostingEnvironment,
     IEmbeddedServerDataProvider _embeddedData) : ControllerBase
 {
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("win-x86/desktop/{organizationId}")]
     public async Task<IActionResult> GetWinX86Desktop(string organizationId)
     {
@@ -22,6 +24,7 @@ public class CustomBinariesController(
         return File(rs, "application/octet-stream", fileName);
     }
 
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("win-x64/desktop/{organizationId}")]
     public async Task<IActionResult> GetWinX64Desktop(string organizationId)
     {

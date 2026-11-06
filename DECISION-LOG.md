@@ -53,6 +53,7 @@
 | **AD-08** | 2026-11-06 | **إنشاء SPEC-001 عبر مسار `$speckit-specify` الرسمي**، والتوقف قبل `plan`/`tasks`/`implement`/نشر/commit/push | المالك | `.specify/feature.json` · `specs/001-view-only-authorization-hardening/` | تصريح صريح لكل مرحلة تالية |
 | **AD-09** | 2026-11-06 | **P00 — إقفال خط الأساس**: حوكمة لا تسمح للوكيل بتصديق نفسه + تقارير وقرارات قابلة للتحقق. **بلا كود إنتاج** | المالك | هذه الوثيقة · `EVIDENCE-MAP.md` · `GATE-REGISTER.md` | — |
 | **AD-10** | 2026-11-06 | **تصنيف الأدلة المطلوب في التكليف** = `SOURCE-CAPABILITY` / `RUNTIME-VERIFIED` / `PROPOSED` / `UNKNOWN` | المالك | `EVIDENCE-MAP.md` §2 | يُعالج بـ OD-5 (تعديل الدستور) |
+| **AD-11** | 2026-11-06 | **المرحلة 2 — نقاط API (R-04/PC-1)**: (أ) **حماية** `DevicesController.Create` و`ClientDownloadsController` (`GetDesktop :35/:71` و`GetInstaller :117`) و`CustomBinariesController` بـ`ApiAuthorizationFilter`؛ (ب) **قبول خطي** لتنزيل المثبّت العام (`/Content/*.zip` الثابتة + `AgentUpdate/DownloadPackage`) مع بقاء التخفيفات الحالية (rate-limit + device-BAN) لأن تنزيلها يسبق تسجيل الجهاز وبلا credentials — إغلاقها يكسر التثبيت والتحديث؛ (ج) **إصلاح fail-closed** لفلاتر التفويض (`ApiAuthorizationFilter`/`ExpiringTokenFilter`) عند عطل DB | المالك (قرار مُجزَّأ على أربعة أسئلة هذه الجلسة) | `EVIDENCE-MAP.md` E-16…E-18 · **E-41** · GAP-07/08/09/26 · `GATE-REGISTER.md` PC-1 | القبول الخطي (ب) يُراجع إن تبنّى المشروع gating برمز expiring-token للـinstaller |
 
 ---
 
@@ -113,5 +114,6 @@
 | 2026-11-06 | إنشاء السجل — AD-01…AD-10 · D1…D5 · ADR-P00-01…07 · OD-1…OD-8 | الوكيل (بتفويض AD-09) |
 | 2026-11-06 | إضافة `ADR-P00-08` — تعديل مواصفة SPEC-001 (`FR-003a` + حالة حدّية) استجابةً للدليل `E-02d` | الوكيل (بتفويض AD-09) |
 | 2026-11-06 (المرحلة صفر) | إضافة `ADR-P00-09` (تنفيذ المرحلة صفر بتفويض المالك: libman.json + CI + توثيق) و`ADR-P00-10` (تسجيل حالة GAP-06: roll-forward لا runtime أصلي) | المالك (تفويض) + الوكيل (تسجيل) |
+| 2026-11-06 (المرحلة 2) | إضافة `AD-11` — قرار المالك المُجزَّأ: حماية نقاط API (GAP-07/08/09) + القبول الخطي لتنزيل المثبّت العام + إصلاح fail-closed (E-41/GAP-26). **أول تعديل لسلوك إنتاجي فعلي** (5 ملفات تحت `Server/`) بتفويض صريح؛ بناء `Server` 0 أخطاء | المالك (قرار) + الوكيل (تنفيذ وتسجيل) |
 
 > **يُحدَّث هذا السجل في نفس الـpull request الذي يغيّر أي قرار**، وإلا فالقيمة الأُسَاسية — قابلية التدقيق — تضيع.

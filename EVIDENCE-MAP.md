@@ -25,7 +25,7 @@
 | **بناء الحل كاملًا** | ✅ **نجح** (`dotnet build Remotely.sln`) |
 | **بوابات اجتازت** | **0 من 7** — لم تُنفَّذ فحوص بوابات في هذه الجلسة |
 | **كود إنتاج معدَّل** | ملفان إنشائيان (build-only): `Server/libman.json` · `.github/workflows/run_tests.yml` — بتفويض المالك للمرحلة صفر (ADR-P00-09) |
-| **استنتاجات مسنَدة** | **44** (39 أصلي + E-36…E-40) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
+| **استنتاجات مسنَدة** | **45** (39 أصلي + E-36…E-41) — كل واحد بمرجع `مسار:سطر` أو سجل تنفيذ قابل لإعادة الفحص |
 
 > ⚠️ **الخلاصة التي يجب أن تسبق كل شيء آخر (محدَّثة في المرحلة صفر):** خط الأساس الاختباري **أصبح قابلًا للتنفيذ جزئيًا** — 19/19 تعمل بـroll-forward (T-07) — لكنه **غير مُستوفى كاملًا**: لا runtime 8.0 أصلي مثبَّت، وشرط Execution-Environment-Uniformity الدستوري لم يُستوفَ بعد، وCI لم يُسجَّل أخضر. أي ادعاء `[TEST-EVIDENCE]` يجب أن يذكر شرط الـroll-forward صراحةً. (كانت الصيغة الأصلية: "لا خط أساس إطلاقًا" — انظر سجل التغيير §11.)
 
@@ -115,6 +115,7 @@
 | E-38 | SQLite يسجّل KnownProxy `0.0.0.0/0` افتراضيًا + ترحيل تلقائي عند كل إقلاع | `[SOURCE-VERIFIED]` | `Server/Data/SqliteDbContext.cs:27` · `Server/Program.cs:88` (`MigrateAsync`) | ظهر في تحذير build + قراءة مباشرة |
 | E-39 | تحذيرات MailKit 4.8.0 وSignalR.Protocols.MessagePack 8.0.10 (NU1902/NU1903) — **أُعيد التحقق منها هذه الجلسة** | `[RUNTIME-VERIFIED]` | مخرج `dotnet build Server` الحرفي: GHSA-9j88-vvj5-vhgr (MailKit) · GHSA-86xp-94pg-8r6r + GHSA-f8h2-vmm9-qhj6 (SignalR msgpack) | تنفيذ build في هذه الجلسة |
 | E-40 | LibMan restore يعيد كتابة الأصول الملتزَمة بنهايات LF عند كل بناء على Windows ⇒ **شجرة git متسخة بعد كل بناء** (~37 ملفًا، محتوى متطابقًا — فروق أسطر فقط) | `[RUNTIME-VERIFIED]` | بعد بناء ناجح: `git status` أظهر 37 ملف M تحت `wwwroot/lib/fontawesome` + `microsoft-signalr`؛ `git diff --ignore-cr-at-eol --name-only` = **صفر** ⇒ أسطر فقط. أُصلح بإزالة **كل** إدخالات libman (وليس unpkg وحدها) | بناءان متكرران في نفس الجلسة + مقارنة diffs |
+| E-41 | فلتر التفويض ي**فشل مفتوحًا** (fail-open) — لو رمى `Authorize()` استثناءً (عطل DB في `ValidateApiKey`/`GetUserByName`) يُبتلع في `catch` ولا يُضبط `context.Result` ⇒ MVC ينفّذ الـ action **بلا مصادقة**، فيقوّض كل نقطة تُعتَبر محميّة | `[SOURCE-VERIFIED]` | `Server/Auth/ApiAuthorizationFilter.cs:24-31` و`Server/Auth/ExpiringTokenFilter.cs:28-35` (قبل الإصلاح) — أُصلح بإسناد `context.Result = new UnauthorizedResult()` داخل `catch` (fail-closed) في المرحلة 2 |
 
 ---
 
@@ -202,9 +203,9 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | GAP-04 | **P0** | **بوابة الجهاز معطّلة** (`HasControl = true` دائماً) | E-06 · E-08 | G1 · G4 | SPEC-001 / FR-017…FR-020 | مفتوحة |
 | GAP-05 | **P0** | **جلسات API قابلة للتحكم افتراضياً** | E-07 | G1 · G4 | SPEC-001 / FR-021…FR-024 | مفتوحة |
 | GAP-06 | **P0** | **لا خط أساس اختباري قابل للتنفيذ** — 0/19 اختباراً | T-01 · N-01 · N-02 | Principle X · SC-007 | تثبيت .NET 8 runtime + إصلاح بناء `Server` (§6 ADR-03/04) | 🔶 **مغلقة جزئيًا (2026-11-06 المرحلة صفر)**: البناء يُصلح (T-05/T-06) و19/19 تُنفَّذ بـroll-forward (T-07) — يبقى شرط Execution-Environment-Uniformity غير مستوفى (لا runtime 8.0 أصلي؛ إعادة تثبيت R-08 لم تُعتمد بعد) |
-| GAP-07 | **P1** | إنشاء جهاز بلا مصادقة | E-16 | G4 · شرط إضافي | إغلاق أو قبول خطي من المالك | مفتوحة |
-| GAP-08 | **P1** | تنزيل مثبّت بلا مصادقة | E-17 | شرط إضافي | إغلاق المسار `:117` | مفتوحة |
-| GAP-09 | **P1** | تنزيل ثنائيات مخصّصة بلا مصادقة | E-18 | شرط إضافي | إضافة `ApiAuthorizationFilter` | مفتوحة — **جديدة** |
+| GAP-07 | **P1** | إنشاء جهاز بلا مصادقة | E-16 | G4 · شرط إضافي | إغلاق أو قبول خطي من المالك | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة `ApiAuthorizationFilter` إلى `Create` (`DevicesController.cs:125`). لا مستهلك في المستودع (التسجيل عبر SignalR `AddOrUpdateDevice`) |
+| GAP-08 | **P1** | تنزيل مثبّت بلا مصادقة | E-17 | شرط إضافي | إغلاق المسار `:117` | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة الفلتر إلى `:117` و`GetDesktop :35/:71`. **تنزيل العام للمثبّت** (`/Content/*.zip` + `AgentUpdate/DownloadPackage`) قُبل **خطيًا** مع التخفيف — راجع DECISION-LOG / PC-1 |
+| GAP-09 | **P1** | تنزيل ثنائيات مخصّصة بلا مصادقة | E-18 | شرط إضافي | إضافة `ApiAuthorizationFilter` | ✅ **مغلقة (2026-11-06 المرحلة 2)** — إضافة الفلتر إلى `CustomBinariesController` (`:16` و`:27`)؛ المستهلك `Deploy.razor:200-201` عبر كوكي الأدمن فلا يكسر التنزيل |
 | GAP-10 | **P1** | تحديث العميل بلا توقيع/هاش | E-22 | G2 | توقيع + هاش مثبَّت | مفتوحة |
 | GAP-11 | **P1** | اجتياز مسار في نقل الملفات + صلاحية `BuiltinUsersSid` واسع | E-19 · E-20 | G3 | canonicalisation + أقل امتياز | مفتوحة |
 | GAP-12 | **P1** | Named pipe بلا مصادقة | E-21 | G5 | ACL + تحقّق من العميل | مفتوحة |
@@ -219,6 +220,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 | GAP-23 | **P1** | تباعد اسم متغير Docker gateway (`DockerGateway` مقابل `DockerGatewayIp`) ⇒ الإعداد لا يربط في النشر الحاوي | E-36 | — | تصحيح اسم المتغير في `docker-compose.yml:38` + فحص runtime | مفتوحة — جديدة (مرحلة صفر) |
 | GAP-24 | **P2** | Swagger مكشوف في الإنتاج | E-37 | — | حصره بـDevelopment أو حماية | مفتوحة — جديدة |
 | GAP-25 | **P2** | ترحيل تلقائي عند الإقلاع + KnownProxy `0.0.0.0/0` في SQLite | E-38 | — | قرار مالك: بوابة ترحيل + تضييق proxies | مفتوحة — جديدة |
+| GAP-26 | **P1** | فشل مفتوح في فلاتر التفويض (fail-open) يُبطل الحماية عند عطل DB | E-41 | G4 | جعل الفلاتر fail-closed | ✅ **مغلقة (2026-11-06 المرحلة 2)** — `context.Result = new UnauthorizedResult()` داخل `catch` في `ApiAuthorizationFilter` و`ExpiringTokenFilter` |
 | GAP-20 | **P2** | انحراف في الاستشهادات | §5 | Principle XIII | تصحيح الاقتباسات | **مُغلق في هذه الجلسة** |
 | GAP-21 | **P2** | `AGENTS.md` يوحي بأن 26 اختباراً قابلة للتنفيذ | E-34 · E-35 | Principle XIII | تصحيح `AGENTS.md` | **مُغلق في هذه الجلسة** |
 
@@ -334,3 +336,4 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 |---|---|
 | 2026-11-06 (P00) | إنشاء الخريطة — 39 استنتاجًا مُصنفًا + مصفوفة فجوات P0/P1/P2 |
 | 2026-11-06 (المرحلة صفر) | تصحيح C-08: E-29/GAP-15 **false positive** · إضافة E-36…E-39 وGAP-23…GAP-25 · إغلاق GAP-14 (شطب unpkg من libman.json، T-05/T-06) · تنفيذ T-07: **19/19** بـ`DOTNET_ROLL_FORWARD=Major` · GAP-06 مغلقة جزئيًا · GAP-19 مُصلَحة المصدر (لم تُسجَّل CI green بعد) |
+| 2026-11-06 (المرحلة 2 — R-04/PC-1) | حماية `DevicesController.Create` + `ClientDownloadsController` (`GetDesktop :35/:71` و`GetInstaller :117`) + `CustomBinariesController` بـ`ApiAuthorizationFilter` ⇒ **إغلاق GAP-07/08/09** · اكتشاف **E-41/GAP-26** (فلاتر fail-open) وإصلاحها fail-closed · **القبول الخطي** لتنزيل المثبّت العام (`/Content/*.zip` + `DownloadPackage`) مع التخفيفات — راجع DECISION-LOG (AD وD) وGATE-REGISTER PC-1 · بناء `Server` ناجح 0 أخطاء · لا تغيير على حالة بوابات G1–G7 |

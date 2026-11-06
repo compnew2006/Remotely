@@ -32,6 +32,7 @@ public class ClientDownloadsController : ControllerBase
         _logger = logger;
     }
 
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("desktop/{platformID}")]
     public async Task<IActionResult> GetDesktop(string platformID)
     {
@@ -68,6 +69,7 @@ public class ClientDownloadsController : ControllerBase
     }
 
 
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("desktop/{platformId}/{organizationId}")]
     public async Task<IActionResult> GetDesktop(string platformId, string organizationId)
     {
@@ -114,6 +116,7 @@ public class ClientDownloadsController : ControllerBase
         return await GetInstallFile(orgId, platformID);
     }
 
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     [HttpGet("{platformId}/{organizationId}")]
     public async Task<IActionResult> GetInstaller(string platformId, string organizationId)
     {

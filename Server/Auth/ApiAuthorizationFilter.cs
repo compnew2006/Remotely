@@ -27,7 +27,10 @@ public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
         }
         catch (Exception ex)
         {
+            // Fail closed: if authorization itself faults (e.g. DB unavailable),
+            // deny the request instead of letting MVC proceed to the action.
             _logger.LogError(ex, "Error while authorizing API key.");
+            context.Result = new UnauthorizedResult();
         }
     }
 
