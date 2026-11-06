@@ -102,7 +102,26 @@ ASPNETCORE_HTTP_PORTS=5000 dotnet Remotely_Server.dll
 ```
 
 > [!NOTE]
-> `Server/Dockerfile` still pins the .NET 8 ASP.NET runtime image. Update its `FROM` line to `mcr.microsoft.com/dotnet/aspnet:10.0` before building a container from this fork. The upstream published image is unaffected.
+> `Server/Dockerfile` targets the .NET 10 ASP.NET runtime image and copies a published build from `Server/bin/publish`. Build it from the repository root after publishing the server, or use the image that the **Container** workflow publishes.
+
+### Option 3: Run the container image built from this fork
+
+The **Container** workflow publishes `ghcr.io/compnew2006/remotely:latest` on manual runs and on version tags. That image contains the fork additions and uses the same compose environment as Option 1. Point the compose file at it before starting:
+
+```bash
+mkdir -p /var/www/remotely
+cd /var/www/remotely
+curl -fsSL -O https://raw.githubusercontent.com/compnew2006/Remotely/master/docker-compose/docker-compose.yml
+sed -i 's|image: immybot/remotely:latest|image: ghcr.io/compnew2006/remotely:latest|' docker-compose.yml
+docker compose up -d
+```
+
+To build the image yourself instead:
+
+```bash
+dotnet publish Server/Server.csproj -c Release -r linux-x64 --self-contained false -o Server/bin/publish
+docker build -f Server/Dockerfile -t remotely-fork .
+```
 
 ## Configuration
 
