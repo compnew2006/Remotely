@@ -1,279 +1,179 @@
-# Remotely
+<div align="center">
+  <img src="Assets/Remotely_Icon.png" alt="Remotely" width="80" height="80">
 
-A remote control and remote scripting solution, built with .NET, Blazor, and SignalR Core.
+  <h1>Remotely</h1>
 
-[![Build Status](https://dev.azure.com/immybot/Remotely/_apis/build/status%2Fimmense.Remotely?branchName=master)](https://dev.azure.com/immybot/Remotely/_build/latest?definitionId=2&branchName=master)
-[![Tests](https://github.com/immense/Remotely/actions/workflows/run_tests.yml/badge.svg?branch=master)](https://github.com/immense/Remotely/actions/workflows/run_tests.yml)
+  <p><strong>Self-hosted remote control, remote scripting, and screen monitoring.</strong><br>
+  The operator works in a browser. The device runs a background agent.</p>
 
-## Project Links
+  <p>
+    <a href="https://github.com/compnew2006/Remotely/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/compnew2006/Remotely/actions/workflows/ci.yml/badge.svg?branch=master"></a>
+    <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white">
+    <img alt="Windows and Linux" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-0078D6">
+    <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"></a>
+  </p>
 
-Subreddit: https://www.reddit.com/r/remotely_app/  
-Docker: https://hub.docker.com/r/immybot/remotely  
-Tutorial: https://www.youtube.com/watch?v=t-TFvr7sZ6M (Thanks, @bmcgonag!)
+  <p>
+    <a href="#quick-start">Quick start</a> ·
+    <a href="#fork-additions">Fork additions</a> ·
+    <a href="#configuration">Configuration</a> ·
+    <a href="#api-and-integrations">API</a> ·
+    <a href="#build-from-source">Build from source</a>
+  </p>
+</div>
 
-![image](.github/media/ask-remote.png)
+> [!IMPORTANT]
+> **This is the Arkan LAN deployment fork of [immense/Remotely](https://github.com/immense/Remotely).** It tracks upstream `master` and adds the work described in [Fork additions](#fork-additions). Everything else in this document describes the upstream product and applies here unchanged. Upstream support channels, Docker images, and tutorials still target the original project.
 
-## Extra features in this fork
+## Why Remotely
 
-Added for the Arkan LAN deployment (2026-11-06). They live in the server and the desktop client, and are reached from the **Actions** menu of a device card on the dashboard:
+Remotely gives an IT team one place to reach the machines it manages. Install the agent once. From then on, any permitted operator can open a browser and work on that device without installing a remote desktop client.
 
-- **Task Manager** — shows the processes running on the device (name, PID, session, memory, CPU, start time) and lets you end them. It uses the existing script channel, so it works with agents that are already installed.
-- **Screenshots** — the device takes full screenshots of its desktop on a fixed interval (1–30 minutes) with nobody watching, and the server keeps them. Each device has its own settings: the folder the screenshots are stored in on the server, how many are kept, how long they are kept, and **exception windows** (hours during which nothing is captured — several windows per device are allowed, and a window may run past midnight). There is also a **"Take screenshot now"** button for a one-off capture without any schedule, a delete button on every screenshot, and a "clear all" button.
+The device connects out to your server over SignalR, so you do not open inbound ports on managed machines. The server is yours: its database, logs, recordings, users, and device inventory stay on your infrastructure.
 
-Notes for operators: capturing requires the current desktop client build (the agent does not change), and the desktop client's assembly version is stamped with the build time, so a client update must be published with the same version number that is already installed on the device.
+| Job | What you get |
+|---|---|
+| Observe | Live screen, multiple monitors with monitor switching, session metrics (FPS, throughput, latency), and optional session recording |
+| Control | Mouse and keyboard input, `Ctrl+Alt+Del`, Windows session switching, and clipboard transfer in both directions |
+| Hear | Audio streaming from the device (Windows) |
+| Transfer | File upload and download between operator and device |
+| Automate | Remote script execution in the browser console, saved scripts, and a remote task manager |
+| Talk | Per-device chat and shareable view links for staff who only need to watch |
+| Govern | Attended and unattended sessions, device groups, organization scoping, API keys, 2FA, device bans, retention limits, and server-side branding |
+| Integrate | A REST API with Swagger and an alerts endpoint for basic RMM-style monitoring |
 
-## Quickstart
+The server is ASP.NET Core with a Blazor Server console. Screen frames travel as JPEG over a SignalR WebSocket and are painted onto a canvas in the browser. Input, clipboard, audio, file transfer, and script execution use the same relay. Desktop clients are Avalonia applications for Windows and Linux.
 
-```
+## Fork additions
+
+These changes were added for the Arkan LAN deployment (2026-11-06). The device-side actions appear in the **Actions** menu on a device card in the dashboard.
+
+| Addition | What it does | Status |
+|---|---|---|
+| **Remote task manager** | Lists the processes on a device with name, PID, session, memory, CPU, and start time, and ends a selected process. It uses the existing script channel, so already-installed agents work without an update. | Available |
+| **Scheduled screenshots** | Captures the device desktop at a fixed interval (1 to 30 minutes) with nobody watching. Per-device settings cover the server storage folder, how many captures are kept, how long they are kept, and exception windows (several per device, including windows that cross midnight). Includes capture now, delete one, and clear all. | Available |
+| **Camera capture** | Records an MP4 clip from a chosen device camera at one of three quality levels, with a bounded duration, an optional recurring schedule, retention limits, and browser playback. | Preview |
+| **Audio capture and live listening** | Records a WAV clip from system audio (loopback) or a chosen microphone at one of three quality levels, with an optional recurring schedule, retention limits, playback, and live listening while the dialog is open. | Preview |
+| **Security hardening** | Server-enforced View Only authorization with a per-viewer control gate, safe file path handling, signed and verified client updates, authenticated local IPC, protected API endpoints, and remediation of the CVE-2026-39959 dependency advisory. | Available |
+| **.NET 10 LTS** | The solution targets `net10.0`; the SDK is pinned to `10.0.403` in `global.json`; LibMan was replaced with npm and a lockfile. | Available |
+
+> [!NOTE]
+> **Preview** means the feature is implemented and covered by unit tests, but it has not yet been exercised on hardware. Camera capture has not run on a device with a real camera, and audio capture has not run on a device with a real sound device. Each feature records its own acceptance status in [specs/003-camera-capture/spec.md](specs/003-camera-capture/spec.md) and [specs/004-audio-capture/spec.md](specs/004-audio-capture/spec.md).
+
+> [!WARNING]
+> The desktop client assembly version is stamped with the build time. When you publish a client update, publish it with the same version number that is already installed on the device.
+
+## Quick start
+
+### Option 1: Run the upstream container
+
+The compose file deploys the upstream `immybot/remotely:latest` image. It gives you the core product, not the fork additions.
+
+```bash
 mkdir -p /var/www/remotely
-wget -q https://raw.githubusercontent.com/immense/Remotely/master/docker-compose/docker-compose.yml
-docker-compose up -d
+cd /var/www/remotely
+curl -fsSL -O https://raw.githubusercontent.com/compnew2006/Remotely/master/docker-compose/docker-compose.yml
+docker compose up -d
 ```
 
-## Important: HTTPS and Reverse Proxies
+On installations that still use the standalone binary, run `docker-compose up -d` instead.
 
-The only supported reverse proxy is Caddy, and only when it is directly facing the internet. The default configuration for Caddy provides everything that ASP.NET Core and SignalR need to function correctly.
+Open `http://<server>:5000` and click **Register** to create the first account. That account is both the server administrator and the organization administrator, and an organization is created for it automatically. Registration closes after the first account; raise `MaxOrganizationCount` or set it to `-1` to allow more.
 
-If you are having networking issues with any other setup, such as with an additional firewall or with Nginx, please seek out community support in the Discussions tab, on Reddit, or another social site. The Remotely maintainers simply can't provide guidance and support for all the possible environment setups.
+### Option 2: Build this fork
 
-With that said, ASP.NET Core requires the following headers to be set when behind a reverse proxy: `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-For`. These correlate to the scheme (http/https), the URL of the original request, and the client's IP address, respectively. The resulting scheme and host are injected into the installers and desktop clients, so they know where to send requests. The client IP address is used in the device info.
+Use this path when you need the fork additions. You need the .NET 10 SDK, Node.js LTS, and Git. The full solution, including the Windows desktop client, builds on Windows; the server builds on Linux and macOS.
 
-The Remotely code does not parse or handle these values. It is done internally by ASP.NET Core's built-in middleware. If the values are not appearing as expected, it is because the headers were missing, didn't contain the correct values, were not in the correct format, or didn't come through a chain of known proxies (see below).
+```bash
+git clone --recurse-submodules https://github.com/compnew2006/Remotely.git
+cd Remotely
+dotnet build Server/Server.csproj -c Release
+dotnet run --project Server/Server.csproj
+```
 
-To avoid injection attacks, ASP.NET Core defaults to only accepting forwarded headers from loopback addresses. Remotely will also add the Docker gateway IP (172.28.0.1) defined in the docker-compose file. If you are using a non-default configuration, you must add all firewall and reverse proxy addresses to the `KnownProxies` array in the Server Config.
+The development profile listens on `https://localhost:5001` and `http://localhost:5000`. In development, connecting agents are assigned to the first organization, and the debug agent uses a predefined device ID against `https://localhost:5001`, so you can run both sides and see the device in the list.
 
-If you are unable to get your reverse proxies configured correctly, you can at least force the use of HTTPS scheme by setting `Force Client HTTPS` in the Server Config page.
+To publish a server you can run without the SDK:
 
-Microsoft's full documentation on the topic can be found here: https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer
+```bash
+dotnet publish Server/Server.csproj -c Release -r linux-x64 --self-contained -o Server/bin/publish
+cd Server/bin/publish
+ASPNETCORE_HTTP_PORTS=5000 dotnet Remotely_Server.dll
+```
 
-## After Installation
-
-- Data for Remotely will be saved in the container under `/app/AppData`, which will be mounted to `/var/www/remotely/` on your Docker host.
-- This folder will contain Remotely.db and logs generated by the server.
-  - These files will persist through teardown and setup of new Remotely containers.
-  - If upgrading from a non-Docker version of Remotely, overwrite the DB file from your previous installation.
-- Use Caddy as a reverse proxy if you want to expose the site to the internet.
-- If this is the first run, create your account by clicking the `Register` button on the main page.
-  - This account will be both the server admin and organization admin.
-  - An organization is automatically created for the account.
-    - Organizations are used to group together users, devices, and other data items into a single pool.
-    - By default, only one organization can exist on a server.
-    - The `Register` button will disappear.
-    - People will no longer be able to create accounts on their own.
-    - To allow self-registration, increase the `MaxOrganizationCount` or set it to -1 (see Configuration section).
-
-## HTTP Logging
-
-You can enable HTTP logging to see all requests and responses in the server logs, including headers. This can be helpful for debugging reverse proxy, API, or SignalR issues. The option can be enabled on the Server Config page.
-
-After changing the above, you must restart the container for the changes to take effect.
-
-## Build and Debug Instructions (Windows 11)
-
-The following steps will configure your Windows 11 machine for building the Remotely server and clients.
-
-- Install Visual Studio 2022.
-  - Link: https://visualstudio.microsoft.com/downloads/
-  - You should have the following Workloads selected:
-    - ASP.NET and web development
-    - .NET desktop development
-    - .NET Core cross-platform development
-  - You should have the following Individual Components selected:
-    - .NET SDK (latest version).
-    - MSBuild (which auto-selects Roslyn compilers).
-    - NuGet targets and build tasks.
-    - .NET Framework 4.8 SDK.
-      - For debugging and development, you'll need all relevant workloads.
-- Install Git for Windows.
-  - Link: https://git-scm.com/downloads
-- Install the latest LTS Node:
-  - Link: https://nodejs.org/
-- Clone the git repository: `git clone https://github.com/immense/Remotely --recurse`
-- When debugging, the agent will use a pre-defined device ID and connect to https://localhost:5001.
-- In development environment, the server will assign all connecting agents to the first organization.
-- The above two allow you to debug the agent and server together, and see your device in the list.
-
-## Admin Accounts
-
-The first account created will be an admin for both the server and the organization that's created for the account.
-
-An organization admin has access to the Organization page and server log entries specific to his/her organization. A server admin has access to the Server Config page and can see server log entries that don't belong to an organization.
-
-## Branding
-
-Within the Account section, there is a tab for branding, which will apply to the quick support clients and Windows installer.
-
-However, the clients will need to have been built from source with the server URL hard-coded in the apps for them to be able to retrieve the branding info.
+> [!NOTE]
+> `Server/Dockerfile` still pins the .NET 8 ASP.NET runtime image. Update its `FROM` line to `mcr.microsoft.com/dotnet/aspnet:10.0` before building a container from this fork. The upstream published image is unaffected.
 
 ## Configuration
 
-The database provider, connection strings, and ASP.NET Core port are configurable via environment variables in `docker-compose.yml`.
+Database provider, connection strings, and the ASP.NET Core port come from environment variables in `docker-compose.yml`. Everything else is set on the **Server Config** page after you sign in.
 
-All other configuration is done in the Server Config page once you're logged in.
+| Setting | What it controls |
+|---|---|
+| `AllowApiLogin` | Whether the API controller accepts a username and password. API access tokens are preferred. |
+| `BannedDevices` | Device IDs, names, or IP addresses that are refused. A banned device receives an uninstall command when it connects. |
+| `DataRetentionInDays` | How long logs and other server data are kept. `-1` keeps data indefinitely and is not recommended. |
+| `DBProvider` | Selects SQLite, SQLServer, or PostgreSQL, and with it the matching connection string. |
+| `EnableWindowsEventLog` | Mirrors server log entries into the Windows Event Log. |
+| `EnforceAttendedAccess` | Prompts the person at the device before an unattended remote control session starts. |
+| `EnableRemoteControlRecording` | Saves remote control session recordings under `/app/AppData/recordings`, subject to `DataRetentionInDays`. |
+| `ForceClientHTTPS` | Makes installers and desktop clients use HTTPS even when forwarded headers are misconfigured. |
+| `KnownProxies` | Reverse proxy and firewall addresses whose forwarded headers are trusted. |
+| `MaxOrganizationCount` | How many organizations may exist. The default is one; `-1` removes the limit. |
+| `RedirectToHttps` | Redirects HTTP traffic to HTTPS inside ASP.NET Core, independently of Caddy or IIS. |
+| `RemoteControlNotifyUsers` | Shows a notification at the device when an unattended session starts. |
+| `RemoteControlRequiresAuthentication` | Requires an authenticated user before the remote control page can connect. |
+| `Require2FA` | Requires users to configure two-factor authentication before using the app. |
+| SMTP settings | Host, port, credentials, and sender used for registration and password reset mail. |
+| `Theme` | Site theme, `Light` or `Dark`. Users can override it in **Account > Options**. |
+| `TrustedCorsOrigins` | Origins allowed to call the API from browser JavaScript. Authentication is still required. |
+| `UseHsts` | Sends HTTP Strict Transport Security headers. |
+| `UseHttpLogging` | Logs every request and response, including headers. It also enables extra client download log entries for the effective scheme, host, and remote IP. Set a log level for `Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware` for the output to appear. |
 
-- AllowApiLogin: Whether to allow logging in via the API controller. API access tokens are recommended over this approach.
-- BannedDevices: An array of device IDs, names, or IP addresses to ban. When they try to connect, an uninstall command will immediately be sent back.
-- DataRetentionInDays: How long logs and other data will be kept on the server. Set to -1 to retain indefinitely (not recommended).
-- DBProvider: Determines which of the three connection strings (at the top) will be used. The appropriate DB provider for the database type is automatically loaded in code.
-- EnableWindowsEventLog: Whether to also add server log entries to the Windows Event Log.
-- EnforceAttendedAccess: Clients will be prompted to allow unattended remote control attempts.
-- EnableRemoteControlRecording: Whether to save recordings of remote control sessions on the server.
-  - They will be saved in `/app/AppData/recordings`.
-  - Their retention is governed by `DataRetentionInDays`.
-- ForceClientHTTPS: Force installers and desktop clients to use HTTPS scheme, even if forwarded headers is misconfigured.
-- KnownProxies: If your reverse proxy is on a different machine and is forwarding requests to the Remotely server, you will need to add the IP of the reverse proxy server to this array.
-- MaxOrganizationCount: By default, one organization can exist on the server, which is created automatically when the first account is registered. Afterward, self-registration will be disabled.
-  - Set this to -1 or increase it to a specific number to allow multi-tenancy.
-- RedirectToHttps: Whether ASP.NET Core will redirect all traffic from HTTP to HTTPS. This is independent of Caddy, Nginx, and IIS configurations that do the same.
-- RemoteControlNotifyUsers: Whether to show a notification to the end user when an unattended remote control session starts.
-- RemoteControlRequiresAuthentication: Whether the remote control page requires authentication to establish a connection.
-- Require2FA: Require users to set up 2FA before they can use the main app.
-- Smpt-: SMTP settings for auto-generated system emails (such as registration and password reset).
-- Theme: The color theme to use for the site. Values are "Light" or "Dark". This can also be configured per-user in Account - Options.
-- TrustedCorsOrigins: For cross-origin API requests via JavaScript. The websites listed in this array with be allowed to make requests to the API. This does not grant authentication, which is still required on most endpoints.
-- UseHsts: Whether ASP.NET Core will use HTTP Strict Transport Security.
-- UseHttpLogging: Enables logging for all HTTP requests. Also enables additional log entries in `ClientDownloadsController` regarding the effective scheme, host, and remote IP address as a result of processing forwarded headers.
-  - You must explicitly set a log level for `Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware` for this to work. See the [appsettings.json](https://github.com/immense/Remotely/blob/master/Server/appsettings.json) for an example.
+### Database
 
-## Changing the Database
+SQLite is the default and needs no server. On first run the server creates the database file named in the SQLite connection string. Set `DBProvider` to `SQLServer` or `PostgreSQL` to use a different database, then supply the matching connection string.
 
-By default, Remotely uses a SQLite database. When first run, it creates a file as specified for the SQLite connection string in appsettings.json.
+### Data, logs, and retention
 
-You can change database by changing `DBProvider` in `ApplicationOptions` to `SQLServer` or `PostgreSQL`.
+In the container, application data lives under `/app/AppData`, mounted at `/var/www/remotely` on the host. That directory holds `Remotely.db`, server logs, and session recordings, and it survives container teardown and recreation. If you migrate from a non-container installation, copy your existing database file into that directory.
 
-## Logging
+Client logs are written to `%ProgramData%\Remotely\Logs` on Windows. Server logs go to `/app/AppData/logs` in the container and to stdout. On IIS you can set `stdoutLogEnabled` in `web.config` to capture stdout in a file. Log levels and sinks are configured in `appsettings.json`.
 
-- On clients, logs are kept in `%ProgramData%\Remotely\Logs`
-- Within the server container, logs will be written to `/app/AppData/logs`, which (by default) will be mounted to `/var/www/remotely/Logs` on the host.
-- Built-in ASP.NET Core logs are written to the console (stdout). You can redirect this to a file if desired.
-  - In IIS, this can be done in the web.config file by setting stdoutLogEnabled to true.
-- On Windows Servers, the above logs can also be written to the Windows Event Log.
-  - This is enabled in Server Config by setting EnableWindowsEventLog to true.
-- You can configure logging levels and other settings in appsetttings.json.
-  - More information: https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging/
+## HTTPS and reverse proxies
 
-## Remote Control Client Requirements
+Caddy is the only supported reverse proxy, and only when it faces the internet directly. The default Caddy configuration provides what ASP.NET Core and SignalR need.
 
-- Windows: Only the latest version of Windows 11 is tested. Windows 7 and 8.1 should work, though performance will be reduced on Windows 7.
-  - Windows 2019/2022 should work as well, but isn't tested regularly.
-- Linux: Only the latest LTS version of Ubuntu is tested.
-- For the Ubuntu's "quick support" client, you must first install the following dependencies:
-  - libx11-dev
-  - libxrandr-dev
-    - libc6-dev
-    - libxtst-dev
-    - xclip
+If you use anything else, including an extra firewall or Nginx, the upstream maintainers cannot support every possible topology. Ask in the [upstream Discussions](https://github.com/immense/Remotely/discussions) or the [Remotely subreddit](https://www.reddit.com/r/remotely_app/).
 
-## Remote Control on Mobile
+When Remotely runs behind a proxy, ASP.NET Core needs three headers:
 
-Ideally, you'd be doing remote control from an actual computer or laptop. However, I've tried to make the remote control at least somewhat usable from a mobile device. Here are the controls:
+- `X-Forwarded-Proto`: the original scheme
+- `X-Forwarded-Host`: the original host
+- `X-Forwarded-For`: the original client IP
 
-- Left-click: Single tap
-- Right-click: Long-press, then release
-- Click-and-drag: Long-press, then drag
+The scheme and host are injected into installers and desktop clients so they know where to connect. The client IP appears in device information. Remotely does not parse these headers itself; ASP.NET Core's forwarded headers middleware does. If they do not appear as expected, the header is missing, malformed, or arrived from a proxy that is not in `KnownProxies`.
 
-## End User Support Page
+ASP.NET Core accepts forwarded headers only from loopback addresses by default. The compose file adds the Docker gateway `172.28.0.1`. For any other topology, add every firewall and reverse proxy address to `KnownProxies`. If you cannot get the proxy configuration right, set **Force Client HTTPS** in Server Config to at least force the HTTPS scheme.
 
-There's a page at `/get-support` where end users can request support. When the form is submitted, an alert appears on the main page, above the grid.
+See [Microsoft's forwarded headers documentation](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer) for the underlying behavior.
 
-A shortcut to this page is placed in the `\Program Files\Remotely\` folder. You can copy it anywhere you like. You can also have it copied to the desktop automatically by using the `-supportshortcut` switch on the installer.
+## API and integrations
 
-## .NET Deployments
+The API is browsable at `https://<your-server>/swagger`. Create a token in **Account > API Access** and send its ID and secret in the `X-Api-Key` header, separated by a colon:
 
-- .NET has two methods of deployment: framework-dependent and self-contained.
-  - Framework-dependent deployments require the .NET runtime to be installed on the target computers. It must be the same version that was used to build the app.
-  - Self-contained deployments include a copy of the runtime, so you don't need to install it on the target computers. As a result, the total file size is much larger.
-- .NET uses runtime identifiers that are targeted when building.
-  - Link: https://docs.microsoft.com/en-us/dotnet/core/rid-catalog
-
-## Shortcut Keys
-
-There are a few shortcut keys available when using the console.
-
-- / : Slash will allow you to switch between shells. The names are configurable in the Options page.
-- Up/Down: Use arrow up/down to cycle through input history.
-- Ctrl + Q: Clear the output window.
-
-## Port Configuration
-
-The host port (left side) can be configured in `docker-compose.yml`.  The container port (right side) should not be changed. See the [compose docs](https://docs.docker.com/compose/compose-file/05-services/#ports) for details.
-
-## API and Integrations
-
-Remotely has a basic API, which can be browsed at `https://{your_server_url}/swagger`. Most endpoints require authentication via an API access token, which can be created by going to Account - API Access.
-
-When accessing the API from the browser on another website, you'll need to set up CORS in appsettings by adding the website origin URL to the TrustedCorsOrigins array. If you're not familiar with how CORS works, I recommend reading up on it before proceeding. For example, if I wanted to create a login form on https://exmaple.com that logged into the Remotely API, I'd need to add "https://example.com" to the TrustedCorsOrigins.
-
-Each request to the API must have a header named "X-Api-Key". The value should be the API key's ID and secret, separated by a colon (i.e. [ApiKey]:[ApiSecret]).
-
-Below is an example API request:
-
-    POST https://localhost:5001/API/Scripting/ExecuteCommand/PSCore/f2b0a595-5ea8-471b-975f-12e70e0f3497 HTTP/1.1
-    Content-Type: application/json
-    X-Api-Key: 31fb288d-af97-4ce1-ae7b-ceebb98281ac:HLkrKaZGExYvozSPvcACZw9awKkhHnNK
-    User-Agent: PostmanRuntime/7.22.0
-    Accept: */*
-    Cache-Control: no-cache
-    Host: localhost:5001
-    Accept-Encoding: gzip, deflate, br
-    Content-Length: 12
-    Connection: close
-
-    Get-Location
-
-Below are examples of using the cookie-based login API (JavaScript):
-
-    // Log in with one request, then launch remote control with another.
-    fetch("https://localhost:5001/api/Login/", {
-    	method: "post",
-    	credentials: "include",
-    	mode: "cors",
-    	body: '{"email":"email@example.com", "password":"P@ssword1"}',
-    	headers: {
-    		"Content-Type": "application/json",
-    	}
-    }).then(response=>{
-    	if (response.ok) {
-    		fetch("https://localhost:44351/api/RemoteControl/Viewer/b68c24b0-2c67-4524-ad28-dadea7a576a4", {
-    			method: "get",
-    			credentials: "include",
-    			mode: "cors"
-    		}).then(response=>{
-    			if (response.ok) {
-    				response.text().then(url=>{
-    					window.open(url);
-    				})
-    			}
-    		})
-    	}
-    })
-
-    // Log in and launch remote control in the same request.
-    fetch("https://localhost:5001/api/RemoteControl/Viewer/", {
-    	method: "post",
-    	credentials: "include",
-    	mode: "cors",
-    	body: '{"email":"email@example.com", "password":"P@ssword1", "deviceID":"b68c24b0-2c67-4524-ad28-dadea7a576a4"}',
-    	headers: {
-    		"Content-Type": "application/json",
-    	}
-    }).then(response=>{
-    	if (response.ok) {
-    		response.text().then(url=>{
-    			window.open(url);
-    		})
-    	}
-    })
-
-## Alerts
-
-The Alerts API gives you the ability to add monitoring and alerting functionality to your device endpoints. This feature is intended to add basic RMM-type functionality without diverging too far from Remotely's primary purpose.
-
-Alerts can be set up to show a notification on the Remotely website, send an email, and/or perform a separate API request.
-
-To use Alerts, you'd first need to make an API token (or multiple tokens) for your devices to use. Then create a scheduled task or some other recurring script to do the work. Below is an example of how to use PowerShell to create a Scheduled Job that checks the disk space on a daily schedule.
-
+```http
+X-Api-Key: <api-key-id>:<api-key-secret>
 ```
+
+Cross-origin browser requests require the calling origin in `TrustedCorsOrigins`. Listing an origin does not grant authentication.
+
+The alerts endpoint supports basic monitoring: a script on the device posts an alert, and Remotely can show a notification, send email, or call another API. A PowerShell scheduled job can then watch disk space, services, or anything else the device can report.
+
+<details>
+<summary>Example: daily disk space alert with a PowerShell scheduled job</summary>
+
+```powershell
 $Trigger = New-JobTrigger -Daily -At "5 AM"
 $Option = New-ScheduledJobOption -RequireNetwork
 
@@ -282,23 +182,118 @@ Register-ScheduledJob -ScriptBlock {
     $FreeSpace = $OsDrive.Free / ($OsDrive.Used + $OsDrive.Free)
     if ($FreeSpace -lt .1) {
         Invoke-WebRequest -Uri "https://localhost:5001/api/Alerts/Create/" -Method Post -Headers @{
-            X-Api-Key="3e9d8273-1dc1-4303-bd50-7a133e36b9b7:S+82XKZdvg278pSFHWtUklqHENuO5IhH"
+            "X-Api-Key" = "<api-key-id>:<api-key-secret>"
         } -Body @"
-            {
-                "AlertDeviceID": "f2b0a595-5ea8-471b-975f-12e70e0f3497",
-                "AlertMessage": "Low hard drive space. Free Space: $([Math]::Round($FreeSpace * 100))%",
-                "ApiRequestBody": null,
-                "ApiRequestHeaders": null,
-                "ApiRequestMethod": null,
-                "ApiRequestUrl": null,
-                "EmailBody": "Low hard drive space for device Maker.",
-                "EmailSubject": "Hard Drive Space Alert",
-                "EmailTo": "translucency_software@outlook.com",
-                "ShouldAlert": true,
-                "ShouldEmail": true,
-                "ShouldSendApiRequest": false
-            }
+        {
+            "AlertDeviceID": "<device-id>",
+            "AlertMessage": "Low hard drive space. Free space: $([Math]::Round($FreeSpace * 100))%",
+            "EmailBody": "Low hard drive space on this device.",
+            "EmailSubject": "Hard drive space alert",
+            "EmailTo": "ops@example.com",
+            "ShouldAlert": true,
+            "ShouldEmail": true,
+            "ShouldSendApiRequest": false
+        }
 "@ -ContentType "application/json"
     }
-} -Name "Check OS Drive Space" -Trigger $Trigger -ScheduledJobOption $Option
+} -Name "Check OS drive space" -Trigger $Trigger -ScheduledJobOption $Option
 ```
+</details>
+
+<details>
+<summary>Example: cookie-based login and viewer launch</summary>
+
+```javascript
+// Log in with one request, then launch the viewer with another.
+fetch("https://localhost:5001/api/Login/", {
+  method: "post",
+  credentials: "include",
+  mode: "cors",
+  body: JSON.stringify({ email: "email@example.com", password: "P@ssword1" }),
+  headers: { "Content-Type": "application/json" },
+}).then((response) => {
+  if (!response.ok) return;
+  fetch("https://localhost:5001/api/RemoteControl/Viewer/<device-id>", {
+    method: "get",
+    credentials: "include",
+    mode: "cors",
+  }).then((viewer) => {
+    if (viewer.ok) viewer.text().then((url) => window.open(url));
+  });
+});
+```
+</details>
+
+## Build from source
+
+### Prerequisites
+
+| Requirement | Details |
+|---|---|
+| .NET SDK | 10.0.403 or a compatible 10.0 feature band; `global.json` pins the version |
+| Node.js | LTS release, used to build the browser assets |
+| Git | Clone with `--recurse-submodules` |
+| Windows client | Windows 11 with the .NET desktop development workload |
+| Linux client | Ubuntu LTS with `libx11-dev`, `libxrandr-dev`, `libc6-dev`, `libxtst-dev`, and `xclip` to build the quick support client |
+
+### Full solution on Windows
+
+Install Visual Studio 2026, or use the .NET 10 SDK with the CLI, and select the **ASP.NET and web development** and **.NET desktop development** workloads.
+
+```bash
+git clone --recurse-submodules https://github.com/compnew2006/Remotely.git
+cd Remotely
+dotnet build Remotely.sln -c Release
+dotnet test Remotely.sln -c Release
+```
+
+### Deployment models
+
+Framework-dependent deployments require the matching .NET runtime on each target machine and produce smaller artifacts. Self-contained deployments bundle the runtime and need nothing installed, at the cost of size. Choose a runtime identifier with the [.NET RID catalog](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog).
+
+### Repository layout
+
+| Path | Purpose |
+|---|---|
+| `Agent/` | Background agent that connects a device to the server |
+| `Server/` | ASP.NET Core host: Blazor console, browser viewer, API, SignalR hubs |
+| `Shared/` | Models and services shared by server, agent, and clients |
+| `Desktop.Native/`, `Desktop.Win/`, `Desktop.Linux/`, `Desktop.Shared/`, `Desktop.UI/` | Avalonia desktop clients and their shared UI |
+| `Tests/` | Unit and integration tests |
+| `Utilities/` | Build, packaging, and installer helpers |
+| `specs/` | Feature specifications for the fork additions |
+| `docker-compose/` | Container deployment |
+| `AGENTS.md`, `DECISION-LOG.md`, `DESIGN.md`, `PRODUCT.md`, `EVIDENCE-MAP.md`, `GATE-REGISTER.md` | Project rules, decisions, design context, and evidence records |
+
+## Operating notes
+
+- **Mobile remote control**: single tap for left click, long press then release for right click, long press then drag for click and drag.
+- **Console shortcuts**: `/` switches shells (names are set in Options), Up and Down cycle input history, `Ctrl+Q` clears the output.
+- **End user support page**: `/get-support` lets a user request help, which raises an alert above the device grid. The installer's `-supportshortcut` switch places a shortcut on the desktop.
+- **Branding**: **Account > Branding** changes the logo, name, and links used by quick support clients and the Windows installer. Clients built from source retrieve branding only when the server URL is compiled into them.
+- **Port configuration**: change the host port on the left side of the mapping in `docker-compose.yml`. Leave the container port unchanged.
+
+## Security
+
+Remotely is designed to sit on infrastructure you control, not on a shared service. Treat the server as an administrative plane.
+
+- Terminate TLS at Caddy and keep the console off the public internet unless you need it there.
+- Create the first account immediately after deployment, then enable `Require2FA` and keep self-registration closed.
+- Use API tokens instead of `AllowApiLogin`, scope tokens to the work they do, and rotate them.
+- Keep `KnownProxies` limited to the proxies you actually run.
+- Treat script execution, file transfer, and unattended access as privileged operations. Grant dashboard access accordingly.
+- Client updates in this fork are signed and verified, and local IPC requires authentication. Keep devices on current client builds.
+
+Report a suspected vulnerability to the maintainer privately. Do not open a public pull request or issue with exploit details.
+
+## Contributing
+
+This repository is maintained for a specific deployment. General product changes belong upstream in [immense/Remotely](https://github.com/immense/Remotely). Fork changes follow the process recorded in [AGENTS.md](AGENTS.md): a specification in `specs/`, a decision in [DECISION-LOG.md](DECISION-LOG.md), evidence in [EVIDENCE-MAP.md](EVIDENCE-MAP.md), and gate status in [GATE-REGISTER.md](GATE-REGISTER.md).
+
+Before you open a pull request, build the affected projects and run the test suite. Keep tests with the change that needs them, and update this README when behavior, configuration, or build steps change.
+
+## License and credits
+
+Remotely is licensed under the [GNU General Public License v3.0](LICENSE).
+
+It is a fork of [immense/Remotely](https://github.com/immense/Remotely), created by Immense Networks. The product name, logo, and attribution remain with the upstream project.
