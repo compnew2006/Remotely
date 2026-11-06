@@ -28,6 +28,7 @@ public static class IServiceCollectionExtensions
         services.AddSingleton<IBrandingProvider, BrandingProvider>();
         services.AddSingleton<IAppState, AppState>();
         services.AddSingleton<IViewerFactory, ViewerFactory>();
+        services.AddSingleton<IScreenMonitor, ScreenMonitor>();
         services.AddTransient<IScreenCaster, ScreenCaster>();
         services.AddTransient<IHubConnectionBuilder>(s => new HubConnectionBuilder());
     }

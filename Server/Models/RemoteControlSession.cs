@@ -81,6 +81,29 @@ public class RemoteControlSession : IDisposable
     public DateTimeOffset StartTime { get; internal set; }
 
     /// <summary>
+    /// The windows of the day during which screenshots are not taken, stored
+    /// as JSON.
+    /// </summary>
+    public string? ScreenshotPauseWindows { get; set; }
+
+    /// <summary>
+    /// Whether the device should take a screenshot as soon as it connects.
+    /// Used for on-demand screenshots, where no session may exist yet.
+    /// </summary>
+    public bool CaptureRequested { get; set; }
+
+    /// <summary>
+    /// Whether this session is a monitoring session, in which case the device
+    /// captures periodic screenshots of its desktop without a viewer attached.
+    /// </summary>
+    public bool IsMonitoring { get; set; }
+
+    /// <summary>
+    /// How often the device captures a screenshot while monitoring.
+    /// </summary>
+    public int MonitoringIntervalSeconds { get; set; } = 60;
+
+    /// <summary>
     /// Current state of the streamer (desktop process) that's associated
     /// with this session.
     /// </summary>

@@ -11,6 +11,7 @@ using Remotely.Shared.Entities;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Interfaces;
 using Remotely.Shared.Utilities;
+using Remotely.Shared.Utilities;
 using System.Collections.Concurrent;
 
 namespace Remotely.Server.Hubs;
@@ -32,6 +33,23 @@ public interface ICircuitConnection
     Task ReinstallAgents(string[] deviceIDs);
 
     Task<Result<RemoteControlSession>> RemoteControl(string deviceID, bool viewOnly);
+
+    Task<Result> StartMonitoring(string deviceId, int intervalMinutes);
+
+    Task<Result> CaptureScreenshotNow(string deviceId);
+
+    Task<Result> StopMonitoring(string deviceId);
+
+    Task<Result> UpdateScreenshotSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
+    Task<Result> DeleteScreenshot(string deviceId, string fileName);
+
+    Task<Result> ClearScreenshots(string deviceId);
 
     Task RemoveDevices(string[] deviceIDs);
 
@@ -63,11 +81,13 @@ public interface ICircuitConnection
 public class CircuitConnection : CircuitHandler, ICircuitConnection
 {
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHubContext;
+    private readonly IHubContext<DesktopHub, IDesktopHubClient> _desktopHubContext;
     private readonly IDataService _dataService;
     private readonly ISelectedCardsStore _cardStore;
     private readonly IAuthService _authService;
     private readonly ICircuitManager _circuitManager;
     private readonly IRemoteControlSessionCache _remoteControlSessionCache;
+    private readonly IScreenshotService _screenshotService;
     private readonly IExpiringTokenService _expiringTokenService;
     private readonly ILogger<CircuitConnection> _logger;
     private readonly IAgentHubSessionCache _agentSessionCache;
@@ -80,22 +100,26 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         IDataService dataService,
         ISelectedCardsStore cardStore,
         IHubContext<AgentHub, IAgentHubClient> agentHubContext,
+        IHubContext<DesktopHub, IDesktopHubClient> desktopHubContext,
         ICircuitManager circuitManager,
         IToastService toastService,
         IExpiringTokenService expiringTokenService,
         IRemoteControlSessionCache remoteControlSessionCache,
+        IScreenshotService screenshotService,
         IAgentHubSessionCache agentSessionCache,
         IMessenger messenger,
         ILogger<CircuitConnection> logger)
     {
         _dataService = dataService;
         _agentHubContext = agentHubContext;
+        _desktopHubContext = desktopHubContext;
         _cardStore = cardStore;
         _authService = authService;
         _circuitManager = circuitManager;
         _toastService = toastService;
         _expiringTokenService = expiringTokenService;
         _remoteControlSessionCache = remoteControlSessionCache;
+        _screenshotService = screenshotService;
         _agentSessionCache = agentSessionCache;
         _messenger = messenger;
         _logger = logger;
@@ -310,6 +334,292 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             User.OrganizationID);
 
         return Result.Ok(session);
+    }
+
+    /// <summary>
+    /// Starts a monitoring session for a device.  The device captures periodic
+    /// screenshots of its desktop with no viewer attached, and the screenshots
+    /// are stored on the server and pushed to this circuit.
+    /// </summary>
+    public async Task<Result> StartMonitoring(string deviceId, int intervalMinutes)
+    {
+        if (intervalMinutes < 1 || intervalMinutes > 30)
+        {
+            return Result.Fail("The monitoring interval must be between 1 and 30 minutes.");
+        }
+
+        if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            _logger.LogWarning(
+                "Monitoring attempted by unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
+                deviceId,
+                User.UserName);
+
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
+        {
+            return Result.Fail("Service connection not found.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail(deviceResult.Reason);
+        }
+
+        // Stop any monitoring that is already running for this device.
+        await StopExistingMonitoring(deviceId);
+
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var session = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            IsMonitoring = true,
+            MonitoringIntervalSeconds = intervalMinutes * 60,
+            ScreenshotPauseWindows = deviceResult.Value.ScreenshotPauseWindows
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
+
+        _logger.LogInformation(
+            "Monitoring started.  Device ID: {deviceId}.  Interval: {interval} minutes.  Identity: {identity}.",
+            deviceId,
+            intervalMinutes,
+            User.UserName);
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Asks a device to take a screenshot right away.  When the device is not
+    /// already connected, a session is started so the device launches and the
+    /// screenshot is taken as soon as it connects.
+    /// </summary>
+    public async Task<Result> CaptureScreenshotNow(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        if (!_agentSessionCache.TryGetConnectionId(deviceId, out var serviceConnectionId))
+        {
+            return Result.Fail("Device is not online.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail(deviceResult.Reason);
+        }
+
+        var pauseWindows = ScreenshotPause.Deserialize(deviceResult.Value.ScreenshotPauseWindows);
+        if (ScreenshotPause.IsPaused(pauseWindows, DateTimeOffset.Now))
+        {
+            return Result.Fail(
+                "Screenshots are paused for this device at this time of day.");
+        }
+
+        // The device may already be connected for a monitoring session or a
+        // remote control session.
+        var session = _remoteControlSessionCache.Sessions
+            .FirstOrDefault(x => x.DeviceId == deviceId && !string.IsNullOrWhiteSpace(x.DesktopConnectionId));
+
+        if (session is not null)
+        {
+            _logger.LogInformation(
+                "Requesting a screenshot from device {deviceId}.  Identity: {identity}.",
+                deviceId,
+                User.UserName);
+
+            await _desktopHubContext.Clients.Client(session.DesktopConnectionId).CaptureScreenshotNow();
+
+            return Result.Ok();
+        }
+
+        // There is no session on the device yet, so one is started.  The
+        // screenshot is taken as soon as the device connects.
+        var sessionId = Guid.NewGuid();
+        var accessKey = RandomGenerator.GenerateAccessKey();
+
+        var newSession = new RemoteControlSession()
+        {
+            UnattendedSessionId = sessionId,
+            UserConnectionId = ConnectionId,
+            AgentConnectionId = serviceConnectionId,
+            DeviceId = deviceId,
+            AccessMode = Shared.Enums.RemoteAccessMode.ViewOnly,
+            OrganizationId = User.OrganizationID,
+            RequireConsent = false,
+            NotifyUserOnStart = false,
+            CaptureRequested = true,
+            ScreenshotPauseWindows = deviceResult.Value.ScreenshotPauseWindows
+        };
+
+        _remoteControlSessionCache.AddOrUpdate($"{sessionId}", newSession);
+
+        _logger.LogInformation(
+            "Requesting a screenshot from device {deviceId}.  Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        if (!orgResult.IsSuccess)
+        {
+            _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
+            return Result.Fail(orgResult.Reason);
+        }
+
+        await _agentHubContext.Clients.Client(serviceConnectionId).RemoteControl(
+            sessionId,
+            accessKey,
+            ConnectionId,
+            $"{User.UserOptions?.DisplayName}",
+            orgResult.Value,
+            User.OrganizationID);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Stops a monitoring session for a device.
+    /// </summary>
+    public Task<Result> StopMonitoring(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Task.FromResult(Result.Fail("Unauthorized."));
+        }
+
+        StopExistingMonitoring(deviceId);
+
+        _logger.LogInformation(
+            "Monitoring stopped.  Device ID: {deviceId}.  Identity: {identity}.",
+            deviceId,
+            User.UserName);
+
+        return Task.FromResult(Result.Ok());
+    }
+
+    /// <summary>
+    /// Changes where the screenshots of a device are stored, and how many of
+    /// them are kept.
+    /// </summary>
+    public async Task<Result> UpdateScreenshotSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        return await _dataService.UpdateScreenshotSettings(
+            deviceId,
+            directory,
+            retentionCount,
+            retentionHours,
+            pauseWindows);
+    }
+
+    /// <summary>
+    /// Deletes a single screenshot of a device.
+    /// </summary>
+    public async Task<Result> DeleteScreenshot(string deviceId, string fileName)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _screenshotService.DeleteScreenshot(deviceResult.Value, fileName);
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Deletes every screenshot that was captured from a device.
+    /// </summary>
+    public async Task<Result> ClearScreenshots(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _screenshotService.ClearScreenshots(deviceResult.Value);
+
+        return Result.Ok();
+    }
+
+    private async Task StopExistingMonitoring(string deviceId)    {
+        foreach (var session in _remoteControlSessionCache.Sessions.Where(x => x.DeviceId == deviceId && x.IsMonitoring))
+        {
+            if (!string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                try
+                {
+                    // Tell the device to stop capturing before the session is
+                    // removed, so the desktop app doesn't keep taking
+                    // screenshots with nowhere to send them.
+                    await _desktopHubContext.Clients
+                        .Client(session.DesktopConnectionId)
+                        .StopMonitoring();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while stopping monitoring on device {deviceId}.", deviceId);
+                }
+            }
+
+            _remoteControlSessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
     }
 
     public Task RemoveDevices(string[] deviceIDs)

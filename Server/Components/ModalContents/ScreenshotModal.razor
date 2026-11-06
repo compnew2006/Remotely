@@ -1,0 +1,160 @@
+@inherits AuthComponentBase
+
+<div class="row mb-3 g-2">
+    <div class="col-sm-6">
+        @if (_isMonitoring)
+        {
+            <div class="alert alert-success py-2 mb-0">
+                Monitoring is active.  A screenshot is captured every @_intervalMinutes minute(s).
+            </div>
+        }
+        else
+        {
+            <label class="form-label mb-1" for="screenshotInterval">Capture interval (minutes)</label>
+            <div class="input-group input-group-sm">
+                <input id="screenshotInterval" type="number" class="form-control" min="1" max="30" @bind="_intervalMinutes" />
+                <button class="btn btn-primary" @onclick="StartMonitoring" disabled="@_isBusy">Start</button>
+            </div>
+        }
+    </div>
+    <div class="col-sm-6 text-end">
+        <button class="btn btn-info btn-sm" @onclick="CaptureNow" disabled="@_isBusy">
+            Take screenshot now
+        </button>
+        @if (_isMonitoring)
+        {
+            <button class="btn btn-danger btn-sm ms-2" @onclick="StopMonitoring" disabled="@_isBusy">Stop Monitoring</button>
+        }
+        <button class="btn btn-secondary btn-sm ms-2" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-warning py-2">@_errorMessage</div>
+}
+
+<div class="border rounded p-2 mb-3">
+    <div class="fw-bold mb-2">Storage settings</div>
+
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-6">
+            <label class="form-label mb-1" for="screenshotDirectory">Folder on the server</label>
+            <div class="input-group input-group-sm">
+                <input id="screenshotDirectory" type="text" class="form-control" @bind="_directory" />
+                <button class="btn btn-outline-secondary" @onclick="() => _showFolderPicker = true" disabled="@_isBusy">Browse</button>
+            </div>
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label mb-1" for="screenshotRetentionCount">Keep (max)</label>
+            <input id="screenshotRetentionCount" type="number" class="form-control form-control-sm" min="1" max="2000" @bind="_retentionCount" />
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label mb-1" for="screenshotRetentionHours">Keep for (hours)</label>
+            <input id="screenshotRetentionHours" type="number" class="form-control form-control-sm" min="1" max="8760" @bind="_retentionHours" />
+        </div>
+        <div class="col-sm-2 text-end">
+            <button class="btn btn-primary btn-sm w-100" @onclick="SaveSettings" disabled="@_isBusy">Save</button>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <div class="d-flex align-items-center mb-1">
+            <span class="fw-bold">Pause windows</span>
+            <span class="text-muted small ms-2">No screenshots are taken during these hours</span>
+            <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="AddPauseWindow" disabled="@_isBusy">
+                Add window
+            </button>
+        </div>
+
+        @if (_pauseWindows.Count == 0)
+        {
+            <div class="text-muted small">Screenshots are never paused.</div>
+        }
+        else
+        {
+            <div class="row g-2">
+                @for (var i = 0; i < _pauseWindows.Count; i++)
+                {
+                    var index = i;
+                    <div class="col-sm-4" @key="index">
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" @bind="_pauseWindows[index].StartHour">
+                                @for (var hour = 0; hour < 24; hour++)
+                                {
+                                    <option value="@hour">@hour.ToString("00"):00</option>
+                                }
+                            </select>
+                            <span class="input-group-text">to</span>
+                            <select class="form-select" @bind="_pauseWindows[index].EndHour">
+                                @for (var hour = 0; hour < 24; hour++)
+                                {
+                                    <option value="@hour">@hour.ToString("00"):00</option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-danger" title="Remove this window" @onclick="() => RemovePauseWindow(index)">
+                                &times;
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="form-text mt-1">
+                The same hour in both boxes means the window is disabled.  A window that ends before it starts
+                (for example 22:00 to 07:00) continues past midnight.
+            </div>
+        }
+    </div>
+</div>
+
+@if (_showFolderPicker)
+{
+    <FolderPickerModal InitialPath="@_directory"
+                       OnFolderSelected="FolderSelected"
+                       OnCancel="() => _showFolderPicker = false" />
+}
+
+@if (_latestFileName is not null)
+{
+    <div class="text-muted small mb-1">Latest screenshot - @_latestTimeStamp.ToString("yyyy-MM-dd HH:mm:ss")</div>
+    <div class="text-center mb-3">
+        <img src="@GetImageUrl(_latestFileName)" alt="Latest screenshot" class="img-fluid rounded border" style="max-height: 40vh;" />
+    </div>
+}
+
+<div class="d-flex align-items-center mb-1">
+    <span class="fw-bold">Saved screenshots</span>
+    <span class="text-muted small ms-2">@_screenshots.Count kept (max @_retentionCount, up to @_retentionHours hour(s) old)</span>
+    <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="ClearScreenshots" disabled="@(_isBusy || _screenshots.Count == 0)">
+        Clear all
+    </button>
+</div>
+
+@if (_screenshots.Count == 0)
+{
+    <div class="text-muted">No screenshots have been captured yet.</div>
+}
+else
+{
+    <div style="max-height: 30vh; overflow-y: auto;">
+        <div class="row g-2">
+            @foreach (var screenshot in _screenshots)
+            {
+                <div class="col-6 col-md-3 col-lg-2" @key="screenshot.ID">
+                    <div class="position-relative">
+                        <a href="@GetImageUrl(screenshot.FileName)" target="_blank">
+                            <img src="@GetImageUrl(screenshot.FileName)" alt="Screenshot" class="img-fluid rounded border" loading="lazy" />
+                        </a>
+                        <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 py-0 px-1"
+                                title="Delete this screenshot"
+                                disabled="@_isBusy"
+                                @onclick="() => DeleteScreenshot(screenshot)">
+                            &times;
+                        </button>
+                    </div>
+                    <div class="small text-muted">@screenshot.TimeStamp.ToString("MM-dd HH:mm:ss")</div>
+                </div>
+            }
+        </div>
+    </div>
+}

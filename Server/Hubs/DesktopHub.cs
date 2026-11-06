@@ -1,9 +1,12 @@
 using Remotely.Server.Enums;
 using Remotely.Server.Models;
+using Remotely.Server.Models.Messages;
 using Remotely.Server.Services;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Extensions;
 using Remotely.Shared.Interfaces;
+using Remotely.Shared.Utilities;
+using Bitbound.SimpleMessenger;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Remotely.Server.Hubs;
@@ -11,9 +14,12 @@ namespace Remotely.Server.Hubs;
 public class DesktopHub : Hub<IDesktopHubClient>
 {
     private readonly IAgentHubSessionCache _agentCache;
+    private readonly IDataService _dataService;
     private readonly ILogger<DesktopHub> _logger;
+    private readonly IMessenger _messenger;
     private readonly IRemoteControlSessionCache _sessionCache;
     private readonly IDesktopStreamCache _streamCache;
+    private readonly IScreenshotService _screenshotService;
     private readonly IHubContext<ViewerHub, IViewerHubClient> _viewerHub;
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHub;
 
@@ -21,15 +27,21 @@ public class DesktopHub : Hub<IDesktopHubClient>
         IRemoteControlSessionCache sessionCache,
         IDesktopStreamCache streamCache,
         IAgentHubSessionCache agentCache,
+        IScreenshotService screenshotService,
+        IDataService dataService,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IHubContext<ViewerHub, IViewerHubClient> viewerHub,
+        IMessenger messenger,
         ILogger<DesktopHub> logger)
     {
         _sessionCache = sessionCache;
         _agentCache = agentCache;
         _streamCache = streamCache;
+        _screenshotService = screenshotService;
+        _dataService = dataService;
         _viewerHub = viewerHub;
         _agentHub = agentHub;
+        _messenger = messenger;
         _logger = logger;
     }
 
@@ -218,7 +230,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         return Task.CompletedTask;
     }
 
-    public Task<Result> ReceiveUnattendedSessionInfo(Guid unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
+    public async Task<Result> ReceiveUnattendedSessionInfo(Guid unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
         if (_sessionCache.TryGetValue($"{unattendedSessionId}", out var existingSession) &&
             !string.IsNullOrWhiteSpace(existingSession.AccessKey) &&
@@ -228,7 +240,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
                 "A desktop session tried to take over an existing session, " +
                 "but the access key didn't match.");
             var result = Result.Fail("SessionId already exists on the server.");
-            return Task.FromResult(result);
+            return result;
         }
 
         SessionInfo = _sessionCache.GetOrAdd($"{unattendedSessionId}", (key) => SessionInfo);
@@ -242,7 +254,86 @@ public class DesktopHub : Hub<IDesktopHubClient>
         SessionInfo.RequesterName = requesterName;
         SessionInfo.OrganizationName = organizationName;
 
-        return Task.FromResult(Result.Ok());
+        if (SessionInfo.IsMonitoring)
+        {
+            // This session was created for monitoring, so the device starts
+            // capturing periodic screenshots with no viewer attached.
+            _logger.LogInformation(
+                "Starting monitoring on device {deviceId}.  Interval: {interval} seconds.",
+                SessionInfo.DeviceId,
+                SessionInfo.MonitoringIntervalSeconds);
+
+            var pauseWindows = ScreenshotPause.Deserialize(SessionInfo.ScreenshotPauseWindows);
+
+            await Clients.Caller.StartMonitoring(
+                SessionInfo.MonitoringIntervalSeconds,
+                pauseWindows.Select(x => x.StartHour).ToArray(),
+                pauseWindows.Select(x => x.EndHour).ToArray());
+        }
+
+        if (SessionInfo.CaptureRequested)
+        {
+            // The device was asked for a single screenshot, so it is taken as
+            // soon as the device connects.
+            _logger.LogInformation(
+                "Requesting a screenshot from device {deviceId}.",
+                SessionInfo.DeviceId);
+
+            SessionInfo.CaptureRequested = false;
+            await Clients.Caller.CaptureScreenshotNow();
+        }
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Asks the device to take a screenshot right away.
+    /// </summary>
+    public async Task CaptureScreenshotNow()
+    {
+        await Clients.Caller.CaptureScreenshotNow();
+    }
+
+    /// <summary>
+    /// Receives a screenshot captured by a device that is monitoring.
+    ///  </summary>
+    public async Task SendScreenshot(byte[] screenshotBytes)
+    {
+        if (screenshotBytes is null || screenshotBytes.Length == 0)
+        {
+            return;
+        }
+
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return;
+        }
+
+        SessionInfo.LastActivity = DateTimeOffset.Now;
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return;
+        }
+
+        var screenshot = await _screenshotService.SaveScreenshot(deviceResult.Value, screenshotBytes);
+        if (screenshot is null)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Received a monitoring screenshot from device {deviceId}.",
+            deviceId);
+
+        if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            await _messenger.Send(
+                new ScreenshotReceivedMessage(deviceId, screenshot.FileName, screenshot.TimeStamp),
+                SessionInfo.UserConnectionId);
+        }
     }
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)

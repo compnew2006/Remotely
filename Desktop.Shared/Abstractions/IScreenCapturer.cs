@@ -17,6 +17,13 @@ public interface IScreenCapturer : IDisposable
 
     Result<SKBitmap> GetImageDiff();
 
+    /// <summary>
+    /// Captures a full frame of the screen, whether or not anything changed
+    /// since the last capture.  This is what periodic screenshots use, since
+    /// <see cref="GetNextFrame"/> fails when the screen is static.
+    /// </summary>
+    Result<SKBitmap> GetFullFrame();
+
     Result<SKBitmap> GetNextFrame();
 
     int GetScreenCount();

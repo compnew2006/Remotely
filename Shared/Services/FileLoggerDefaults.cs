@@ -43,6 +43,18 @@ public static class FileLoggerDefaults
         return new CallbackDisposable(() => _logLock.Release());
     }
 
+    /// <summary>
+    /// Acquires the log lock synchronously.  Logging has to be synchronous,
+    /// otherwise entries are lost when a process logs something and then
+    /// exits immediately (the write is queued on the thread pool and the
+    /// process is gone before it runs).
+    /// </summary>
+    public static IDisposable AcquireLock()
+    {
+        _logLock.Wait();
+        return new CallbackDisposable(() => _logLock.Release());
+    }
+
     public static string GetLogPath(string componentName) => 
         Path.Combine(LogsFolderPath, componentName, $"LogFile_{DateTime.Now:yyyy-MM-dd}.log");
 

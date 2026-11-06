@@ -52,6 +52,31 @@ public class Device
     [StringLength(5000)]
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// The folder on the server where the screenshots captured from this
+    /// device are stored.  When empty, the server's default location is used.
+    /// </summary>
+    [StringLength(500)]
+    public string? ScreenshotDirectory { get; set; }
+
+    /// <summary>
+    /// The maximum number of screenshots kept for this device.
+    /// </summary>
+    public int ScreenshotRetentionCount { get; set; } = 200;
+
+    /// <summary>
+    /// How long a screenshot is kept for this device, in hours.
+    /// </summary>
+    public int ScreenshotRetentionHours { get; set; } = 24;
+
+    /// <summary>
+    /// The windows of the day during which screenshots are not taken, stored as
+    /// JSON (a list of start and end hours).  An empty value means that
+    /// screenshots are never paused.
+    /// </summary>
+    [StringLength(500)]
+    public string? ScreenshotPauseWindows { get; set; }
+
     [JsonIgnore]
     public Organization? Organization { get; set; }
 

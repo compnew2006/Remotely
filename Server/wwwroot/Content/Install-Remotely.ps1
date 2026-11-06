@@ -122,6 +122,27 @@ function Uninstall-Remotely {
 	Remove-NetFirewallRule -Name "Remotely Desktop Unattended" -ErrorAction SilentlyContinue
 }
 
+function Set-ServiceHardening {
+	# The default security descriptor of a Windows service leaves the right to stop and
+	# reconfigure it with more than just administrators, which means the agent can be
+	# taken down from a user's session.  Restrict those rights to administrators and
+	# SYSTEM, and leave read-only access for everyone else.
+	$Sddl = "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWLORC;;;AU)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)"
+
+	& sc.exe sdset "Remotely_Service" $Sddl | Out-Null
+	if ($LASTEXITCODE -ne 0) {
+		Write-Log "Failed to set the security descriptor of Remotely_Service."
+	}
+
+	# Restart the service if it is killed, and give it more than one try before the
+	# recovery options run out.
+	& sc.exe failureflag "Remotely_Service" 1 | Out-Null
+	& sc.exe failure "Remotely_Service" reset=86400 actions=restart/1000/restart/5000/restart/15000 | Out-Null
+	if ($LASTEXITCODE -ne 0) {
+		Write-Log "Failed to set the recovery options of Remotely_Service."
+	}
+}
+
 function Install-Remotely {
 	$HeadResponse = Invoke-WebRequest -Uri "$HostName/Content/Remotely-Win-$Platform.zip" -Method Head -UseBasicParsing
 	$ETag = $HeadResponse.Headers["ETag"]
@@ -194,7 +215,7 @@ function Install-Remotely {
 	}
 
 	New-Service -Name "Remotely_Service" -BinaryPathName "`"$InstallPath\Remotely_Agent.exe`"" -DisplayName "Remotely Service" -StartupType Automatic -Description "Background service that maintains a connection to the Remotely server.  The service is used for remote support and maintenance by this computer's administrators."
-	Start-Process -FilePath "cmd.exe" -ArgumentList "/c sc.exe failure `"Remotely_Service`" reset=5 actions=restart/5000" -Wait -WindowStyle Hidden
+	Set-ServiceHardening
 	Start-Service -Name Remotely_Service
 }
 

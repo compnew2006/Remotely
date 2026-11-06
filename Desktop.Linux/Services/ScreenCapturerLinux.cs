@@ -66,6 +66,12 @@ public class ScreenCapturerLinux : IScreenCapturer
         return _imageHelper.GetImageDiff(_currentFrame, _previousFrame);
     }
 
+    public Result<SKBitmap> GetFullFrame()
+    {
+        // The X11 capture always returns a frame, changed or not.
+        return GetNextFrame();
+    }
+
     public Result<SKBitmap> GetNextFrame()
     {
         lock (_screenBoundsLock)

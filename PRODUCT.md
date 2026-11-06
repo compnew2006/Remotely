@@ -41,7 +41,7 @@ The differentiator a neighbouring product cannot truthfully copy is the **combin
 
 ## Capabilities and Constraints
 
-**Confirmed capabilities**: live screen streaming; remote mouse/keyboard input; clipboard read/write both ways; audio streaming (Windows only); file upload and download; remote script execution; chat; multiple monitors and monitor switching; Windows session switching; Ctrl+Alt+Del simulation; session metrics (FPS, throughput, latency); session recording; unattended access; shared view links; device groups; API keys and API authentication; quick-support clients and an installer that pull branding from the server.
+**Confirmed capabilities**: live screen streaming; remote mouse/keyboard input; clipboard read/write both ways; audio streaming (Windows only); file upload and download; remote script execution; chat; multiple monitors and monitor switching; Windows session switching; Ctrl+Alt+Del simulation; session metrics (FPS, throughput, latency); session recording; unattended access; shared view links; device groups; API keys and API authentication; quick-support clients and an installer that pull branding from the server; a task manager that lists and ends the processes running on a device; periodic screen monitoring, where the device captures its own desktop at a fixed interval with nobody watching, with per-device storage settings, retention limits, and several exception windows (hours during which nothing is captured) plus a one-off capture on demand.
 
 **Confirmed constraints and terminology**
 
@@ -68,6 +68,7 @@ The differentiator a neighbouring product cannot truthfully copy is the **combin
 - **Product documentation**: `README.md` (install, HTTPS/proxy rules, configuration reference, admin accounts), `AGENTS.md` (architecture, security posture, gate register pointers).
 - **Governance and decision records**: `DECISION-LOG.md` (AD/OD register — confirmed product decisions), `GATE-REGISTER.md` (gate status), `EVIDENCE-MAP.md` (labelled findings).
 - **PoC evidence**: ScreenRecorderLib 7.0.1 compatibility probe on net10 — PASS (E-49).
+- **Measured feature evidence (2026-11-06)**: the task manager and the screen monitoring were run against the live device (ARKAN-DC02): a real desktop screenshot was captured and stored on the server, the storage folder was changed and the next capture landed in the new folder, two exception windows (20-21 and 13-14) blocked an on-demand capture with a clear message, and deleting one screenshot or clearing them all removed both the files and their index rows (E-51-E-59).
 - **Absent, and therefore not to be fabricated**: customer testimonials, case studies, pricing or licensing terms, SLAs, benchmark numbers, Arabic-language assets, and any screenshot of a session that was not actually run.
 
 ## Product Principles

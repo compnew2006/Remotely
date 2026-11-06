@@ -211,6 +211,13 @@ public interface IDataService
 
     Task UpdateTags(string deviceID, string tags);
 
+    Task<Result> UpdateScreenshotSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
     Task<Result> UpdateUserOptions(string userName, RemotelyUserOptions options);
     Task<bool> ValidateApiKey(string keyId, string apiSecret, string requestPath, string remoteIP);
 }
@@ -2211,6 +2218,40 @@ public class DataService : IDataService
 
         device.Tags = tags;
         await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Updates where the screenshots of a device are stored, and how many of
+    /// them are kept.
+    /// </summary>
+    public async Task<Result> UpdateScreenshotSettings(
+        string deviceId,
+        string? directory,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        var device = await dbContext.Devices.FindAsync(deviceId);
+        if (device is null)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        device.ScreenshotDirectory = string.IsNullOrWhiteSpace(directory) ?
+            null :
+            directory.Trim();
+
+        device.ScreenshotRetentionCount = retentionCount > 0 ? retentionCount : 200;
+        device.ScreenshotRetentionHours = retentionHours > 0 ? retentionHours : 24;
+        device.ScreenshotPauseWindows = string.IsNullOrWhiteSpace(pauseWindows) ?
+            null :
+            pauseWindows;
+
+        await dbContext.SaveChangesAsync();
+
+        return Result.Ok();
     }
 
     public async Task<Result> UpdateUserOptions(string userName, RemotelyUserOptions options)

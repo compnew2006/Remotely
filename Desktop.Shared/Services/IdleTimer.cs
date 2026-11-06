@@ -74,6 +74,14 @@ public class IdleTimer : IIdleTimer
                 return;
             }
 
+            if (_appState.IsMonitoring)
+            {
+                // The app is capturing periodic screenshots for the server.
+                // It has no viewers, but it must stay alive to keep capturing.
+                ViewersLastSeen = DateTimeOffset.Now;
+                return;
+            }
+
             if (!_appState.Viewers.IsEmpty ||
                 _accessService.IsPromptOpen)
             {

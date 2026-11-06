@@ -35,6 +35,7 @@ public class AppDb : IdentityDbContext
     public DbSet<KeyValueRecord> KeyValueRecords { get; set; }
     public DbSet<Organization> Organizations { get; set; }
     public DbSet<SavedScript> SavedScripts { get; set; }
+    public DbSet<Screenshot> Screenshots { get; set; }
     public DbSet<ScriptResult> ScriptResults { get; set; }
     public DbSet<ScriptRun> ScriptRuns { get; set; }
     public DbSet<ScriptSchedule> ScriptSchedules { get; set; }

@@ -1,0 +1,110 @@
+@inherits AuthComponentBase
+
+<div class="mb-2">
+    <label class="form-label mb-1" for="folderPickerPath">Folder on the server</label>
+    <div class="input-group input-group-sm">
+        <input id="folderPickerPath" type="text" class="form-control" readonly
+               placeholder="Select a folder" value="@_path" />
+        <button class="btn btn-outline-secondary" @onclick="Browse" disabled="@_isLoading">Browse</button>
+    </div>
+</div>
+
+@if (_listing is not null)
+{
+    <div class="border rounded p-2 mb-2" style="max-height: 18rem; overflow-y: auto;">
+        @if (!string.IsNullOrWhiteSpace(_listing.ParentPath))
+        {
+            <div class="mb-1">
+                <button class="btn btn-sm btn-link p-0" @onclick="() => LoadPath(_listing.ParentPath)">
+                    &lt; Up one level
+                </button>
+            </div>
+        }
+
+        @foreach (var drive in _listing.Drives)
+        {
+            <div>
+                <button class="btn btn-sm btn-link p-0 text-start" @onclick="() => LoadPath(drive)">
+                    @drive
+                </button>
+            </div>
+        }
+
+        @foreach (var directory in _listing.Directories)
+        {
+            var name = System.IO.Path.GetFileName(directory.TrimEnd(System.IO.Path.DirectorySeparatorChar));
+            <div>
+                <button class="btn btn-sm btn-link p-0 text-start" @onclick="() => LoadPath(directory)">
+                    @name
+                </button>
+            </div>
+        }
+
+        @if (_listing.Directories.Length == 0 && _listing.Drives.Length == 0)
+        {
+            <div class="text-muted small">There is nothing to show here.</div>
+        }
+    </div>
+}
+
+<div class="text-end">
+    <button class="btn btn-primary btn-sm" @onclick="SelectFolder" disabled="@(_isLoading || string.IsNullOrWhiteSpace(_path))">
+        Use this folder
+    </button>
+    <button class="btn btn-secondary btn-sm ms-2" @onclick="Cancel" disabled="@_isLoading">Cancel</button>
+</div>
+
+@code {
+    private DirectoryListing? _listing;
+    private string _path = string.Empty;
+    private bool _isLoading;
+
+    [Parameter]
+    public string? InitialPath { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnFolderSelected { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Inject]
+    public required IScreenshotService ScreenshotService { get; init; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        await LoadPath(InitialPath);
+    }
+
+    private async Task Browse()
+    {
+        await LoadPath(_path);
+    }
+
+    private async Task LoadPath(string? path)
+    {
+        _isLoading = true;
+
+        try
+        {
+            _listing = ScreenshotService.BrowseDirectory(path);
+            _path = _listing.Path;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SelectFolder()
+    {
+        await OnFolderSelected.InvokeAsync(_path);
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

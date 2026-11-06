@@ -34,6 +34,7 @@ public interface IDesktopHubConnection
     Task SendDtoToViewer<T>(T dto, string viewerId);
 
     Task SendMessageToViewer(string viewerID, string message);
+    Task SendScreenshot(byte[] screenshotBytes);
     Task<Result> SendUnattendedSessionInfo(string sessionId, string accessKey, string machineName, string requesterName, string organizationName);
 }
 
@@ -45,12 +46,14 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     private readonly IDtoMessageHandler _messageHandler;
     private readonly IRemoteControlAccessService _remoteControlAccessService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IScreenMonitor _screenMonitor;
 
     public DesktopHubConnection(
         IDtoMessageHandler messageHandler,
         IServiceProvider serviceProvider,
         IAppState appState,
         IRemoteControlAccessService remoteControlAccessService,
+        IScreenMonitor screenMonitor,
         IMessenger messenger,
         ILogger<DesktopHubConnection> logger)
     {
@@ -58,6 +61,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         _remoteControlAccessService = remoteControlAccessService;
         _serviceProvider = serviceProvider;
         _appState = appState;
+        _screenMonitor = screenMonitor;
         _logger = logger;
 
         messenger.Register<WindowsSessionEndingMessage>(this, HandleWindowsSessionEnding);
@@ -352,6 +356,58 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         return Connection.SendAsync("SendMessageToViewer", viewerID, message);
     }
 
+    public Task SendScreenshot(byte[] screenshotBytes)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendScreenshot", screenshotBytes);
+    }
+
+    /// <summary>
+    /// Called by the server to start capturing periodic screenshots of this
+    /// device's desktop without a viewer attached.
+    /// </summary>
+    public Task StartMonitoring(int intervalSeconds, int[]? pauseStartHours = null, int[]? pauseEndHours = null)
+    {
+        _logger.LogInformation(
+            "Server requested screen monitoring.  Interval: {interval} seconds.  Pause windows: {windows}.",
+            intervalSeconds,
+            pauseStartHours?.Length ?? 0);
+
+        _appState.IsMonitoring = true;
+        _screenMonitor.Start(intervalSeconds, pauseStartHours, pauseEndHours);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to stop capturing periodic screenshots.
+    /// </summary>
+    public Task StopMonitoring()
+    {
+        _logger.LogInformation("Server requested that screen monitoring stop.");
+
+        _screenMonitor.Stop();
+        _appState.IsMonitoring = false;
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to take a screenshot right away.
+    /// </summary>
+    public Task CaptureScreenshotNow()
+    {
+        _logger.LogInformation("Server requested a screenshot right now.");
+
+        _screenMonitor.CaptureNow();
+
+        return Task.CompletedTask;
+    }
+
     public async Task<Result> SendUnattendedSessionInfo(string unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
         if (Connection is null)
@@ -393,6 +449,9 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         connection.On<byte[], string>(nameof(SendDtoToClient), SendDtoToClient);
         connection.On<string>(nameof(ViewerDisconnected), ViewerDisconnected);
         connection.On<RemoteControlAccessRequest, PromptForAccessResult>(nameof(PromptForAccess), PromptForAccess);
+        connection.On<int, int[], int[]>(nameof(StartMonitoring), StartMonitoring);
+        connection.On(nameof(StopMonitoring), StopMonitoring);
+        connection.On(nameof(CaptureScreenshotNow), CaptureScreenshotNow);
     }
 
     private Result<HubConnection> BuildConnection()

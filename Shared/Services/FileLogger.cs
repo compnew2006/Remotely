@@ -40,9 +40,12 @@ public class FileLogger : ILogger
             _ => false,
         };
     }
-    public async void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        using var logLock = await FileLoggerDefaults.AcquireLock();
+        // Logging is synchronous on purpose: an async write is queued on the
+        // thread pool and is lost when the process logs an error and then
+        // exits immediately.
+        using var logLock = FileLoggerDefaults.AcquireLock();
 
         try
         {

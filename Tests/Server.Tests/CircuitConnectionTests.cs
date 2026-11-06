@@ -23,6 +23,8 @@ public class CircuitConnectionTests
     private Mock<IAuthService> _authService;
     private Mock<ISelectedCardsStore> _clientAppState;
     private HubContextFixture<AgentHub, IAgentHubClient> _agentHubContextFixture;
+    private HubContextFixture<DesktopHub, IDesktopHubClient> _desktopHubContextFixture;
+    private Mock<IScreenshotService> _screenshotService = new Mock<IScreenshotService>();
     private Mock<ICircuitManager> _circuitManager;
     private Mock<IToastService> _toastService;
     private Mock<IExpiringTokenService> _expiringTokenService;
@@ -43,6 +45,7 @@ public class CircuitConnectionTests
         _authService = new Mock<IAuthService>();
         _clientAppState = new Mock<ISelectedCardsStore>();
         _agentHubContextFixture = new HubContextFixture<AgentHub, IAgentHubClient>();
+        _desktopHubContextFixture = new HubContextFixture<DesktopHub, IDesktopHubClient>();
         _circuitManager = new Mock<ICircuitManager>();
         _toastService = new Mock<IToastService>();
         _expiringTokenService = new Mock<IExpiringTokenService>();
@@ -56,10 +59,12 @@ public class CircuitConnectionTests
             _dataService,
             _clientAppState.Object,
             _agentHubContextFixture.HubContextMock.Object,
+            _desktopHubContextFixture.HubContextMock.Object,
             _circuitManager.Object,
             _toastService.Object,
             _expiringTokenService.Object,
             _remoteControlSessionCache.Object,
+            _screenshotService.Object,
             _agentSessionCache.Object,
             _messenger.Object,
             _logger.Object);

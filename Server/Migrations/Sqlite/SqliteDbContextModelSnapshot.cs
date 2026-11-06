@@ -15,7 +15,7 @@ namespace Remotely.Server.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.2");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.33");
 
             modelBuilder.Entity("DeviceGroupRemotelyUser", b =>
                 {
@@ -194,7 +194,7 @@ namespace Remotely.Server.Migrations.Sqlite
 
                     b.ToTable("RemotelyUsers", (string)null);
 
-                    b.HasDiscriminator<string>("Discriminator").HasValue("IdentityUser");
+                    b.HasDiscriminator().HasValue("IdentityUser");
 
                     b.UseTphMappingStrategy();
                 });
@@ -434,6 +434,20 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.Property<string>("PublicIP")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ScreenshotDirectory")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ScreenshotPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ScreenshotRetentionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ScreenshotRetentionHours")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ServerVerificationToken")
                         .HasColumnType("TEXT");
 
@@ -604,6 +618,32 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.HasIndex("OrganizationID");
 
                     b.ToTable("SavedScripts");
+                });
+
+            modelBuilder.Entity("Remotely.Shared.Entities.Screenshot", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TimeStamp")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("Screenshots");
                 });
 
             modelBuilder.Entity("Remotely.Shared.Entities.ScriptResult", b =>

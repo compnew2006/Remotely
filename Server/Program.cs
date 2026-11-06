@@ -280,6 +280,7 @@ services.AddScoped<IScriptScheduleDispatcher, ScriptScheduleDispatcher>();
 services.AddSingleton<IOtpProvider, OtpProvider>();
 services.AddSingleton<IEmbeddedServerDataProvider, EmbeddedServerDataProvider>();
 services.AddSingleton<ILogsManager, LogsManager>();
+services.AddScoped<IScreenshotService, ScreenshotService>();
 services.AddScoped<IThemeProvider, ThemeProvider>();
 services.AddScoped<IChatSessionStore, ChatSessionStore>();
 services.AddScoped<ITerminalStore, TerminalStore>();

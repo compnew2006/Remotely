@@ -17,7 +17,7 @@ namespace Remotely.Server.Migrations.SqlServer
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.2")
+                .HasAnnotation("ProductVersion", "8.0.33")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -203,7 +203,7 @@ namespace Remotely.Server.Migrations.SqlServer
 
                     b.ToTable("RemotelyUsers", (string)null);
 
-                    b.HasDiscriminator<string>("Discriminator").HasValue("IdentityUser");
+                    b.HasDiscriminator().HasValue("IdentityUser");
 
                     b.UseTphMappingStrategy();
                 });
@@ -444,6 +444,20 @@ namespace Remotely.Server.Migrations.SqlServer
                     b.Property<string>("PublicIP")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ScreenshotDirectory")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ScreenshotPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ScreenshotRetentionCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScreenshotRetentionHours")
+                        .HasColumnType("int");
+
                     b.Property<string>("ServerVerificationToken")
                         .HasColumnType("nvarchar(max)");
 
@@ -613,6 +627,31 @@ namespace Remotely.Server.Migrations.SqlServer
                     b.HasIndex("OrganizationID");
 
                     b.ToTable("SavedScripts");
+                });
+
+            modelBuilder.Entity("Remotely.Shared.Entities.Screenshot", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("TimeStamp")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("Screenshots");
                 });
 
             modelBuilder.Entity("Remotely.Shared.Entities.ScriptResult", b =>

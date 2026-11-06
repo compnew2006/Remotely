@@ -103,10 +103,7 @@ public class Program
 
         if (OperatingSystem.IsWindows())
         {
-            services.AddSingleton<IAppLauncher, AppLauncherWin>();
-            services.AddSingleton<IUpdater, UpdaterWin>();
-            services.AddSingleton<IDeviceInformationService, DeviceInfoGeneratorWin>();
-            services.AddSingleton<IElevationDetector, ElevationDetectorWin>();
+            RegisterWindowsServices(services);
         }
         else if (OperatingSystem.IsLinux())
         {
@@ -126,6 +123,17 @@ public class Program
         {
             throw new NotSupportedException("Operating system not supported.");
         }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void RegisterWindowsServices(IServiceCollection services)
+    {
+        services.AddSingleton<IAppLauncher, AppLauncherWin>();
+        services.AddSingleton<IDesktopProcessSupervisor, DesktopProcessSupervisor>();
+        services.AddHostedService(services => services.GetRequiredService<DesktopProcessSupervisor>());
+        services.AddSingleton<IUpdater, UpdaterWin>();
+        services.AddSingleton<IDeviceInformationService, DeviceInfoGeneratorWin>();
+        services.AddSingleton<IElevationDetector, ElevationDetectorWin>();
     }
 
     [SupportedOSPlatform("windows")]

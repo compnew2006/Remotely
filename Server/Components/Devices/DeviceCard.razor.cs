@@ -328,6 +328,19 @@ public partial class DeviceCard : AuthComponentBase
         await ModalService.ShowModal($"Task Manager - {Device.DeviceName}", showModal, size: "lg");
     }
 
+    private async Task ShowScreenshots()
+    {
+        void showModal(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ScreenshotModal>(0);
+            builder.AddAttribute(1, "DeviceId", Device.ID);
+            builder.AddAttribute(2, "DeviceName", Device.DeviceName);
+            builder.CloseComponent();
+        }
+
+        await ModalService.ShowModal($"Screenshots - {Device.DeviceName}", showModal, size: "lg");
+    }
+
     private async Task StartRemoteControl(bool viewOnly)
     {
         if (!ServiceSessionCache.TryGetConnectionId(Device.ID, out _))

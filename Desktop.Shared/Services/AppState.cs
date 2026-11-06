@@ -18,6 +18,7 @@ public interface IAppState
     Dictionary<string, string> ArgDict { get; }
     string Host { get; set; }
     bool IsElevate { get; }
+    bool IsMonitoring { get; set; }
     bool IsRelaunch { get; }
     AppMode Mode { get; set; }
     string OrganizationId { get; set; }
@@ -92,6 +93,7 @@ public class AppState : IAppState
     }
 
     public bool IsElevate { get; private set; }
+    public bool IsMonitoring { get; set; }
     public bool IsRelaunch { get; private set; }
     public AppMode Mode { get; set; }
     public string OrganizationId { get; set; } = string.Empty;

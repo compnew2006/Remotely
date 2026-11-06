@@ -131,6 +131,53 @@ public class ScreenCapturerWin : IScreenCapturer
         return _imageHelper.GetImageDiff(CurrentFrame, _previousFrame);
     }
 
+    public Result<SKBitmap> GetFullFrame()
+    {
+        lock (_screenBoundsLock)
+        {
+            try
+            {
+                if (!Win32Interop.SwitchToInputDesktop())
+                {
+                    var errCode = Marshal.GetLastWin32Error();
+                    _logger.LogError("Failed to switch to input desktop. Last Win32 error code: {errCode}", errCode);
+                    return Result.Fail<SKBitmap>($"Failed to switch to input desktop. Last Win32 error code: {errCode}");
+                }
+
+                if (_needsInit)
+                {
+                    Init();
+                }
+
+                // The DirectX path captures the frame buffer itself, so it
+                // still returns an image when the session is locked and the
+                // secure desktop is showing.  BitBlt of the secure desktop
+                // returns a black image, so it is only the fallback.
+                var directXResult = GetDirectXFrame();
+                if (directXResult.Bitmap is not null && !IsEmpty(directXResult.Bitmap))
+                {
+                    CurrentFrame = directXResult.Bitmap;
+                    return Result.Ok(CurrentFrame);
+                }
+
+                if (CurrentFrame is not null)
+                {
+                    // Nothing changed since the last capture, so the last
+                    // frame is still the current content of the screen.
+                    return Result.Ok(CurrentFrame);
+                }
+
+                return GetBitBltFrame();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error while getting full frame.");
+                _needsInit = true;
+                return Result.Fail<SKBitmap>(e);
+            }
+        }
+    }
+
     public Result<SKBitmap> GetNextFrame()
     {
         lock (_screenBoundsLock)

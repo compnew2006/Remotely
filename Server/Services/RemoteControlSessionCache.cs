@@ -102,6 +102,13 @@ internal class RemoteControlSessionCache : IRemoteControlSessionCache
         {
             foreach (var session in _sessions)
             {
+                if (session.Value.IsMonitoring)
+                {
+                    // Monitoring sessions have no viewers by design.  They are
+                    // removed when the device disconnects instead.
+                    continue;
+                }
+
                 if (session.Value.Mode is RemoteControlMode.Unattended or RemoteControlMode.Unknown &&
                     session.Value.ViewerList.Count == 0 &&
                     session.Value.LastActivity < _systemTime.Now.AddMinutes(-SessionViewerGracePeriodMinutes))

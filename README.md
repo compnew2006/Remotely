@@ -13,6 +13,15 @@ Tutorial: https://www.youtube.com/watch?v=t-TFvr7sZ6M (Thanks, @bmcgonag!)
 
 ![image](.github/media/ask-remote.png)
 
+## Extra features in this fork
+
+Added for the Arkan LAN deployment (2026-11-06). They live in the server and the desktop client, and are reached from the **Actions** menu of a device card on the dashboard:
+
+- **Task Manager** — shows the processes running on the device (name, PID, session, memory, CPU, start time) and lets you end them. It uses the existing script channel, so it works with agents that are already installed.
+- **Screenshots** — the device takes full screenshots of its desktop on a fixed interval (1–30 minutes) with nobody watching, and the server keeps them. Each device has its own settings: the folder the screenshots are stored in on the server, how many are kept, how long they are kept, and **exception windows** (hours during which nothing is captured — several windows per device are allowed, and a window may run past midnight). There is also a **"Take screenshot now"** button for a one-off capture without any schedule, a delete button on every screenshot, and a "clear all" button.
+
+Notes for operators: capturing requires the current desktop client build (the agent does not change), and the desktop client's assembly version is stamped with the build time, so a client update must be published with the same version number that is already installed on the device.
+
 ## Quickstart
 
 ```
