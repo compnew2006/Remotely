@@ -39,9 +39,9 @@ is complete, and it does not mean the corresponding release gate has passed.
 
 ## Validation Results
 
-Validation performed on 2026-11-06 against `spec.md` (22,088 bytes, 385 lines):
-5 user stories, 20 acceptance scenarios, 29 functional requirements, 10 success
-criteria, 10 edge cases, 7 assumptions.
+Validation performed on 2026-11-06 against `spec.md` (28,219 bytes, 447 lines):
+5 user stories, 20 acceptance scenarios, 30 functional requirements, 10 success
+criteria, 11 edge cases, 7 assumptions.
 
 | Item | Result | Basis |
 |------|--------|-------|
@@ -50,14 +50,14 @@ criteria, 10 edge cases, 7 assumptions.
 | CHK003 | PASS | Domain terms used by the specification (device group, organization, attended-access consent, access mode) are defined in the Key Entities section. No code identifiers, class names, or file paths appear in the specification body. |
 | CHK004 | PASS | All four mandatory template sections are present and populated: User Scenarios & Testing, Requirements (Functional Requirements + Key Entities), Success Criteria (Measurable Outcomes), Assumptions. Section order follows the template. One additive subsection, `### Out of Scope`, sits between Functional Requirements and Key Entities; no mandatory heading was removed or reordered. A further additive subsection, `### Constitution Compliance Review`, was added because Constitution v2.0.0 §Compliance requires every specification to carry its own review against each principle and each gate — it records requirement coverage, never that a gate has passed. |
 | CHK005 | **FAIL — by design** | Three `[NEEDS CLARIFICATION]` markers remain, at the maximum the workflow permits: FR-005 (consent elevation for FullControl), FR-025 (API migration shape), FR-028 (audit sink and retention). They are deliberately surfaced for `$speckit-clarify` rather than guessed, because each one changes scope or the security posture, and none has a safe default. |
-| CHK006 | PASS | 27 of 29 requirements are unambiguous and directly testable. The 2 requirements that depend on an open decision (FR-005, FR-025, FR-028 — three requirements) are the same ones carrying the markers, so the ambiguity surface is bounded and enumerated rather than distributed. |
+| CHK006 | PASS | 27 of 30 requirements are unambiguous and directly testable. The 3 requirements that depend on an open decision (FR-005, FR-025, FR-028) are the same ones carrying the markers, so the ambiguity surface is bounded and enumerated rather than distributed. |
 | CHK007 | PASS | All 10 criteria carry a countable quantity (100%, 0%, 3 named lifecycle events, 2 named link-modification classes) or a directly observable binary condition. |
 | CHK008 | PASS | No criterion names a framework, database, protocol, or tool. SC-001, SC-005 and SC-007 are stated as behaviour percentages and as "runs on every pull request in continuous integration", which is a process outcome rather than a tool. |
 | CHK009 | PASS | All 5 stories carry a numbered Given/When/Then scenario set: 4 + 5 + 4 + 4 + 3 = 20 scenarios, covering the default-view path, the grant path, the refusal paths, every lifecycle event, the device-side rejection path, and the migration path. |
-| CHK010 | PASS | 10 edge cases cover the downgrade-with-stale-link case, membership removal mid-session, two concurrent sessions on one device, a Windows session with no logged-on employee, post-session and post-restart control messages, an unknown session id, unreadable scope state (fail-closed), concurrent FullControl requests, a malformed viewer-supplied mode, and a permitted-but-not-authorized mode value. |
+| CHK010 | PASS | 11 edge cases cover the downgrade-with-stale-link case, the server-generated-link-must-carry-the-applied-mode case, membership removal mid-session, two concurrent sessions on one device, a Windows session with no logged-on employee, post-session and post-restart control messages, an unknown session id, unreadable scope state (fail-closed), concurrent FullControl requests, a malformed viewer-supplied mode, and a permitted-but-not-authorized mode value. |
 | CHK011 | PASS | Scope is bounded by an explicit `### Out of Scope` list (capture scheduling, recording, webcam, media upload, the capture engine, the capture consent model, the capture helper process, and the update/file-transfer/IPC hardening gates), reinforced by the owner's exclusion list in the Input section. |
 | CHK012 | PASS | 7 assumptions state the reused dependencies (authentication, organization, device-group model, attended-access consent mechanism) and the enforcement-latency boundary for authority withdrawal. |
-| CHK013 | PASS | Every one of the 29 functional requirements maps to at least one acceptance scenario or to one of the 10 success criteria; the mapping was checked requirement by requirement during validation and no requirement is left without an observable outcome. |
+| CHK013 | PASS | Every one of the 30 functional requirements maps to at least one acceptance scenario or to one of the 10 success criteria; the mapping was checked requirement by requirement during validation and no requirement is left without an observable outcome. |
 | CHK014 | PASS | The five stories cover the primary flows: least-privilege default, authorized privilege grant, server-owned boundary across lifecycle events, device-side defence in depth, and integration migration. |
 | CHK015 | PASS | SC-001 through SC-010 are each reachable from the requirements: SC-001/SC-003/SC-005 from the access-mode and FullControl-authorization requirements, SC-002/SC-004/SC-006 from the message-authorization and lifecycle requirements, SC-008 from the compatibility requirements, SC-009 from the auditability requirements, SC-010 from the device-side requirements. |
 | CHK016 | PASS | No requirement is phrased as an implementation instruction. FR-017 states the required device-side verification outcome without naming a verification mechanism, message format, or transport. |

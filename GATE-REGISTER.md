@@ -49,7 +49,7 @@
 |---|---|
 | **شرط الاجتياز** | الفلاج يُقرأ على مسار relay في السيرفر، ويُنقل للجهاز، ويُفرض على الجهاز **قبل** تطبيق أي إدخال. الإصلاح يُسلَّم كـSPEC-001 ويُتحقَّق باختبارات انحدار |
 | **الحالة** | ❌ **FAIL** |
-| **الدليل الحاسم** | لا فحص في السيرفر: `Server/Hubs/ViewerHub.cs:187-197` · لا نقل للجهاز: `Shared/Interfaces/IAgentHubClient.cs` (حمولة `RemoteControl` بلا باراميتر view-only) · بوابة الجهاز معطّلة: `Desktop.Shared/Services/Viewer.cs:95` + `Desktop.Shared/Services/DtoMessageHandler.cs:63` · الفلاج يُمسح عند تبديل الجلسة: `Server/Models/RemoteControlSession.cs:92` · المتصفّح يبدّله: `Server/wwwroot/src/InputEventHandlers.ts:125-128` · جلسات API تتحكم افتراضياً: `Server/API/RemoteControlController.cs:138-145` |
+| **الدليل الحاسم** | لا فحص في السيرفر: `Server/Hubs/ViewerHub.cs:187-197` · لا نقل للجهاز: `Shared/Interfaces/IDesktopHubClient.cs:24` (لا باراميتر لوضع الوصول) · `Desktop.Shared/Services/DesktopHubConnection.cs:323-329` بلا فحص · الرابط المولَّد يكتب `viewonly=False` حرفياً: `Server/Models/RemoteControlSession.cs:40` · بوابة الجهاز معطّلة: `Desktop.Shared/Services/Viewer.cs:95` + `Desktop.Shared/Services/DtoMessageHandler.cs:63` · الفلاج يُمسح عند تبديل الجلسة: `Server/Models/RemoteControlSession.cs:92` · المتصفّح يبدّله: `Server/wwwroot/src/InputEventHandlers.ts:125-128` · جلسات API تتحكم افتراضياً: `Server/API/RemoteControlController.cs:138-145` |
 | **الدليل المطلوب للاجتياز** | (أ) اختبارات سلبية تُثبت صفر إدخال مطبَّق لكل نوع رسالة تحكم في جلسة ViewOnly · (ب) اختبار انحدار يثبت أن FullControl ما زال يعمل · (ج) سجل تنفيذ البوابة في سياق نشر |
 | **الدليل المحفوظ اليوم** | **لا شيء** — لا اختبار قابل للتنفيذ (0/19) |
 | **الفجوات** | GAP-01 · GAP-02 · GAP-03 · GAP-04 · GAP-05 |
@@ -162,8 +162,8 @@
 | Gate Register موجودة | ✅ **PASS** | هذا الملف |
 | Evidence Map موجودة | ✅ **PASS** | `EVIDENCE-MAP.md` |
 | **بلا كود إنتاج** | ✅ **PASS** | `git status --porcelain` ⇒ **صفر ملف متتبَّع معدَّل** (974 ملفاً) |
-| الأدلة بمسار:سطر | ✅ **PASS** | `EVIDENCE-MAP.md` §1 (35 استنتاجاً) |
-| الفجوات مصنَّفة P0/P1/P2 | ✅ **PASS** | `EVIDENCE-MAP.md` §4 (21 فجوة) |
+| الأدلة بمسار:سطر | ✅ **PASS** | `EVIDENCE-MAP.md` §1 (39 استنتاجاً) |
+| الفجوات مصنَّفة P0/P1/P2 | ✅ **PASS** | `EVIDENCE-MAP.md` §4 (22 فجوة) |
 
 ### ✅ **حالة بوابة P00: PASS**
 

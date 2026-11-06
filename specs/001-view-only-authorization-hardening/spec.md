@@ -178,6 +178,9 @@ machine-readable indication of the change rather than control or a silent failur
 
 - A viewer holds a valid link issued while the session was FullControl, then the
   session is downgraded to ViewOnly — the stale link must not carry control authority.
+- A server-generated viewer link is produced for a ViewOnly session, or the link
+  generator still emits a fixed literal access mode — the link must not convey a mode
+  other than the session's server-owned state.
 - An administrator's device-group membership is removed while a FullControl session is
   open — control authority must not survive the removal.
 - The same device is reachable through two different sessions with different access
@@ -207,6 +210,10 @@ machine-readable indication of the change rather than control or a silent failur
   influence it.
 - **FR-003**: When a session is created without an explicitly requested access mode,
   the system MUST assign ViewOnly.
+- **FR-003a**: Every server-generated viewer link MUST carry the access mode that was
+  actually applied to the session. A link MUST NOT contain a fixed or literal access
+  mode, and MUST NOT contain a mode that differs from the session's server-owned
+  state.
 - **FR-004**: The system MUST distinguish an explicitly requested access mode from an
   absent one; an absent mode MUST never be interpreted as FullControl.
 
