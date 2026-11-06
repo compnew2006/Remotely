@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Remotely.Agent.Interfaces;
+using Remotely.Shared.Services;
 using Remotely.Shared.Utilities;
 using System;
 using System.Diagnostics;
@@ -141,10 +142,24 @@ public class UpdaterWin : IUpdater
                $"{serverUrl}/api/AgentUpdate/DownloadPackage/win-{platform}",
                zipPath);
 
+            // G2 (AD-13): verify the signed update manifest, the package hash,
+            // and the installer hash before anything is executed. Fail-closed:
+            // any verification failure aborts the update; the running agent
+            // keeps working and retries later.
+            if (!await VerifyUpdatePackage(serverUrl!, platform, zipPath, installerPath))
+            {
+                _logger.LogError(
+                    "Service Updater: Update verification failed.  " +
+                    "The update will NOT be installed.  " +
+                    "Ensure the server publishes a signed manifest for the package.");
+                _lastUpdateFailure = DateTimeOffset.Now;
+                return;
+            }
+
             _logger.LogInformation("Launching installer to perform update.");
 
             Process.Start(
-                "powershell.exe", 
+                "powershell.exe",
                 $"-ExecutionPolicy Bypass -File \"{installerPath}\" -Path \"{zipPath}\" " +
                     $"-OrganizationId {connectionInfo.OrganizationID} -ServerUrl {connectionInfo.Host}");
         }
@@ -161,6 +176,57 @@ public class UpdaterWin : IUpdater
         finally
         {
             _installLatestVersionLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// G2 (AD-13): downloads the signed manifest and signature from the server,
+    /// then verifies key trust, signature, package hash, installer hash, and
+    /// version rollback protection. Any failure returns false (fail-closed).
+    /// </summary>
+    private async Task<bool> VerifyUpdatePackage(string serverUrl, string platform, string zipPath, string installerPath)
+    {
+        try
+        {
+            var manifestPath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.manifest.json");
+            var signaturePath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.manifest.sig");
+
+            await _updateDownloader.DownloadFile(
+                $"{serverUrl}/Content/Remotely-Win-{platform}.zip.manifest.json",
+                manifestPath);
+            await _updateDownloader.DownloadFile(
+                $"{serverUrl}/Content/Remotely-Win-{platform}.zip.manifest.sig",
+                signaturePath);
+
+            var trustedKeys = UpdatePackageVerifier.LoadTrustedKeysFile(
+                Path.Combine(AppContext.BaseDirectory, "TrustedUpdateKeys.json"));
+
+            var currentVersion = typeof(UpdaterWin).Assembly.GetName().Version ?? new Version(0, 0, 0);
+
+            var result = UpdatePackageVerifier.Verify(
+                await File.ReadAllBytesAsync(manifestPath),
+                await File.ReadAllTextAsync(signaturePath),
+                await File.ReadAllBytesAsync(zipPath),
+                await File.ReadAllBytesAsync(installerPath),
+                currentVersion,
+                trustedKeys);
+
+            if (!result.Success)
+            {
+                _logger.LogError(
+                    "Service Updater: verification failed ({failure}).  Detail: {detail}",
+                    result.Failure,
+                    result.Detail);
+                return false;
+            }
+
+            _logger.LogInformation("Service Updater: update manifest verified successfully.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service Updater: exception during update verification. Failing closed.");
+            return false;
         }
     }
 
