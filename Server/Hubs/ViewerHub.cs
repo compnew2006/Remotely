@@ -93,13 +93,17 @@ public class ViewerHub : Hub<IViewerHubClient>
                 return Result.Fail("Only available in unattended mode.");
             }
 
-            // SPEC-001 / FR-010, FR-011: changing the target Windows session is a
-            // control action and is refused for View Only sessions.
-            if (SessionInfo.ViewOnly)
+            // SPEC-001 / FR-010, FR-011, FR-015 (OD-11 audit R-A): changing the
+            // target Windows session is a control action authorized per viewer,
+            // not per session. This re-evaluates the session mode, the viewer's
+            // authentication, and the device-group basis at every invocation —
+            // a second, unauthenticated viewer on a FullControl session is
+            // refused even though the session itself carries FullControl.
+            if (!(await ViewerMayControl()))
             {
                 LogPrivilegeRefused(nameof(ChangeWindowsSession));
-                await Clients.Caller.ShowMessage("Not permitted: session is View Only.");
-                return Result.Fail("Not permitted: session is View Only.");
+                await Clients.Caller.ShowMessage("Not permitted: control authority is not held for this session.");
+                return Result.Fail("Not permitted: control authority is not held for this session.");
             }
 
             SessionInfo.ViewerList.Remove(Context.ConnectionId);
@@ -212,11 +216,13 @@ public class ViewerHub : Hub<IViewerHubClient>
     {
         try
         {
-            // SPEC-001 / FR-010, FR-011: Ctrl+Alt+Del is a control action.
-            if (SessionInfo.ViewOnly)
+            // SPEC-001 / FR-010, FR-011, FR-015 (OD-11 audit R-A): Ctrl+Alt+Del
+            // is a control action authorized per viewer, not per session — same
+            // gate and re-evaluation as ChangeWindowsSession.
+            if (!(await ViewerMayControl()))
             {
                 LogPrivilegeRefused(nameof(InvokeCtrlAltDel));
-                await Clients.Caller.ShowMessage("Not permitted: session is View Only.");
+                await Clients.Caller.ShowMessage("Not permitted: control authority is not held for this session.");
                 return;
             }
 
