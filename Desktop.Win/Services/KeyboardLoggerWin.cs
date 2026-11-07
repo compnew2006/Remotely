@@ -391,6 +391,20 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     private string? ToUnicode(int virtualKeyCode, int scanCode)
     {
+        // The layout that the key is typed with is the layout of the focused
+        // window's thread, resolved per keystroke. The layout of this thread
+        // is the system default (usually US English) and translations were
+        // done with it regardless of what the user typed with, so Arabic
+        // keys came out as Latin letters.
+        var fgWindow = GetForegroundWindow();
+        IntPtr hkl = IntPtr.Zero;
+
+        if (fgWindow != IntPtr.Zero)
+        {
+            var fgThreadId = GetWindowThreadProcessId(fgWindow, out _);
+            hkl = GetKeyboardLayout(fgThreadId);
+        }
+
         // The state of the keyboard is read from the system, because the
         // state of the thread that reads it does not hold the keys that are
         // typed in another window.
@@ -411,8 +425,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             keyboardState[VK_CAPITAL] |= 0x01;
         }
 
-            // The characters are translated with the keyboard layout of this
-            // thread, which is the layout of the user.
+            // The characters are translated with the focused window's layout.
             var buffer = new StringBuilder(8);
         var result = ToUnicodeEx(
             (uint)virtualKeyCode,
@@ -421,7 +434,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             buffer,
             buffer.Capacity,
             0,
-            IntPtr.Zero);
+            hkl);
 
         // A negative result is a dead key, and a result of zero means that
         // the key does not produce a character.
@@ -437,7 +450,6 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
         if (Interlocked.Increment(ref _diagnosticCount) <= 10)
         {
-            var fgWindow = GetForegroundWindow();
             var fgThread = GetWindowThreadProcessId(fgWindow, out _);
 
             _logger.LogInformation(
@@ -445,7 +457,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
                 virtualKeyCode,
                 scanCode,
                 text,
-                GetKeyboardLayout(0).ToInt64(),
+                hkl.ToInt64(),
                 GetKeyboardLayout(fgThread).ToInt64());
         }
 
@@ -844,7 +856,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     [DllImport("user32.dll")]
     private static extern bool GetKeyboardState(byte[] lpKeyState);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int ToUnicodeEx(
         uint wVirtKey,
         uint wScanCode,
@@ -852,7 +864,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         StringBuilder lpChar,
         int cchBuff,
         uint wFlags,
-        IntPtr lpKeyboardState);
+        IntPtr hkl);
 
     [DllImport("user32.dll")]
     private static extern bool OpenClipboard(IntPtr hWndNewOwner);
