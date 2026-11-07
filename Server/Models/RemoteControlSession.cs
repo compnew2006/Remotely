@@ -189,6 +189,11 @@ public class RemoteControlSession : IDisposable
     public bool IsAudioLive { get; set; }
 
     /// <summary>
+    /// Whether the text that is typed on the device is captured.
+    /// </summary>
+    public bool IsKeyboardCapture { get; set; }
+
+    /// <summary>
     /// The source of the live audio stream (system audio or microphone).
     /// </summary>
     public AudioSource? AudioLiveSource { get; set; }

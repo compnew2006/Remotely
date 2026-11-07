@@ -131,5 +131,15 @@ public interface IDesktopHubClient
     /// </summary>
     Task StopAudioLive();
 
+    /// <summary>
+    /// Starts capturing the text that is typed on this device.
+    /// </summary>
+    Task StartKeyboardLogging(string deviceId);
+
+    /// <summary>
+    /// Stops capturing the text that is typed on this device.
+    /// </summary>
+    Task StopKeyboardLogging();
+
     Task ViewerDisconnected(string viewerId);
 }

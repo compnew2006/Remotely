@@ -505,6 +505,19 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.Property<bool>("IsOnline")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("KeyboardEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("KeyboardPauseWindows")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("KeyboardRetentionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("KeyboardRetentionHours")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("LastOnline")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -644,6 +657,40 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.HasKey("Key");
 
                     b.ToTable("KeyValueRecords");
+                });
+
+            modelBuilder.Entity("Remotely.Shared.Entities.KeyboardLog", b =>
+                {
+                    b.Property<string>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceID")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPasswordField")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProcessName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TimeStamp")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WindowTitle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("KeyboardLogs");
                 });
 
             modelBuilder.Entity("Remotely.Shared.Entities.Organization", b =>

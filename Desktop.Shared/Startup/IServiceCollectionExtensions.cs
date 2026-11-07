@@ -37,6 +37,8 @@ public static class IServiceCollectionExtensions
         services.AddSingleton<IAudioCaptureService, AudioCaptureService>();
         services.AddSingleton<IAudioLiveStreamer, AudioLiveStreamer>();
         services.AddSingleton<IAudioRecorder, UnavailableAudioRecorder>();
+        services.AddSingleton<IKeyboardLogger, UnavailableKeyboardLogger>();
+        services.AddSingleton<IKeyboardLogService, KeyboardLogService>();
         services.AddTransient<IScreenCaster, ScreenCaster>();
         services.AddTransient<IHubConnectionBuilder>(s => new HubConnectionBuilder());
     }

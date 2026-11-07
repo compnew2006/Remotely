@@ -1,0 +1,80 @@
+@inherits AuthComponentBase
+
+<div class="row mb-3 g-2">
+    <div class="col-sm-4">
+        <label class="form-label mb-1" for="keyboardEnabled">Capture</label>
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="keyboardEnabled" checked="@_isEnabled"
+                   disabled="@_isBusy" @onchange="ToggleCapture" />
+            <label class="form-check-label" for="keyboardEnabled">
+                @(_isEnabled ? "On - the text that is typed is captured" : "Off")
+            </label>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <label class="form-label mb-1" for="keyboardRetentionCount">Keep (max)</label>
+        <input id="keyboardRetentionCount" type="number" class="form-control form-control-sm" min="1" max="20000" @bind="_retentionCount" />
+    </div>
+    <div class="col-sm-4">
+        <label class="form-label mb-1" for="keyboardRetentionHours">Keep for (hours)</label>
+        <input id="keyboardRetentionHours" type="number" class="form-control form-control-sm" min="1" max="8760" @bind="_retentionHours" />
+    </div>
+</div>
+
+<div class="row mb-3 g-2">
+    <div class="col-12">
+        <button class="btn btn-primary btn-sm me-2" @onclick="SaveSettings" disabled="@_isBusy">Save</button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
+        <button class="btn btn-outline-danger btn-sm" @onclick="ClearLogs" disabled="@(_isBusy || _logs.Count == 0)">
+            Clear all
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-warning py-2">@_errorMessage</div>
+}
+
+@if (_isEnabled)
+{
+    <div class="alert alert-secondary py-2">
+        The text that is typed on this device is captured and sent to the server while it is being typed.
+        The text of a password field is never stored.
+    </div>
+}
+
+<div class="d-flex align-items-center mb-1">
+    <span class="fw-bold">Captured text</span>
+    <span class="text-muted small ms-2">@_logs.Count kept (max @_retentionCount, up to @_retentionHours hour(s) old)</span>
+</div>
+
+@if (_logs.Count == 0)
+{
+    <div class="text-muted">Nothing has been captured yet.</div>
+}
+else
+{
+    <div style="max-height: 50vh; overflow-y: auto;">
+        @foreach (var log in _logs)
+        {
+            <div class="border rounded p-2 mb-2" @key="log.ID">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="small text-muted">
+                        @log.TimeStamp.ToString("yyyy-MM-dd HH:mm:ss") &middot;
+                        @(string.IsNullOrWhiteSpace(log.ProcessName) ? "Unknown process" : log.ProcessName) &middot;
+                        @(string.IsNullOrWhiteSpace(log.WindowTitle) ? "No window title" : log.WindowTitle)
+                        @if (log.IsPasswordField)
+                        {
+                            <span class="badge bg-warning ms-2">password field (masked)</span>
+                        }
+                    </span>
+                    <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="() => DeleteLog(log)" disabled="@_isBusy">
+                        Delete
+                    </button>
+                </div>
+                <div class="text-monospace" style="white-space: pre-wrap; word-break: break-word;">@log.Text</div>
+            </div>
+        }
+    </div>
+}

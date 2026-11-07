@@ -154,6 +154,27 @@ public interface ICircuitConnection
     /// </summary>
     Task<Result> StopAudioLive(string deviceId);
 
+    /// <summary>
+    /// Turns the keyboard capture of a device on or off.
+    /// </summary>
+    Task<Result> SetKeyboardEnabled(string deviceId, bool enabled);
+
+    /// <summary>
+    /// Returns the captured text of a device, newest first.
+    /// </summary>
+    KeyboardLog[] GetKeyboardLogs(string deviceId);
+
+    Task<Result> DeleteKeyboardLog(string deviceId, string logId);
+
+    Task<Result> ClearKeyboardLogs(string deviceId);
+
+    Task<Result> UpdateKeyboardSettings(
+        string deviceId,
+        bool enabled,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
     Task RemoveDevices(string[] deviceIDs);
 
     Task RunScript(IEnumerable<string> deviceIds, Guid savedScriptId, int scriptRunId, ScriptInputType scriptInputType, bool runAsHostedService);
@@ -196,6 +217,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     private readonly IAgentHubSessionCache _agentSessionCache;
     private readonly ICameraService _cameraService;
     private readonly IAudioService _audioService;
+    private readonly IKeyboardLogService _keyboardLogService;
+    private readonly IKeyboardCaptureManager _keyboardCaptureManager;
     private readonly IMessenger _messenger;
     private readonly IToastService _toastService;
     private RemotelyUser? _user;
@@ -213,6 +236,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         IScreenshotService screenshotService,
         ICameraService cameraService,
         IAudioService audioService,
+        IKeyboardLogService keyboardLogService,
+        IKeyboardCaptureManager keyboardCaptureManager,
         IAgentHubSessionCache agentSessionCache,
         IMessenger messenger,
         ILogger<CircuitConnection> logger)
@@ -229,6 +254,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         _screenshotService = screenshotService;
         _cameraService = cameraService;
         _audioService = audioService;
+        _keyboardLogService = keyboardLogService;
+        _keyboardCaptureManager = keyboardCaptureManager;
         _agentSessionCache = agentSessionCache;
         _messenger = messenger;
         _logger = logger;
@@ -1706,6 +1733,134 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             User.UserName);
 
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Turns the keyboard capture of a device on or off.
+    /// </summary>
+    public async Task<Result> SetKeyboardEnabled(string deviceId, bool enabled)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        var device = deviceResult.Value;
+
+        return await UpdateKeyboardSettings(
+            deviceId,
+            enabled,
+            device.KeyboardRetentionCount,
+            device.KeyboardRetentionHours,
+            device.KeyboardPauseWindows);
+    }
+
+    /// <summary>
+    /// Returns the captured text of a device, newest first.
+    /// </summary>
+    public KeyboardLog[] GetKeyboardLogs(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Array.Empty<KeyboardLog>();
+        }
+
+        return _keyboardLogService.GetLogs(deviceId, 200);
+    }
+
+    public async Task<Result> DeleteKeyboardLog(string deviceId, string logId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _keyboardLogService.DeleteLog(deviceResult.Value, logId);
+
+        return Result.Ok();
+    }
+
+    public async Task<Result> ClearKeyboardLogs(string deviceId)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        _keyboardLogService.ClearLogs(deviceResult.Value);
+
+        return Result.Ok();
+    }
+
+    public async Task<Result> UpdateKeyboardSettings(
+        string deviceId,
+        bool enabled,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        {
+            return Result.Fail("Unauthorized.");
+        }
+
+        var result = await _dataService.UpdateKeyboardSettings(
+            deviceId,
+            enabled,
+            retentionCount,
+            retentionHours,
+            pauseWindows);
+
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        if (enabled)
+        {
+            var started = await _keyboardCaptureManager.StartAsync(
+                deviceId,
+                ConnectionId,
+                User.OrganizationID,
+                $"{User.UserOptions?.DisplayName}");
+
+            if (!started)
+            {
+                return Result.Fail(
+                    "The settings were saved, but the device is not online, so the capture was not started. " +
+                    "It starts as soon as the device comes online.");
+            }
+        }
+        else
+        {
+            await _keyboardCaptureManager.StopAsync(deviceId);
+        }
+
+        _logger.LogInformation(
+            "The keyboard capture of device {deviceId} was turned {state}.  Identity: {identity}.",
+            deviceId,
+            enabled ? "on" : "off",
+            User.UserName);
+
+        return result;
     }
 
     /// <summary>

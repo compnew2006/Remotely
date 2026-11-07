@@ -14,7 +14,7 @@ public static class FileLoggerDefaults
             {
                 var logsPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                    "Remotely",
+                    "RDP",
                     "Logs");
 
                 if (EnvironmentHelper.IsDebug)

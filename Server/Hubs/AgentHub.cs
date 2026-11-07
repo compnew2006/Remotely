@@ -23,6 +23,8 @@ public class AgentHub : Hub<IAgentHubClient>
     private readonly IRemoteControlSessionCache _remoteControlSessions;
     private readonly IAgentHubSessionCache _serviceSessionCache;
     private readonly IHubContext<ViewerHub> _viewerHubContext;
+    private readonly IKeyboardCaptureManager _keyboardCaptureManager;
+    private readonly IUpdateSigningService _updateSigningService;
 
     public AgentHub(
         IDataService dataService,
@@ -31,6 +33,8 @@ public class AgentHub : Hub<IAgentHubClient>
         ICircuitManager circuitManager,
         IExpiringTokenService expiringTokenService,
         IRemoteControlSessionCache remoteControlSessionCache,
+        IKeyboardCaptureManager keyboardCaptureManager,
+        IUpdateSigningService updateSigningService,
         IMessenger messenger,
         ILogger<AgentHub> logger)
     {
@@ -40,6 +44,8 @@ public class AgentHub : Hub<IAgentHubClient>
         _circuitManager = circuitManager;
         _expiringTokenService = expiringTokenService;
         _remoteControlSessions = remoteControlSessionCache;
+        _keyboardCaptureManager = keyboardCaptureManager;
+        _updateSigningService = updateSigningService;
         _messenger = messenger;
         _logger = logger;
     }
@@ -199,6 +205,17 @@ public class AgentHub : Hub<IAgentHubClient>
                 await _messenger.Send(message, connection.ConnectionId);
             }
 
+            if (Device.KeyboardEnabled)
+            {
+                // The text that is typed on this device is captured, so the
+                // capture starts as soon as the device comes online.
+                await _keyboardCaptureManager.StartAsync(
+                    Device.ID,
+                    string.Empty,
+                    Device.OrganizationID,
+                    "Remotely");
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -286,6 +303,16 @@ public class AgentHub : Hub<IAgentHubClient>
     public string GetServerVerificationToken()
     {
         return $"{Device?.ServerVerificationToken}";
+    }
+
+    /// <summary>
+    /// The trusted keys of the client packages of this server.  The agent
+    /// writes them next to its executable, so it can verify a package before
+    /// it installs it (G2 / AD-13).
+    /// </summary>
+    public string GetUpdatePublicKey()
+    {
+        return _updateSigningService.GetTrustedKeysJson();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)

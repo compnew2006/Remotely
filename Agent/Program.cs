@@ -129,7 +129,8 @@ public class Program
     private static void RegisterWindowsServices(IServiceCollection services)
     {
         services.AddSingleton<IAppLauncher, AppLauncherWin>();
-        services.AddSingleton<IDesktopProcessSupervisor, DesktopProcessSupervisor>();
+        services.AddSingleton<DesktopProcessSupervisor>();
+        services.AddSingleton<IDesktopProcessSupervisor>(services => services.GetRequiredService<DesktopProcessSupervisor>());
         services.AddHostedService(services => services.GetRequiredService<DesktopProcessSupervisor>());
         services.AddSingleton<IUpdater, UpdaterWin>();
         services.AddSingleton<IDeviceInformationService, DeviceInfoGeneratorWin>();

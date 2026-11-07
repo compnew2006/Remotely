@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
    Installs the Remotely Client.
 .DESCRIPTION
@@ -111,14 +111,112 @@ function Run-StartupChecks {
 }
 
 function Stop-Remotely {
-	Start-Process -FilePath "cmd.exe" -ArgumentList "/c sc delete Remotely_Service" -Wait -WindowStyle Hidden
-	Stop-Process -Name Remotely_Agent -Force -ErrorAction SilentlyContinue
-	Stop-Process -Name Remotely_Desktop -Force -ErrorAction SilentlyContinue
+	$Service = Get-Service -Name "Remotely_Service" -ErrorAction SilentlyContinue
+	$ServiceExists = $null -ne $Service
+	if ($Service) {
+		if ($Service.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Stopped) {
+			Write-Log "Stopping Remotely_Service..."
+			Stop-Service -Name "Remotely_Service" -Force -ErrorAction SilentlyContinue
+			try {
+				$Service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(30))
+			}
+			catch {
+				# Force-stop the processes below if the service did not exit cleanly.
+			}
+		}
+	}
+
+	$Processes = @(Get-Process -Name "Remotely_Agent", "Remotely_Desktop" -ErrorAction SilentlyContinue)
+	foreach ($Process in $Processes) {
+		Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+	}
+	foreach ($Process in $Processes) {
+		try {
+			Wait-Process -Id $Process.Id -Timeout 30 -ErrorAction Stop
+		}
+		catch {
+			# Wait-Process also throws when a process has already exited.
+		}
+	}
+
+	$ServiceStopped = $true
+	if ($ServiceExists) {
+		$Service.Refresh()
+		$ServiceStopped = $Service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Stopped
+		$Service.Close()
+	}
+	if (!$ServiceStopped) {
+		throw "Remotely_Service is still running. The old client files were not removed."
+	}
+
+	$RemainingProcesses = @(Get-Process -Name "Remotely_Agent", "Remotely_Desktop" -ErrorAction SilentlyContinue)
+	if ($RemainingProcesses.Count -gt 0) {
+		$ProcessNames = ($RemainingProcesses | ForEach-Object { $_.ProcessName }) -join ", "
+		throw "Could not stop Remotely processes ($ProcessNames). Close them and retry the installation."
+	}
+
+	if ($ServiceExists) {
+		& sc.exe delete "Remotely_Service" *> $null
+		$DeleteExitCode = $LASTEXITCODE
+		if (($DeleteExitCode -ne 0) -and ($DeleteExitCode -ne 1060) -and ($DeleteExitCode -ne 1072)) {
+			throw "Failed to remove Remotely_Service (sc.exe exit code $DeleteExitCode)."
+		}
+
+		$ServiceRemoved = $false
+		for ($Attempt = 0; $Attempt -lt 30; $Attempt++) {
+			& sc.exe query "Remotely_Service" *> $null
+			if ($LASTEXITCODE -eq 1060) {
+				$ServiceRemoved = $true
+				break
+			}
+			Start-Sleep -Seconds 1
+		}
+		if (!$ServiceRemoved) {
+			throw "Remotely_Service is still being removed. Retry the installation in a few seconds."
+		}
+	}
+}
+
+function Remove-InstallFiles {
+	param ([switch]$RemoveInstallDirectory)
+
+	if (!(Test-Path -LiteralPath $InstallPath)) {
+		return
+	}
+
+	if ($RemoveInstallDirectory) {
+		$Targets = @($InstallPath)
+	}
+	else {
+		$Targets = @(Get-ChildItem -LiteralPath $InstallPath -Force | Where-Object {
+			$_.Name -ne "ConnectionInfo.json"
+		} | ForEach-Object {
+			$_.FullName
+		})
+	}
+
+	foreach ($Target in $Targets) {
+		for ($Attempt = 1; $Attempt -le 5; $Attempt++) {
+			try {
+				if (Test-Path -LiteralPath $Target) {
+					Remove-Item -LiteralPath $Target -Recurse -Force -ErrorAction Stop
+				}
+				break
+			}
+			catch {
+				if ($Attempt -eq 5) {
+					throw "Could not remove '$Target'. The client was not updated. $($_.Exception.Message)"
+				}
+				Write-Log "Waiting for a locked install file to be released (attempt $Attempt of 5)..."
+				Start-Sleep -Seconds 2
+			}
+		}
+	}
 }
 
 function Uninstall-Remotely {
 	Stop-Remotely
-	Remove-Item -Path $InstallPath -Force -Recurse -ErrorAction SilentlyContinue
+	Remove-InstallFiles -RemoveInstallDirectory
 	Remove-NetFirewallRule -Name "Remotely Desktop Unattended" -ErrorAction SilentlyContinue
 }
 
@@ -194,9 +292,12 @@ function Install-Remotely {
 	}
 
 	Stop-Remotely
-	Get-ChildItem -Path $InstallPath | Where-Object { $_.Name -notlike "ConnectionInfo.json" } | Remove-Item -Recurse -Force
+	Remove-InstallFiles
 
-	Expand-Archive -Path "$env:TEMP\Remotely-Win-$Platform.zip" -DestinationPath "$InstallPath" -Force
+	Expand-Archive -Path "$env:TEMP\Remotely-Win-$Platform.zip" -DestinationPath "$InstallPath" -Force -ErrorAction Stop
+	if (!(Test-Path -LiteralPath "$InstallPath\Remotely_Agent.exe")) {
+		throw "Client extraction did not produce Remotely_Agent.exe. The service was not created."
+	}
 
 	New-Item -ItemType File -Path "$InstallPath\ConnectionInfo.json" -Value (ConvertTo-Json -InputObject $ConnectionInfo) -Force
 

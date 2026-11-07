@@ -27,6 +27,8 @@ public class CircuitConnectionTests
     private Mock<IScreenshotService> _screenshotService = new Mock<IScreenshotService>();
     private Mock<ICameraService> _cameraService = new Mock<ICameraService>();
     private Mock<IAudioService> _audioService = new Mock<IAudioService>();
+    private Mock<IKeyboardLogService> _keyboardLogService = new Mock<IKeyboardLogService>();
+    private Mock<IKeyboardCaptureManager> _keyboardCaptureManager = new Mock<IKeyboardCaptureManager>();
     private Mock<ICircuitManager> _circuitManager;
     private Mock<IToastService> _toastService;
     private Mock<IExpiringTokenService> _expiringTokenService;
@@ -69,6 +71,8 @@ public class CircuitConnectionTests
             _screenshotService.Object,
             _cameraService.Object,
             _audioService.Object,
+            _keyboardLogService.Object,
+            _keyboardCaptureManager.Object,
             _agentSessionCache.Object,
             _messenger.Object,
             _logger.Object);

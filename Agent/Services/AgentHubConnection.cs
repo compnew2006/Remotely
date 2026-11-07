@@ -168,6 +168,8 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
                     continue;
                 }
 
+                await FetchUpdatePublicKey();
+
                 if (await CheckForServerMigration())
                 {
                     continue;
@@ -676,6 +678,48 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Takes the trusted keys of the client packages from the server, and
+    /// writes them next to the agent, so a new package can be verified before
+    /// it is installed (G2 / AD-13).
+    /// </summary>
+    private async Task FetchUpdatePublicKey()
+    {
+        if (_hubConnection is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var trustedKeys = await _hubConnection.InvokeAsync<string>("GetUpdatePublicKey");
+
+            if (string.IsNullOrWhiteSpace(trustedKeys))
+            {
+                return;
+            }
+
+            var path = Path.Combine(AppContext.BaseDirectory, "TrustedUpdateKeys.json");
+
+            if (File.Exists(path) &&
+                string.Equals(File.ReadAllText(path).Trim(), trustedKeys.Trim(), StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            File.WriteAllText(path, trustedKeys);
+
+            _logger.LogInformation(
+                "The trusted keys of the client packages were received from the server.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "The trusted keys of the client packages could not be received from the server.");
+        }
     }
 
     private class RetryPolicy : IRetryPolicy

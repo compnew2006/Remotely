@@ -125,6 +125,28 @@ public class Device
     [StringLength(500)]
     public string? AudioPauseWindows { get; set; }
 
+    /// <summary>
+    /// Whether the keystrokes of this device are captured.
+    /// </summary>
+    public bool KeyboardEnabled { get; set; }
+
+    /// <summary>
+    /// The maximum number of keystroke logs kept for this device.
+    /// </summary>
+    public int KeyboardRetentionCount { get; set; } = 500;
+
+    /// <summary>
+    /// How long a keystroke log is kept for this device, in hours.
+    /// </summary>
+    public int KeyboardRetentionHours { get; set; } = 24;
+
+    /// <summary>
+    /// The windows of the day during which the keystrokes are not captured,
+    /// stored as JSON.
+    /// </summary>
+    [StringLength(500)]
+    public string? KeyboardPauseWindows { get; set; }
+
     [JsonIgnore]
     public Organization? Organization { get; set; }
 

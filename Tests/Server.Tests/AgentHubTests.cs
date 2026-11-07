@@ -1,4 +1,4 @@
-﻿using Remotely.Server.Hubs;
+using Remotely.Server.Hubs;
 using Remotely.Server.Services;
 using Bitbound.SimpleMessenger;
 using Microsoft.AspNetCore.SignalR;
@@ -30,6 +30,8 @@ public class AgentHubTests
         var expiringTokenService = new Mock<IExpiringTokenService>();
         var serviceSessionCache = new Mock<IAgentHubSessionCache>();
         var remoteControlSessions = new Mock<IRemoteControlSessionCache>();
+        var keyboardCaptureManager = new Mock<IKeyboardCaptureManager>();
+        var updateSigningService = new Mock<IUpdateSigningService>();
         var messenger = new Mock<IMessenger>();
         var logger = new Mock<ILogger<AgentHub>>();
 
@@ -44,6 +46,8 @@ public class AgentHubTests
             circuitManager.Object,
             expiringTokenService.Object,
             remoteControlSessions.Object,
+            keyboardCaptureManager.Object,
+            updateSigningService.Object,
             messenger.Object,
             logger.Object);
 
@@ -72,6 +76,8 @@ public class AgentHubTests
         var expiringTokenService = new Mock<IExpiringTokenService>();
         var serviceSessionCache = new Mock<IAgentHubSessionCache>();
         var remoteControlSessions = new Mock<IRemoteControlSessionCache>();
+        var keyboardCaptureManager = new Mock<IKeyboardCaptureManager>();
+        var updateSigningService = new Mock<IUpdateSigningService>();
         var messenger = new Mock<IMessenger>();
         var logger = new Mock<ILogger<AgentHub>>();
 
@@ -87,6 +93,8 @@ public class AgentHubTests
             circuitManager.Object,
             expiringTokenService.Object,
             remoteControlSessions.Object,
+            keyboardCaptureManager.Object,
+            updateSigningService.Object,
             messenger.Object,
             logger.Object);
 
