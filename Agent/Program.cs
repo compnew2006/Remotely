@@ -70,9 +70,14 @@ public class Program
             SetSas(services, logger);
         }
 
+        // Connect first so the device registers online and the trusted
+        // update keys are fetched from the server before the first update
+        // check verifies anything (an update check that runs before the
+        // keys arrive always fails with UnknownKeyId and stalls updates).
+        await services.GetRequiredService<IAgentHubConnection>().Connect();
+
         // TODO: Move this to a BackgroundService.
         await services.GetRequiredService<IUpdater>().BeginChecking();
-        await services.GetRequiredService<IAgentHubConnection>().Connect();
     }
 
     private static void RegisterServices(IServiceCollection services)

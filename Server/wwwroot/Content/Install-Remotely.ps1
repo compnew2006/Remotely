@@ -126,17 +126,43 @@ function Stop-Remotely {
 		}
 	}
 
-	$Processes = @(Get-Process -Name "Remotely_Agent", "Remotely_Desktop" -ErrorAction SilentlyContinue)
-	foreach ($Process in $Processes) {
+	# Kill the agent FIRST and wait for it to really exit before touching the
+	# desktop. The agent's supervisor relaunches the desktop when it is
+	# terminated, so killing the desktop while the agent is still alive
+	# guarantees the "process came back" failure below.
+	$AgentProcesses = @(Get-Process -Name "Remotely_Agent" -ErrorAction SilentlyContinue)
+	foreach ($Process in $AgentProcesses) {
 		Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
 	}
-	foreach ($Process in $Processes) {
+	foreach ($Process in $AgentProcesses) {
 		try {
 			Wait-Process -Id $Process.Id -Timeout 30 -ErrorAction Stop
 		}
 		catch {
 			# Wait-Process also throws when a process has already exited.
 		}
+	}
+
+	# The agent is gone, so its supervisor can no longer respawn the desktop.
+	# Keep trying the desktop until it stays dead; a desktop that survives is
+	# removed with taskkill which takes the forceful path.
+	for ($Attempt = 1; $Attempt -le 10; $Attempt++) {
+		$DesktopProcesses = @(Get-Process -Name "Remotely_Desktop" -ErrorAction SilentlyContinue)
+		if ($DesktopProcesses.Count -eq 0) {
+			break
+		}
+		foreach ($Process in $DesktopProcesses) {
+			Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+		}
+		Start-Sleep -Seconds 2
+	}
+
+	$RemainingDesktop = @(Get-Process -Name "Remotely_Desktop" -ErrorAction SilentlyContinue)
+	if ($RemainingDesktop.Count -gt 0) {
+		foreach ($Process in $RemainingDesktop) {
+			& taskkill /PID $Process.Id /F *> $null
+		}
+		Start-Sleep -Seconds 2
 	}
 
 	$ServiceStopped = $true
@@ -291,12 +317,42 @@ function Install-Remotely {
 		Do-Exit
 	}
 
-	Stop-Remotely
-	Remove-InstallFiles
+	# Non-destructive preflight: extract and verify the new package in
+	# isolation FIRST. A corrupt, partial, or wrong-platform zip must not
+	# stop and delete the running client, because that leaves the device
+	# offline until someone visits it.
+	$StagingPath = "$env:TEMP\RemotelyUpdate-Staging-$([System.Guid]::NewGuid().ToString('N'))"
+	try {
+		New-Item -ItemType Directory -Path "$StagingPath" -Force | Out-Null
+		Expand-Archive -Path "$env:TEMP\Remotely-Win-$Platform.zip" -DestinationPath "$StagingPath" -Force -ErrorAction Stop
+		if (!(Test-Path -LiteralPath "$StagingPath\Remotely_Agent.exe")) {
+			throw "Staged extraction did not produce Remotely_Agent.exe. The current install was left untouched."
+		}
+	}
+	catch {
+		Write-Log "Staged preflight failed: $($_.Exception.Message)"
+		throw
+	}
 
-	Expand-Archive -Path "$env:TEMP\Remotely-Win-$Platform.zip" -DestinationPath "$InstallPath" -Force -ErrorAction Stop
-	if (!(Test-Path -LiteralPath "$InstallPath\Remotely_Agent.exe")) {
-		throw "Client extraction did not produce Remotely_Agent.exe. The service was not created."
+	# Tell the running agent's desktop supervisor not to relaunch the
+	# desktop while it is being replaced. The flag is removed after the new
+	# service starts; a stale flag is ignored after ten minutes.
+	$SuppressFlagPath = "$InstallPath\SuppressDesktopRestart.flag"
+	New-Item -ItemType File -Path "$SuppressFlagPath" -Value (Get-Date).ToString("o") -Force | Out-Null
+
+	try {
+		Stop-Remotely
+		Remove-InstallFiles
+
+		Copy-Item -Path "$StagingPath\*" -Destination "$InstallPath" -Recurse -Force -ErrorAction Stop
+		if (!(Test-Path -LiteralPath "$InstallPath\Remotely_Agent.exe")) {
+			throw "Client extraction did not produce Remotely_Agent.exe. The service was not created."
+		}
+	}
+	finally {
+		if (Test-Path -LiteralPath $StagingPath) {
+			Remove-Item -LiteralPath $StagingPath -Recurse -Force -ErrorAction SilentlyContinue
+		}
 	}
 
 	New-Item -ItemType File -Path "$InstallPath\ConnectionInfo.json" -Value (ConvertTo-Json -InputObject $ConnectionInfo) -Force
@@ -318,6 +374,10 @@ function Install-Remotely {
 	New-Service -Name "Remotely_Service" -BinaryPathName "`"$InstallPath\Remotely_Agent.exe`"" -DisplayName "Remotely Service" -StartupType Automatic -Description "Background service that maintains a connection to the Remotely server.  The service is used for remote support and maintenance by this computer's administrators."
 	Set-ServiceHardening
 	Start-Service -Name Remotely_Service
+
+	if (Test-Path -LiteralPath "$InstallPath\SuppressDesktopRestart.flag") {
+		Remove-Item -LiteralPath "$InstallPath\SuppressDesktopRestart.flag" -Force -ErrorAction SilentlyContinue
+	}
 }
 
 #endregion

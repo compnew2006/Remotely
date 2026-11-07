@@ -168,6 +168,12 @@ public class UpdaterWin : IUpdater
 
             _logger.LogInformation("Launching installer to perform update.");
 
+            // Same contract as the installer: an expected desktop shutdown
+            // must look intentional to the supervisor. The installer removes
+            // the flag once the new service is running; a stale flag is
+            // ignored by the supervisor after ten minutes.
+            SuppressDesktopRestart();
+
             Process.Start(
                 "powershell.exe",
                 $"-ExecutionPolicy Bypass -File \"{installerPath}\" -Path \"{zipPath}\" " +
@@ -237,6 +243,20 @@ public class UpdaterWin : IUpdater
         {
             _logger.LogError(ex, "Service Updater: exception during update verification. Failing closed.");
             return false;
+        }
+    }
+
+    private static void SuppressDesktopRestart()
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "SuppressDesktopRestart.flag");
+            File.WriteAllText(path, DateTimeOffset.Now.ToString("o"));
+        }
+        catch (Exception)
+        {
+            // The installer's hardened stop order covers the retry loop
+            // on its own; the flag is defense in depth.
         }
     }
 

@@ -88,12 +88,6 @@ public class UpdateSigningService : IUpdateSigningService
             var packageBytes = await File.ReadAllBytesAsync(packagePath, cancellationToken);
             var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes));
 
-            if (_signedHashes.TryGetValue(platform, out var signedHash) &&
-                string.Equals(signedHash, packageHash, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
             var installerBytes = File.Exists(installerPath) ?
                 await File.ReadAllBytesAsync(installerPath, cancellationToken) :
                 null;
@@ -101,6 +95,18 @@ public class UpdateSigningService : IUpdateSigningService
             var installerHash = installerBytes is null ?
                 string.Empty :
                 Convert.ToHexString(SHA256.HashData(installerBytes));
+
+            // The manifest covers both the package and the installer. An
+            // installer-only change (e.g. a hardened stop order) must
+            // re-sign too, or the agents reject every update with
+            // InstallerHashMismatch against the stale manifest.
+            var signedIdentity = packageHash + ":" + installerHash;
+
+            if (_signedHashes.TryGetValue(platform, out var signedHash) &&
+                string.Equals(signedHash, signedIdentity, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
 
             var (keyId, _, key) = LoadOrCreateKey();
 
@@ -128,7 +134,7 @@ public class UpdateSigningService : IUpdateSigningService
                 Convert.ToBase64String(signature),
                 cancellationToken);
 
-            _signedHashes[platform] = packageHash;
+            _signedHashes[platform] = signedIdentity;
 
             _logger.LogInformation(
                 "The client package for {platform} was signed.  Key ID: {keyId}.  Version: {version}.",

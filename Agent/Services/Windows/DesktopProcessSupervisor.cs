@@ -104,6 +104,21 @@ public class DesktopProcessSupervisor : BackgroundService, IDesktopProcessSuperv
                 continue;
             }
 
+            if (IsUpdateInProgress())
+            {
+                // The installer is replacing the desktop. Relaunching here
+                // would resurrect the very process the installer is removing
+                // and fail its install. Leave the session untracked: the
+                // new agent starts a fresh desktop on demand.
+                _logger.LogInformation(
+                    "The desktop process {ProcessId} for session {SessionId} was terminated while an update is in progress.  It will not be started again.",
+                    tracked.Info.ProcessId,
+                    tracked.Info.TargetSessionId);
+
+                RemoveTracked(entry.Key);
+                continue;
+            }
+
             if (_policy.IsCleanExit(exitCode))
             {
                 _logger.LogInformation(
@@ -301,6 +316,38 @@ public class DesktopProcessSupervisor : BackgroundService, IDesktopProcessSuperv
         _trackedProcesses.TryRemove(key, out _);
 
         SaveState();
+    }
+
+    /// <summary>
+    /// The installer writes this flag next to the agent before stopping it,
+    /// so an expected shutdown looks intentional to the supervisor. A flag
+    /// older than ten minutes is treated as stale (a crashed installer) and
+    /// ignored, so a forgotten flag cannot disable recovery forever.
+    /// </summary>
+    private static bool IsUpdateInProgress()
+    {
+        try
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SuppressDesktopRestart.flag");
+
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            var created = File.GetLastWriteTime(path);
+
+            if (DateTime.Now - created >= TimeSpan.FromMinutes(10))
+            {
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string BuildKey(int targetSessionId, string role) => $"{targetSessionId}:{role}";
