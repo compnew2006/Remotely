@@ -22,6 +22,19 @@
 </div>
 
 <div class="row mb-3 g-2">
+    <div class="col-sm-6">
+        <label class="form-label mb-1" for="keyboardShowPasswords">Password fields</label>
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="keyboardShowPasswords" checked="@_showPasswords"
+                   disabled="@_isBusy" @onchange="ToggleShowPasswords" />
+            <label class="form-check-label" for="keyboardShowPasswords">
+                @(_showPasswords ? "Shown - the text of a password field is stored" : "Masked - the text of a password field is never stored")
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3 g-2">
     <div class="col-12">
         <button class="btn btn-primary btn-sm me-2" @onclick="SaveSettings" disabled="@_isBusy">Save</button>
         <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
@@ -40,7 +53,16 @@
 {
     <div class="alert alert-secondary py-2">
         The text that is typed on this device is captured and sent to the server while it is being typed.
-        The text of a password field is never stored.
+        @if (_showPasswords)
+        {
+            <span class="text-danger">
+                The text of a password field is stored as it is typed.
+            </span>
+        }
+        else
+        {
+            <span>The text of a password field is never stored.</span>
+        }
     </div>
 }
 

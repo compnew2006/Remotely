@@ -137,6 +137,13 @@ public interface IDesktopHubClient
     Task StartKeyboardLogging(string deviceId);
 
     /// <summary>
+    /// Tells the device whether the text of a password field is captured as
+    /// it is typed.  The text of a password field is masked when this is not
+    /// called, so it is never stored.
+    /// </summary>
+    Task SetKeyboardCaptureOptions(bool showPasswords);
+
+    /// <summary>
     /// Stops capturing the text that is typed on this device.
     /// </summary>
     Task StopKeyboardLogging();

@@ -26,6 +26,7 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
     private int _retentionCount = 500;
     private int _retentionHours = 24;
     private bool _isEnabled;
+    private bool _showPasswords;
     private bool _isBusy;
     private bool _showFolderPicker;
 
@@ -75,6 +76,7 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
 
         var device = deviceResult.Value;
         _isEnabled = device.KeyboardEnabled;
+        _showPasswords = device.KeyboardShowPasswords;
         _retentionCount = device.KeyboardRetentionCount > 0 ?
             device.KeyboardRetentionCount :
             500;
@@ -145,7 +147,8 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
                 enabled,
                 _retentionCount,
                 _retentionHours,
-                _pauseWindows.Count == 0 ? null : ScreenshotPause.Serialize(_pauseWindows));
+                _pauseWindows.Count == 0 ? null : ScreenshotPause.Serialize(_pauseWindows),
+                _showPasswords);
 
             if (!result.IsSuccess)
             {
@@ -180,6 +183,61 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
         }
     }
 
+    private async Task ToggleShowPasswords(ChangeEventArgs args)
+    {
+        // The value of a checkbox is the string "on" when it is checked, so
+        // it is read in both shapes.
+        var showPasswords = args.Value switch
+        {
+            bool value => value,
+            string value => string.Equals(value, "on", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "true", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+
+        _isBusy = true;
+        _errorMessage = null;
+
+        try
+        {
+            var result = await CircuitConnection.UpdateKeyboardSettings(
+                DeviceId,
+                _isEnabled,
+                _retentionCount,
+                _retentionHours,
+                _pauseWindows.Count == 0 ? null : ScreenshotPause.Serialize(_pauseWindows),
+                showPasswords);
+
+            if (!result.IsSuccess)
+            {
+                _errorMessage = result.Reason;
+            }
+
+            await LoadDeviceSettings();
+
+            if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                return;
+            }
+
+            ToastService.ShowToast2(
+                showPasswords ?
+                    $"The text of a password field on {DeviceName} is now stored." :
+                    $"The text of a password field on {DeviceName} is masked again.",
+                showPasswords ? ToastType.Warning : ToastType.Info);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            await LoadDeviceSettings();
+        }
+        finally
+        {
+            _isBusy = false;
+            StateHasChanged();
+        }
+    }
+
     private async Task SaveSettings()
     {
         _isBusy = true;
@@ -192,7 +250,8 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
                 _isEnabled,
                 _retentionCount,
                 _retentionHours,
-                _pauseWindows.Count == 0 ? null : ScreenshotPause.Serialize(_pauseWindows));
+                _pauseWindows.Count == 0 ? null : ScreenshotPause.Serialize(_pauseWindows),
+                _showPasswords);
 
             if (!result.IsSuccess)
             {

@@ -11,6 +11,13 @@ namespace Remotely.Desktop.Shared.Services;
 public interface IKeyboardLogService
 {
     /// <summary>
+    /// Whether the text of a password field is captured as it is typed.  The
+    /// text of a password field is masked when this is false, so it is
+    /// never stored.
+    /// </summary>
+    bool ShowPasswords { get; set; }
+
+    /// <summary>
     /// Whether the capture is running.
     /// </summary>
     bool IsRunning { get; }
@@ -44,9 +51,26 @@ internal class KeyboardLogService : IKeyboardLogService
 
     public bool IsRunning => _keyboardLogger.IsRunning;
 
+    /// <summary>
+    /// Whether the text of a password field is captured as it is typed.  The
+    /// text of a password field is masked when this is false, so it is
+    /// never stored.
+    /// </summary>
+    public bool ShowPasswords
+    {
+        get => _showPasswords;
+        set
+        {
+            _showPasswords = value;
+            _keyboardLogger.ShowPasswords = value;
+        }
+    }
+
+    private bool _showPasswords;
+
     public void Start()
     {
-        _keyboardLogger.Start(Send);
+        _keyboardLogger.Start(Send, ShowPasswords);
     }
 
     public void Stop()

@@ -33,6 +33,12 @@ public interface IKeyboardCaptureManager
     Task StopAsync(string deviceId);
 
     /// <summary>
+    /// Tells the device whether the text of a password field is captured as
+    /// it is typed.
+    /// </summary>
+    Task SetShowPasswordsAsync(string deviceId, bool showPasswords);
+
+    /// <summary>
     /// Starts the capture of every device that has it enabled.  It is called
     /// when the server starts.
     /// </summary>
@@ -142,6 +148,37 @@ public class KeyboardCaptureManager : IKeyboardCaptureManager
             }
 
             _sessionCache.TryRemove($"{session.UnattendedSessionId}", out _);
+        }
+    }
+
+    /// <summary>
+    /// Tells the device whether the text of a password field is captured as
+    /// it is typed.  The capture of a device that is not running is not
+    /// changed, because the options are sent again when the capture starts.
+    /// </summary>
+    public async Task SetShowPasswordsAsync(string deviceId, bool showPasswords)
+    {
+        foreach (var session in _sessionCache.Sessions
+            .Where(x => x.DeviceId == deviceId && x.IsKeyboardCapture))
+        {
+            if (string.IsNullOrWhiteSpace(session.DesktopConnectionId))
+            {
+                continue;
+            }
+
+            try
+            {
+                await _desktopHubContext.Clients
+                    .Client(session.DesktopConnectionId)
+                    .SetKeyboardCaptureOptions(showPasswords);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Error while setting the keyboard capture options of device {deviceId}.",
+                    deviceId);
+            }
         }
     }
 

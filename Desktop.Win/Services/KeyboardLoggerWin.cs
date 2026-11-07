@@ -76,6 +76,19 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     private bool _hookStartFailed;
 
     /// <summary>
+    /// Whether the text of a password field is captured as it is typed.  The
+    /// text of a password field is masked when this is false, so it is
+    /// never stored.
+    /// </summary>
+    public bool ShowPasswords
+    {
+        get => _showPasswords;
+        set => _showPasswords = value;
+    }
+
+    private bool _showPasswords;
+
+    /// <summary>
     /// The number of events that the hook has received.
     /// </summary>
     private int _hookEventCount;
@@ -114,7 +127,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     public bool IsRunning => Volatile.Read(ref _hookHandle) != IntPtr.Zero;
 
-    public void Start(Action<KeyboardLogChunk> onChunk)
+    public void Start(Action<KeyboardLogChunk> onChunk, bool showPasswords = false)
     {
         if (IsRunning)
         {
@@ -124,6 +137,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         try
         {
             _onChunk = onChunk;
+            _showPasswords = showPasswords;
 
             // The delegate has to be kept alive, or the hook is removed when
             // it is collected.
@@ -564,7 +578,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         var chunk = new KeyboardLogChunk(
             title,
             processName,
-            isPasswordField ? Mask(text) : text,
+            isPasswordField && !_showPasswords ? Mask(text) : text,
             isPasswordField);
 
         try

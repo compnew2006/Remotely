@@ -11,7 +11,9 @@ internal sealed class UnavailableKeyboardLogger : IKeyboardLogger
 {
     public bool IsRunning => false;
 
-    public void Start(Action<KeyboardLogChunk> onChunk)
+    public bool ShowPasswords { get; set; }
+
+    public void Start(Action<KeyboardLogChunk> onChunk, bool showPasswords = false)
     {
         // Nothing can be captured.
     }

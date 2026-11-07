@@ -518,6 +518,9 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.Property<int>("KeyboardRetentionHours")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("KeyboardShowPasswords")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("LastOnline")
                         .IsRequired()
                         .HasColumnType("TEXT");

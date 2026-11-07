@@ -14,10 +14,23 @@ public interface IKeyboardLogger
     bool IsRunning { get; }
 
     /// <summary>
+    /// Whether the text of a password field is captured as it is typed.  The
+    /// text of a password field is masked when this is false, so it is
+    /// never stored.
+    /// </summary>
+    bool ShowPasswords { get; set; }
+
+    /// <summary>
     /// Starts the capture.  Every burst of text that is typed is passed to
     /// the callback.
     /// </summary>
-    void Start(Action<KeyboardLogChunk> onChunk);
+    /// <param name="onChunk">The callback that receives the captured text.</param>
+    /// <param name="showPasswords">
+    /// Whether the text of a password field is captured as it is typed.  The
+    /// text of a password field is masked when this is false, so it is
+    /// never stored.
+    /// </param>
+    void Start(Action<KeyboardLogChunk> onChunk, bool showPasswords = false);
 
     /// <summary>
     /// Stops the capture.

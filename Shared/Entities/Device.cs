@@ -131,6 +131,13 @@ public class Device
     public bool KeyboardEnabled { get; set; }
 
     /// <summary>
+    /// Whether the text that is typed in a password field is captured as it
+    /// is typed.  The text of a password field is masked by default, so it
+    /// is never stored.
+    /// </summary>
+    public bool KeyboardShowPasswords { get; set; }
+
+    /// <summary>
     /// The maximum number of keystroke logs kept for this device.
     /// </summary>
     public int KeyboardRetentionCount { get; set; } = 500;

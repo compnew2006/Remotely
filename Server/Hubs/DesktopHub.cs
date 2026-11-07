@@ -412,10 +412,40 @@ public class DesktopHub : Hub<IDesktopHubClient>
                 "Starting the keyboard capture on device {deviceId}.",
                 SessionInfo.DeviceId);
 
+            // The options are sent before the capture is started, so the
+            // device knows what to do with the text of a password field.
+            // Devices with an older client do not have this method, and
+            // they keep masking the text of a password field.
+            await Clients.Caller.SetKeyboardCaptureOptions(
+                await IsKeyboardPasswordVisible(SessionInfo.DeviceId));
+
             await Clients.Caller.StartKeyboardLogging(SessionInfo.DeviceId);
         }
 
         return Result.Ok();
+    }
+
+    /// <summary>
+    /// Returns true when the text of a password field is captured as it is
+    /// typed on the device.
+    /// </summary>
+    private async Task<bool> IsKeyboardPasswordVisible(string deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return false;
+        }
+
+        try
+        {
+            var deviceResult = await _dataService.GetDevice(deviceId);
+            return deviceResult.IsSuccess && deviceResult.Value.KeyboardShowPasswords;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while reading the keyboard settings of device {deviceId}.", deviceId);
+            return false;
+        }
     }
 
     /// <summary>

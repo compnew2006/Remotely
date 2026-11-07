@@ -870,6 +870,28 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
     }
 
     /// <summary>
+    /// Called by the server to tell the device whether the text of a
+    /// password field is captured as it is typed.
+    /// </summary>
+    public Task SetKeyboardCaptureOptions(bool showPasswords)
+    {
+        _logger.LogInformation(
+            "The server set the keyboard capture options.  Passwords are {state}.",
+            showPasswords ? "shown" : "masked");
+
+        try
+        {
+            _serviceProvider.GetRequiredService<IKeyboardLogService>().ShowPasswords = showPasswords;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while setting the keyboard capture options.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Called by the server to stop capturing the text that is typed on this
     /// device.
     /// </summary>
@@ -964,6 +986,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
             StartAudioLive);
         connection.On(nameof(StopAudioLive), StopAudioLive);
         connection.On<string>(nameof(StartKeyboardLogging), StartKeyboardLogging);
+        connection.On<bool>(nameof(SetKeyboardCaptureOptions), SetKeyboardCaptureOptions);
         connection.On(nameof(StopKeyboardLogging), StopKeyboardLogging);
 
         connection.Reconnected += HandleReconnected;

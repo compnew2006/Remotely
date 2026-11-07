@@ -527,6 +527,9 @@ namespace Remotely.Server.Migrations.SqlServer
                     b.Property<int>("KeyboardRetentionHours")
                         .HasColumnType("int");
 
+                    b.Property<bool>("KeyboardShowPasswords")
+                        .HasColumnType("bit");
+
                     b.Property<DateTimeOffset>("LastOnline")
                         .HasColumnType("datetimeoffset");
 

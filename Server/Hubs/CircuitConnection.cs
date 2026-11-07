@@ -173,7 +173,8 @@ public interface ICircuitConnection
         bool enabled,
         int retentionCount,
         int retentionHours,
-        string? pauseWindows = null);
+        string? pauseWindows = null,
+        bool? showPasswords = null);
 
     Task RemoveDevices(string[] deviceIDs);
 
@@ -1815,7 +1816,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         bool enabled,
         int retentionCount,
         int retentionHours,
-        string? pauseWindows = null)
+        string? pauseWindows = null,
+        bool? showPasswords = null)
     {
         if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
         {
@@ -1827,7 +1829,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             enabled,
             retentionCount,
             retentionHours,
-            pauseWindows);
+            pauseWindows,
+            showPasswords);
 
         if (!result.IsSuccess)
         {
@@ -1852,6 +1855,13 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         else
         {
             await _keyboardCaptureManager.StopAsync(deviceId);
+        }
+
+        if (showPasswords.HasValue)
+        {
+            // The capture of a device that is already running is told about
+            // the change, so it does not have to be stopped and started.
+            await _keyboardCaptureManager.SetShowPasswordsAsync(deviceId, showPasswords.Value);
         }
 
         _logger.LogInformation(

@@ -524,6 +524,9 @@ namespace Remotely.Server.Migrations.PostgreSql
                     b.Property<int>("KeyboardRetentionHours")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("KeyboardShowPasswords")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset>("LastOnline")
                         .HasColumnType("timestamp with time zone");
 

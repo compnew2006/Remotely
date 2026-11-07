@@ -237,7 +237,8 @@ public interface IDataService
         bool enabled,
         int retentionCount,
         int retentionHours,
-        string? pauseWindows = null);
+        string? pauseWindows = null,
+        bool? showPasswords = null);
 
     Task<Result> UpdateUserOptions(string userName, RemotelyUserOptions options);
     Task<bool> ValidateApiKey(string keyId, string apiSecret, string requestPath, string remoteIP);
@@ -2368,7 +2369,8 @@ public class DataService : IDataService
         bool enabled,
         int retentionCount,
         int retentionHours,
-        string? pauseWindows = null)
+        string? pauseWindows = null,
+        bool? showPasswords = null)
     {
         pauseWindows = string.IsNullOrWhiteSpace(pauseWindows) ? null : pauseWindows;
 
@@ -2389,6 +2391,11 @@ public class DataService : IDataService
         device.KeyboardRetentionCount = retentionCount > 0 ? Math.Clamp(retentionCount, 1, 20000) : 500;
         device.KeyboardRetentionHours = retentionHours > 0 ? Math.Clamp(retentionHours, 1, 8760) : 24;
         device.KeyboardPauseWindows = pauseWindows;
+
+        if (showPasswords.HasValue)
+        {
+            device.KeyboardShowPasswords = showPasswords.Value;
+        }
 
         await dbContext.SaveChangesAsync();
 

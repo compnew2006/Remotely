@@ -27,8 +27,37 @@ public class KeyboardSettingsTests
         var device = new Device();
 
         Assert.IsFalse(device.KeyboardEnabled);
+        Assert.IsFalse(device.KeyboardShowPasswords);
         Assert.AreEqual(500, device.KeyboardRetentionCount);
         Assert.AreEqual(24, device.KeyboardRetentionHours);
+    }
+
+    [TestMethod]
+    public async Task UpdateKeyboardSettings_StoresWhetherPasswordsAreShown()
+    {
+        Assert.IsTrue((await _dataService.UpdateKeyboardSettings(
+            _testData.Org1Device1.ID,
+            true,
+            500,
+            24,
+            null,
+            true)).IsSuccess);
+
+        var deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        Assert.IsTrue(deviceResult.IsSuccess);
+        Assert.IsTrue(deviceResult.Value!.KeyboardShowPasswords);
+
+        Assert.IsTrue((await _dataService.UpdateKeyboardSettings(
+            _testData.Org1Device1.ID,
+            true,
+            500,
+            24,
+            null,
+            false)).IsSuccess);
+
+        deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        Assert.IsTrue(deviceResult.IsSuccess);
+        Assert.IsFalse(deviceResult.Value!.KeyboardShowPasswords);
     }
 
     [TestMethod]
