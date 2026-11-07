@@ -587,7 +587,6 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         }
 
         _logger.LogInformation("Reconnected to server.");
-        await _updater.CheckForUpdates();
 
         var device = await _deviceInfoService.CreateDevice(_connectionInfo.DeviceID, $"{_connectionInfo.OrganizationID}");
 
@@ -597,11 +596,34 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
             return;
         }
 
+        if (!await VerifyServer())
+        {
+            await Connect();
+            return;
+        }
+
+        await FetchUpdatePublicKey();
+
         if (await CheckForServerMigration())
         {
             await Connect();
             return;
         }
+
+        // The update check runs last, off the registration path, so a slow
+        // download or a failed install can never delay coming online. The
+        // updater is fail-closed and retries on its own timer.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _updater.CheckForUpdates();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while checking for updates after reconnect.");
+            }
+        });
     }
 
     private void RegisterMessageHandlers()
