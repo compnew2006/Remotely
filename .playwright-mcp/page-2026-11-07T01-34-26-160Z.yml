@@ -1,0 +1,47 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - link "Remotely Support Portal" [ref=e5] [cursor=pointer]:
+      - /url: ""
+      - generic [ref=e6]: Remotely
+      - generic [ref=e7]: Support Portal
+    - list [ref=e9]:
+      - listitem [ref=e10]:
+        - link "Home" [ref=e11] [cursor=pointer]:
+          - /url: ""
+          - generic [aria-hidden] [ref=e12]: 
+          - text: Home
+      - listitem [ref=e13]:
+        - link "Downloads" [ref=e14] [cursor=pointer]:
+          - /url: downloads
+          - generic [aria-hidden] [ref=e15]: 
+          - text: Downloads
+      - listitem [ref=e16]:
+        - link "Remote Control" [ref=e17] [cursor=pointer]:
+          - /url: /Viewer
+          - generic [aria-hidden] [ref=e18]: 
+          - text: Remote Control
+      - separator [ref=e19]
+      - listitem [ref=e20]:
+        - link "Log in" [ref=e21] [cursor=pointer]:
+          - /url: Account/Login
+          - generic [aria-hidden] [ref=e22]: 
+          - text: Log in
+      - listitem [ref=e23]:
+        - link "Register" [ref=e24] [cursor=pointer]:
+          - /url: Account/Register
+          - generic [aria-hidden] [ref=e25]: 
+          - text: Register
+      - listitem [ref=e26]:
+        - link "About" [ref=e27] [cursor=pointer]:
+          - /url: /about
+          - generic [aria-hidden] [ref=e28]: 
+          - text: About
+  - generic [ref=e32]:
+    - heading "Remotely" [active] [level=1] [ref=e33]
+    - paragraph [ref=e34]: An open-source remote support solution.
+    - separator [ref=e35]
+    - generic [ref=e36]:
+      - button "Log In" [ref=e37] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e38]: 
+        - text: Log In
+      - button "Register" [ref=e39] [cursor=pointer]

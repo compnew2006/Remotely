@@ -1,13 +1,27 @@
 ﻿@page "/about"
 
-<h3>About Remotely</h3>
-
-<p>
-    Project Repo: <a href="https://github.com/immense/Remotely">https://github.com/immense/Remotely</a>
-</p>
-<p>
-    Open-Source Licenses: <a href="/credits">Credits</a>
-</p>
-<p>
-    Version: @(AppVersionHelper.GetAppVersion())
-</p>
+<div class="rm-page rm-page-narrow">
+    <header class="rm-page-header">
+        <h1 class="rm-page-title">About</h1>
+        <p class="rm-lead">Version and open-source credits for this server.</p>
+    </header>
+    <section class="rm-panel">
+        <h2 class="rm-panel-title">Remotely</h2>
+        <ul class="rm-link-list">
+            <li>
+                <a class="rm-link" href="https://github.com/immense/Remotely">
+                    <span class="oi oi-link" aria-hidden="true"></span>Project repo
+                </a>
+            </li>
+            <li>
+                <a class="rm-link" href="/credits">
+                    <span class="oi oi-document" aria-hidden="true"></span>Open-source licenses (Credits)
+                </a>
+            </li>
+        </ul>
+        <div class="rm-panel-body">
+            <p class="rm-label">Version</p>
+            <p class="rm-code">@(AppVersionHelper.GetAppVersion())</p>
+        </div>
+    </section>
+</div>

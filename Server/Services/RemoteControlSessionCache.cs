@@ -102,7 +102,9 @@ internal class RemoteControlSessionCache : IRemoteControlSessionCache
         {
             foreach (var session in _sessions)
             {
-                if (session.Value.IsMonitoring || session.Value.IsCameraMonitoring)
+                if (session.Value.IsMonitoring ||
+                    session.Value.IsCameraMonitoring ||
+                    session.Value.IsKeyboardCapture)
                 {
                     // Capture monitoring sessions have no viewers by design.
                     // They are stopped explicitly instead of expiring due to

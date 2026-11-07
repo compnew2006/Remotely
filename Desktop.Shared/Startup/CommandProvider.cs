@@ -84,8 +84,13 @@ public static class CommandProvider
 
         var viewersOption = new Option<string>(
             "--viewers",
+            () => string.Empty,
             "Used with --relaunch.  Should be a comma-separated list of viewers' " +
             "SignalR connection IDs.");
+
+        // A session that was started for a capture has no viewers, so the
+        // value of the option is allowed to be left out.
+        viewersOption.Arity = ArgumentArity.ZeroOrOne;
         rootCommand.AddOption(viewersOption);
 
         var elevateOption = new Option<bool>(

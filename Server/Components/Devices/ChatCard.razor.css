@@ -1,4 +1,4 @@
-﻿.chat-card {
+.chat-card {
     display: grid;
     grid-template-rows: auto auto auto;
 }
@@ -31,7 +31,7 @@
     height: 0;
     opacity: 0;
     resize: none;
-    border: 1px solid gray;
+    border: 1px solid var(--rm-border);
 }
 
 .chat-card.expanded .chat-input {
@@ -57,5 +57,5 @@
     position: relative;
     width: 80%;
     padding: .5em 1em .5em 1em;
-    border-radius: 5px;
+    border-radius: var(--rm-radius-control);
 }

@@ -1,0 +1,56 @@
+- generic [ref=f4e2]:
+  - generic [ref=f4e3]:
+    - link "Remotely Support Portal" [ref=f4e5] [cursor=pointer]:
+      - /url: ""
+      - generic [ref=f4e6]: Remotely
+      - generic [ref=f4e7]: Support Portal
+    - list [ref=f4e9]:
+      - listitem [ref=f4e10]:
+        - link "Home" [ref=f4e11] [cursor=pointer]:
+          - /url: ""
+          - generic [aria-hidden] [ref=f4e12]: 
+          - text: Home
+      - listitem [ref=f4e13]:
+        - link "Downloads" [ref=f4e14] [cursor=pointer]:
+          - /url: downloads
+          - generic [aria-hidden] [ref=f4e15]: 
+          - text: Downloads
+      - listitem [ref=f4e16]:
+        - link "Remote Control" [ref=f4e17] [cursor=pointer]:
+          - /url: /Viewer
+          - generic [aria-hidden] [ref=f4e18]: 
+          - text: Remote Control
+      - separator [ref=f4e19]
+      - listitem [ref=f4e20]:
+        - link "Log in" [ref=f4e21] [cursor=pointer]:
+          - /url: Account/Login
+          - generic [aria-hidden] [ref=f4e22]: 
+          - text: Log in
+      - listitem [ref=f4e23]:
+        - link "Register" [ref=f4e24] [cursor=pointer]:
+          - /url: Account/Register
+          - generic [aria-hidden] [ref=f4e25]: 
+          - text: Register
+      - listitem [ref=f4e26]:
+        - link "About" [ref=f4e27] [cursor=pointer]:
+          - /url: /about
+          - generic [aria-hidden] [ref=f4e28]: 
+          - text: About
+  - generic [ref=f4e31]:
+    - banner [ref=f4e32]:
+      - heading "About" [level=1] [ref=f4e33]
+      - paragraph [ref=f4e34]: Version and open-source credits for this server.
+    - generic [ref=f4e35]:
+      - heading "Remotely" [level=2] [ref=f4e36]
+      - list [ref=f4e37]:
+        - listitem [ref=f4e38]:
+          - link "Project repo" [ref=f4e39] [cursor=pointer]:
+            - /url: https://github.com/immense/Remotely
+        - listitem [ref=f4e40]:
+          - link "Open-source licenses (Credits)" [ref=f4e41] [cursor=pointer]:
+            - /url: /credits
+            - generic [aria-hidden] [ref=f4e42]: 
+            - text: Open-source licenses (Credits)
+      - generic [ref=f4e43]:
+        - paragraph [ref=f4e44]: Version
+        - paragraph [ref=f4e45]: 1.0.0.0

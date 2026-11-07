@@ -1,11 +1,11 @@
-﻿.list-box {
+.list-box {
     padding: 1em;
-    border: 2px solid gray;
+    border: 1px solid var(--rm-border);
     height: 8em;
     overflow-y: scroll;
     overflow-x: hidden;
     white-space: nowrap;
-    border-radius: 5px;
+    border-radius: var(--rm-radius-control);
 }
 
 #saveButton {

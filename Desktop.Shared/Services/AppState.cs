@@ -21,6 +21,7 @@ public interface IAppState
     bool IsMonitoring { get; set; }
     bool IsCameraMonitoring { get; set; }
     bool IsAudioMonitoring { get; set; }
+    bool IsKeyboardCapture { get; set; }
     bool IsRelaunch { get; }
     AppMode Mode { get; set; }
     string OrganizationId { get; set; }
@@ -98,6 +99,7 @@ public class AppState : IAppState
     public bool IsMonitoring { get; set; }
     public bool IsCameraMonitoring { get; set; }
     public bool IsAudioMonitoring { get; set; }
+    public bool IsKeyboardCapture { get; set; }
     public bool IsRelaunch { get; private set; }
     public AppMode Mode { get; set; }
     public string OrganizationId { get; set; } = string.Empty;

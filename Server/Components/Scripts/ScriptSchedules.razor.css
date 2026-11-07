@@ -1,7 +1,7 @@
-﻿.item-list-border {
-    border: 1px solid gray;
+.item-list-border {
+    border: 1px solid var(--rm-border);
     padding: .5em;
     height: 300px;
-    border-radius: 5px;
+    border-radius: var(--rm-radius-control);
     overflow-y: auto;
 }

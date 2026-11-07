@@ -7,44 +7,44 @@
 @using Remotely.Server.Models
 @using System.ComponentModel.DataAnnotations
 
-<h3 class="mb-3">Branding</h3>
-
-<AlertBanner Message="@_alertMessage" />
-
-<div class="row">
-    <div class="col-sm-8 col-lg-6 col-xl-5">
+<div class="rm-page rm-page-narrow">
+    <header class="rm-page-header">
+        <h1 class="rm-page-title">Branding</h1>
+        <p class="rm-lead">Product name and icon used by quick-support clients and the Windows installer.</p>
+    </header>
+    <AlertBanner Message="@_alertMessage" />
+    <section class="rm-panel">
         <EditForm OnValidSubmit="HandleValidSubmit" Model="_inputModel">
             <DataAnnotationsValidator />
-
-            <div class="form-group mb-5">
-                <label class="text-info font-weight-bold">Product Name</label>
+            <div class="rm-form-group">
+                <label class="rm-label">Product name</label>
                 <InputText class="form-control" @bind-Value="_inputModel.ProductName" />
                 <ValidationMessage For="() => _inputModel.ProductName" />
             </div>
-
-            <div class="form-group mb-4">
-                <label class="text-info font-weight-bold d-block">Current Icon</label>
-                <br />
-                @if (!string.IsNullOrWhiteSpace(_base64Icon))
-                {
-                    <img class="branding-icon" src="data:image/png;base64,@_base64Icon" />
-                }
-                else
-                {
-                    <img class="branding-icon" src="/images/Remotely_Icon.png" />
-                }
+            <div class="rm-form-group">
+                <label class="rm-label">Current icon</label>
+                <div>
+                    @if (!string.IsNullOrWhiteSpace(_base64Icon))
+                    {
+                        <img class="branding-icon" src="data:image/png;base64,@_base64Icon" alt="Current product icon" />
+                    }
+                    else
+                    {
+                        <img class="branding-icon" src="/images/Remotely_Icon.png" alt="Default product icon" />
+                    }
+                </div>
             </div>
-
-            <div class="form-group mb-5">
-                <label class="text-info font-weight-bold">New Icon</label>
+            <div class="rm-form-group">
+                <label class="rm-label">New icon</label>
                 <InputFile type="file" accept="image/png" class="form-control" OnChange="IconUploadInputChanged" />
+                <p class="rm-hint">PNG, under 1 MB.</p>
             </div>
-            <div class="form-group text-end">
-                <button class="btn btn-secondary me-3" type="button" @onclick="ResetBranding">Reset</button>
+            <div class="rm-form-actions">
+                <button class="btn rm-btn-ghost" type="button" @onclick="ResetBranding">Reset</button>
                 <button class="btn btn-primary" type="submit">Submit</button>
             </div>
         </EditForm>
-    </div>
+    </section>
 </div>
 @code {
     private string? _alertMessage;

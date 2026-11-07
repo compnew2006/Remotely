@@ -7,53 +7,57 @@
 
 @if (string.IsNullOrWhiteSpace(DeviceId))
 {
-    <h3 class="mb-3">Get Support</h3>
-    <p>
-        Device ID is missing.  Please use a valid shortcut to the support page, which will include the device ID.
-    </p>
+    <div class="rm-page rm-page-narrow">
+        <header class="rm-page-header">
+            <h1 class="rm-page-title">Get Support</h1>
+        </header>
+        <div class="rm-callout rm-callout-warn" role="alert">Device ID is missing. Please use a valid shortcut to the support page, which will include the device ID.</div>
+    </div>
 }
 else
 {
-    <div class="col-sm-6">
-        @if (!string.IsNullOrWhiteSpace(_statusMessage))
-        {
-            <div class="alert @(_alertClass) alert-dismissible" role="alert">
-                <button type="button" class="btn-close" data-bs-dismiss="alert" @onclick="CloseAlert"></button>
-                @_statusMessage
-            </div>
-        }
+    <div class="rm-auth">
+        <div class="rm-auth-panel">
+            <h1 class="rm-page-title">Get Support</h1>
+            <p class="rm-lead">Tell us how to reach you about this device.</p>
 
-        <h3 class="mb-3 mt-3">Get Support</h3>
-        <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
+            {
+                <div class="alert @(_alertClass) alert-dismissible" role="alert">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" @onclick="CloseAlert"></button>
+                    @_statusMessage
+                </div>
+            }
 
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Name" class="form-control" placeholder="Please enter your name." />
-                <label for="name" class="form-label">Name</label>
-                <ValidationMessage For="() => Input.Name" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" class="form-control" autocomplete="email" placeholder="Please enter your email." />
-                <label for="email" class="form-label">Email</label>
-                <ValidationMessage For="() => Input.Email" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Phone" class="form-control" placeholder="Please enter your phone number (optional)." />
-                <label for="phone" class="form-label">Phone</label>
-                <ValidationMessage For="() => Input.Phone" />
-            </div>
-            <div class="form-check mb-3">
-                <InputCheckbox @bind-Value="Input.ChatResponseOk" class="form-check-input align-middle" />
-                <label class="form-check-label align-middle ms-1" for="ChatResponseOk">
-                    Chat Response OK?
-                </label>
-                <ValidationMessage For="() => Input.ChatResponseOk" />
-            </div>
-            <div class="text-end">
-                <button type="submit" class="btn btn-primary">Submit</button>
-            </div>
-        </EditForm>
+            <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" role="alert" />
+
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.Name" class="form-control" placeholder="Please enter your name." />
+                    <label for="name" class="form-label">Name</label>
+                    <ValidationMessage For="() => Input.Name" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.Email" class="form-control" autocomplete="email" placeholder="Please enter your email." />
+                    <label for="email" class="form-label">Email</label>
+                    <ValidationMessage For="() => Input.Email" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.Phone" class="form-control" placeholder="Please enter your phone number (optional)." />
+                    <label for="phone" class="form-label">Phone</label>
+                    <ValidationMessage For="() => Input.Phone" />
+                </div>
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="Input.ChatResponseOk" class="form-check-input align-middle" />
+                    <label class="form-check-label align-middle ms-1" for="ChatResponseOk">
+                        Chat Response OK?
+                    </label>
+                    <ValidationMessage For="() => Input.ChatResponseOk" />
+                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary">Submit</button>
+            </EditForm>
+        </div>
     </div>
 
 }

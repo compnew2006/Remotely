@@ -1,0 +1,54 @@
+- generic [ref=f5e2]:
+  - generic [ref=f5e3]:
+    - link "Remotely Support Portal" [ref=f5e5] [cursor=pointer]:
+      - /url: ""
+      - generic [ref=f5e6]: Remotely
+      - generic [ref=f5e7]: Support Portal
+    - list [ref=f5e9]:
+      - listitem [ref=f5e10]:
+        - link "Home" [ref=f5e11] [cursor=pointer]:
+          - /url: ""
+          - generic [aria-hidden] [ref=f5e12]: 
+          - text: Home
+      - listitem [ref=f5e13]:
+        - link "Downloads" [ref=f5e14] [cursor=pointer]:
+          - /url: downloads
+          - generic [aria-hidden] [ref=f5e15]: 
+          - text: Downloads
+      - listitem [ref=f5e16]:
+        - link "Remote Control" [ref=f5e17] [cursor=pointer]:
+          - /url: /Viewer
+          - generic [aria-hidden] [ref=f5e18]: 
+          - text: Remote Control
+      - separator [ref=f5e19]
+      - listitem [ref=f5e20]:
+        - link "Log in" [ref=f5e21] [cursor=pointer]:
+          - /url: Account/Login
+          - generic [aria-hidden] [ref=f5e22]: 
+          - text: Log in
+      - listitem [ref=f5e23]:
+        - link "Register" [ref=f5e24] [cursor=pointer]:
+          - /url: Account/Register
+          - generic [aria-hidden] [ref=f5e25]: 
+          - text: Register
+      - listitem [ref=f5e26]:
+        - link "About" [ref=f5e27] [cursor=pointer]:
+          - /url: /about
+          - generic [aria-hidden] [ref=f5e28]: 
+          - text: About
+  - generic [ref=f5e32]:
+    - heading "Register" [active] [level=1] [ref=f5e33]
+    - paragraph [ref=f5e34]: Create a new account.
+    - generic [ref=f5e35]:
+      - generic [ref=f5e36]:
+        - textbox "name@example.com" [ref=f5e37]
+        - generic: Email
+      - generic [ref=f5e38]:
+        - textbox "Password" [ref=f5e39]
+        - generic: Password
+      - generic [ref=f5e40]:
+        - textbox "Confirm password" [ref=f5e41]
+        - generic: Confirm password
+      - button "Register" [ref=f5e42] [cursor=pointer]
+      - link "Already have an account? Log in." [ref=f5e44] [cursor=pointer]:
+        - /url: Account/Login

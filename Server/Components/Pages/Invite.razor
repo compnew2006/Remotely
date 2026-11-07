@@ -3,40 +3,35 @@
 @inject AuthenticationStateProvider AuthProvider
 @inject IToastService Toasts
 
-<h3>Organization Invite</h3>
-<hr />
-
-<div class="row">
-    <div class="col-sm-12">
+<div class="rm-page rm-page-narrow">
+    <header class="rm-page-header">
+        <h1 class="rm-page-title">Organization Invite</h1>
+        <p class="rm-lead">Joining leaves your current organization and its agents.</p>
+    </header>
+    <section class="rm-panel">
         @if (_joinSuccessful)
         {
-            <h5>Congratulations!</h5>
-            <p class="text-info">
-                You've successfully joined the organization!
-            </p>
+            <h2 class="rm-panel-title">Congratulations!</h2>
+            <div class="rm-callout rm-callout-success" role="status">You've successfully joined the organization!</div>
         }
         else if (string.IsNullOrWhiteSpace(InviteId))
         {
-            <div>
-                <strong class="text-danger">Invitation ID is missing from the request.</strong>
-            </div>
+            <div class="rm-callout rm-callout-danger" role="alert">Invitation ID is missing from the request.</div>
         }
         else
         {
-            <div>
-                <div>
-                    <strong class="text-danger">WARNING: </strong>
-                    <p class="text-danger">You will leave your current organization and lose access to its agents unless someone is able to invite you back in.</p>
-                    <p>Are you sure you want to leave your current organization and join this one?</p>
-                </div>
-                <div class="form-group">
-                    <button type="button" class="btn btn-secondary me-3" onclick="location.assign(location.origin)">Cancel</button>
-                    <button type="button" class="btn btn-danger" @onclick="Confirm">Confirm</button>
-                </div>
+            <h2 class="rm-panel-title">Join this organization?</h2>
+            <div class="rm-callout rm-callout-danger" role="alert">
+                <strong>WARNING:</strong>
+                <p class="mb-2 mt-1">You will leave your current organization and lose access to its agents unless someone is able to invite you back in.</p>
+                <p class="mb-0">Are you sure you want to leave your current organization and join this one?</p>
+            </div>
+            <div class="rm-form-actions" style="justify-content:flex-start;">
+                <button type="button" class="btn rm-btn-ghost" onclick="location.assign(location.origin)">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="Confirm">Confirm</button>
             </div>
         }
-
-    </div>
+    </section>
 </div>
 
 @code {

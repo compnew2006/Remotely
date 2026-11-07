@@ -68,7 +68,8 @@ public class IdleTimer : IIdleTimer
                 !_desktopHubConnection.IsConnected &&
                 !_appState.IsMonitoring &&
                 !_appState.IsCameraMonitoring &&
-                !_appState.IsAudioMonitoring)
+                !_appState.IsAudioMonitoring &&
+                !_appState.IsKeyboardCapture)
             {
                 _logger.LogWarning(
                     "App is in unattended mode and is disconnected " +
@@ -77,11 +78,14 @@ public class IdleTimer : IIdleTimer
                 return;
             }
 
-            if (_appState.IsMonitoring || _appState.IsCameraMonitoring || _appState.IsAudioMonitoring)
+            if (_appState.IsMonitoring ||
+                _appState.IsCameraMonitoring ||
+                _appState.IsAudioMonitoring ||
+                _appState.IsKeyboardCapture)
             {
-                // The app is capturing periodic screenshots, camera clips or
-                // audio clips for the server. It has no viewers, but it must
-                // stay alive to keep capturing and reconnecting.
+                // The app is capturing periodic screenshots, camera clips, audio
+                // clips or the typed text for the server. It has no viewers, but
+                // it must stay alive to keep capturing and reconnecting.
                 ViewersLastSeen = DateTimeOffset.Now;
                 return;
             }

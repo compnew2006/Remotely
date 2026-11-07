@@ -153,8 +153,15 @@ public class AppLauncherWin : IAppLauncher
                 $" --org-name \"{orgName}\"" +
                 $" --org-id \"{orgId}\"" +
                 $" --session-id \"{sessionId}\"" +
-                $" --access-key \"{accessKey}\"" +
-                $" --viewers {string.Join(",", viewerIds)}";
+                $" --access-key \"{accessKey}\"";
+
+            // A session that was started for a capture has no viewers, so
+            // the option is left out.  An option without a value stops the
+            // desktop client from starting at all.
+            if (viewerIds.Length > 0)
+            {
+                arguments += $" --viewers {string.Join(",", viewerIds)}";
+            }
 
             var processId = LaunchDesktopProcess(arguments, targetSessionID, UnattendedRole);
 

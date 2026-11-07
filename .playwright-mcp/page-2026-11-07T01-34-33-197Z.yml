@@ -1,0 +1,111 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - link "Remotely Support Portal" [ref=f1e5] [cursor=pointer]:
+      - /url: ""
+      - generic [ref=f1e6]: Remotely
+      - generic [ref=f1e7]: Support Portal
+    - list [ref=f1e9]:
+      - listitem [ref=f1e10]:
+        - link "Home" [ref=f1e11] [cursor=pointer]:
+          - /url: ""
+          - generic [aria-hidden] [ref=f1e12]: 
+          - text: Home
+      - listitem [ref=f1e13]:
+        - link "Downloads" [ref=f1e14] [cursor=pointer]:
+          - /url: downloads
+          - generic [aria-hidden] [ref=f1e15]: 
+          - text: Downloads
+      - listitem [ref=f1e16]:
+        - link "Remote Control" [ref=f1e17] [cursor=pointer]:
+          - /url: /Viewer
+          - generic [aria-hidden] [ref=f1e18]: 
+          - text: Remote Control
+      - separator [ref=f1e19]
+      - listitem [ref=f1e20]:
+        - link "Log in" [ref=f1e21] [cursor=pointer]:
+          - /url: Account/Login
+          - generic [aria-hidden] [ref=f1e22]: 
+          - text: Log in
+      - listitem [ref=f1e23]:
+        - link "Register" [ref=f1e24] [cursor=pointer]:
+          - /url: Account/Register
+          - generic [aria-hidden] [ref=f1e25]: 
+          - text: Register
+      - listitem [ref=f1e26]:
+        - link "About" [ref=f1e27] [cursor=pointer]:
+          - /url: /about
+          - generic [aria-hidden] [ref=f1e28]: 
+          - text: About
+  - generic [ref=f1e31]:
+    - banner [ref=f1e32]:
+      - heading "Downloads" [level=1] [ref=f1e33]
+      - paragraph [ref=f1e34]: Portable clients, resident agents, and install commands for this server.
+    - generic [ref=f1e35]:
+      - heading "Portable Instant Support Clients" [level=2] [ref=f1e36]
+      - paragraph [ref=f1e37]: Instant desktop sharing. No account required.
+      - generic [ref=f1e38]:
+        - article [ref=f1e39]:
+          - heading "Windows (64-Bit)" [level=3] [ref=f1e40]
+          - list [ref=f1e41]:
+            - listitem [ref=f1e42]:
+              - link "Windows EXE" [ref=f1e43] [cursor=pointer]:
+                - /url: /api/ClientDownloads/Desktop/WindowsDesktop-x64/
+                - generic [aria-hidden] [ref=f1e44]: 
+                - text: Windows EXE
+        - article [ref=f1e45]:
+          - heading "Windows (32-Bit)" [level=3] [ref=f1e46]
+          - list [ref=f1e47]:
+            - listitem [ref=f1e48]:
+              - link "Windows EXE" [ref=f1e49] [cursor=pointer]:
+                - /url: /api/ClientDownloads/Desktop/WindowsDesktop-x86/
+                - generic [aria-hidden] [ref=f1e50]: 
+                - text: Windows EXE
+        - article [ref=f1e51]:
+          - heading "Linux 64-Bit" [level=3] [ref=f1e52]
+          - list [ref=f1e53]:
+            - listitem [ref=f1e54]:
+              - link "Ubuntu Executable" [ref=f1e55] [cursor=pointer]:
+                - /url: /api/ClientDownloads/Desktop/UbuntuDesktop/
+                - generic [aria-hidden] [ref=f1e56]: 
+                - text: Ubuntu Executable
+    - generic [ref=f1e57]:
+      - heading "Resident Agents" [level=2] [ref=f1e58]
+      - paragraph [ref=f1e59]: Installable background agents that provide unattended access and remote scripting.
+      - generic [ref=f1e60]:
+        - heading "Log in to download" [level=3] [ref=f1e61]
+        - paragraph [ref=f1e62]: Resident agents are registered to your organization, so downloading one needs a signed-in account.
+        - link "Log In" [ref=f1e63] [cursor=pointer]:
+          - /url: Account/Login
+          - generic [aria-hidden] [ref=f1e64]: 
+          - text: Log In
+    - generic [ref=f1e65]:
+      - heading "Helper Scripts" [level=2] [ref=f1e66]
+      - paragraph [ref=f1e67]: Copy-and-paste commands for this server. Run them in an elevated PowerShell window on the target Windows machine.
+      - generic [ref=f1e68]:
+        - article [ref=f1e69]:
+          - generic [ref=f1e70]:
+            - heading "1. Install the Windows agent (no account required)" [level=3] [ref=f1e71]
+            - button "Copy" [ref=f1e73] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e74]: 
+              - text: Copy
+          - generic [ref=f1e75]: "$script = \"$env:TEMP\\Install-Remotely.ps1\" irm 'http://127.0.0.1:5001/Content/Install-Remotely.ps1' -OutFile $script powershell.exe -ExecutionPolicy Bypass -File $script ` -ServerUrl 'http://127.0.0.1:5001' ` -OrganizationId ''"
+          - paragraph [ref=f1e76]: Downloads the installer for this server, installs the persistent agent, and registers Remotely_Service.
+        - article [ref=f1e77]:
+          - generic [ref=f1e78]:
+            - heading "2. Protect the agent service (watchdog)" [level=3] [ref=f1e79]
+            - button "Copy" [ref=f1e81] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e82]: 
+              - text: Copy
+          - generic [ref=f1e83]: "$serviceName = 'Remotely_Service' $displayName = 'Arkan Remote Support - DO NOT STOP' # Start automatically and give the service an unmistakable name. sc.exe config $serviceName start= auto sc.exe config $serviceName DisplayName= \"$displayName\" # Restart the service on failure. sc.exe failure $serviceName reset= 900 actions= restart/5000/restart/10000/restart/30000 # Watchdog: restart within a minute if anything stops the service. $cmd = \"if ((Get-Service $serviceName -ErrorAction SilentlyContinue).Status -ne 'Running') { Start-Service $serviceName -ErrorAction SilentlyContinue }\" $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument \"-NoProfile -WindowStyle Hidden -Command `\"$cmd`\"\" $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest Register-ScheduledTask -TaskName 'Remotely Service Watchdog' -Action $action -Trigger $trigger -Principal $principal -Force # Make sure it is running now. Start-Service $serviceName -ErrorAction SilentlyContinue # Park a stray portable \"Quick Support\" copy, if one was placed in the # install folder. This is NOT the unattended app: the agent launches # \"$env:ProgramFiles\\Remotely\\Desktop\\Remotely_Desktop.exe\" for every # remote control session, so that file must never be moved or renamed. $portableExe = Join-Path $env:ProgramFiles 'Remotely\\Remotely_Desktop.exe' if (Test-Path $portableExe) { Move-Item $portableExe \"$portableExe.disabled\" -Force } Get-Service $serviceName | Format-List Name, DisplayName, Status, StartType"
+          - paragraph [ref=f1e84]:
+            - text: Gives the service a clear name, restarts it automatically when it fails, registers a SYSTEM watchdog that restarts it within a minute, and parks a stray portable Quick Support copy. It never touches
+            - code [ref=f1e85]: Remotely\Desktop\Remotely_Desktop.exe
+            - text: ", which the agent needs for unattended control."
+        - article [ref=f1e86]:
+          - generic [ref=f1e87]:
+            - heading "3. Undo the service protection" [level=3] [ref=f1e88]
+            - button "Copy" [ref=f1e90] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e91]: 
+              - text: Copy
+          - generic [ref=f1e92]: "Unregister-ScheduledTask -TaskName 'Remotely Service Watchdog' -Confirm:$false $portableExe = Join-Path $env:ProgramFiles 'Remotely\\Remotely_Desktop.exe' if (Test-Path \"$portableExe.disabled\") { Move-Item \"$portableExe.disabled\" $portableExe -Force } sc.exe config Remotely_Service DisplayName= \"Remotely Service\""
+          - paragraph [ref=f1e93]: Removes the watchdog and restores the original service name and the Quick Support executable.

@@ -7,10 +7,13 @@
  * green = online, yellow = outdated agent, red = destructive.
  */
 :root {
+    --rm-font-sans: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     /* Surfaces */
     --rm-surface-canvas: #222222;
     --rm-surface-raised: #303030;
     --rm-surface-sidebar: #222222;
+    --rm-surface-hover: #343434;
+    --rm-surface-sunken: #1a1a1a;
     --rm-border: #444444;
     --rm-border-soft: rgba(255, 255, 255, 0.08);
     --rm-navbar-scrim: rgba(0, 0, 0, 0.3);
@@ -29,6 +32,10 @@
 
     /* Status */
     --rm-status-ok: #00bc8c;
+    --rm-status-warn: #f5d76e;
+    --rm-status-warn-ink: #f5d76e;
+    --rm-status-danger: #e74c3c;
+    --rm-status-danger-ink: #ff8a7a;
 
     /* Primary action - quiet fill, visible edge */
     --rm-primary-fill: #375a7f;
@@ -41,9 +48,16 @@
     --rm-field-border: #222222;
     --rm-field-placeholder: rgba(48, 48, 48, 0.45);
 
+    /* Depth */
+    --rm-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+    --rm-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.26);
+    --rm-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.34);
+
     /* Shape + metrics */
     --rm-radius-control: 6px;
     --rm-control-height: 38px;
+    --rm-page-max: 1180px;
+    --rm-auth-max: 480px;
 
     /* Bootstrap bridges */
     --bs-border-radius: var(--rm-radius-control);
@@ -79,7 +93,8 @@ a, .btn-link {
 }
 
 hr {
-    border-top: 1px solid #282828;
+    border-top: 1px solid var(--rm-border);
+    opacity: 1;
 }
 
 .navbar-brand {
@@ -96,5 +111,5 @@ hr {
 }
 
 .form-floating > label {
-    color: #375a7f;
+    color: var(--rm-ink-muted);
 }

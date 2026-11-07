@@ -6,10 +6,13 @@
  * family (a deeper slate blue, because #008cba on white is only 3.84:1).
  */
 :root {
+    --rm-font-sans: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     /* Surfaces */
     --rm-surface-canvas: #ffffff;
     --rm-surface-raised: #f8f9fa;
     --rm-surface-sidebar: #f8f9fa;
+    --rm-surface-hover: #eef2f5;
+    --rm-surface-sunken: #f0f0f0;
     --rm-border: #dee2e6;
     --rm-border-soft: rgba(0, 0, 0, 0.08);
     --rm-navbar-scrim: rgba(0, 0, 0, 0.04);
@@ -28,6 +31,10 @@
 
     /* Status */
     --rm-status-ok: #00bc8c;
+    --rm-status-warn: #856404;
+    --rm-status-warn-ink: #856404;
+    --rm-status-danger: #f04124;
+    --rm-status-danger-ink: #b02a1a;
 
     /* Primary action - the fill is darkened so white text passes AA */
     --rm-primary-fill: #0b6a94;
@@ -40,9 +47,16 @@
     --rm-field-border: #ced4da;
     --rm-field-placeholder: rgba(34, 34, 34, 0.45);
 
+    /* Depth */
+    --rm-shadow-sm: 0 1px 2px rgba(34, 34, 34, 0.06);
+    --rm-shadow-md: 0 4px 16px rgba(34, 34, 34, 0.10);
+    --rm-shadow-lg: 0 12px 32px rgba(34, 34, 34, 0.14);
+
     /* Shape + metrics */
     --rm-radius-control: 6px;
     --rm-control-height: 38px;
+    --rm-page-max: 1180px;
+    --rm-auth-max: 480px;
 
     /* Bootstrap bridges */
     --bs-border-radius: var(--rm-radius-control);
@@ -78,7 +92,8 @@ a, .btn-link {
 }
 
 hr {
-    border-top: 1px solid #282828;
+    border-top: 1px solid var(--rm-border);
+    opacity: 1;
 }
 
 .navbar-brand {

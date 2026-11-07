@@ -1,4 +1,4 @@
-﻿.outer-grid {
+.outer-grid {
     display: grid;
     grid-template-columns: 1fr auto;
     grid-column-gap: 2.5em;
@@ -10,7 +10,7 @@
 }
 
 .scripts-tree-view {
-    border-radius: 5px;
+    border-radius: var(--rm-radius-control);
     padding: .5em;
 
 }

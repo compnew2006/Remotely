@@ -858,6 +858,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
 
         try
         {
+            _appState.IsKeyboardCapture = true;
             _serviceProvider.GetRequiredService<IKeyboardLogService>().Start();
         }
         catch (Exception ex)
@@ -879,6 +880,7 @@ public class DesktopHubConnection : IDesktopHubConnection, IDesktopHubClient
         try
         {
             _serviceProvider.GetRequiredService<IKeyboardLogService>().Stop();
+            _appState.IsKeyboardCapture = false;
         }
         catch (Exception ex)
         {

@@ -9,59 +9,50 @@
 @inject ILogsManager LogsManager
 @inject ILoaderService LoaderService
 
-<h3 class="mb-3">Server Logs</h3>
-
-<div class="buttons-row mb-3">
-    <div>
-        <button class="btn btn-danger" type="button" @onclick="ClearAllLogs">
-            Delete Logs
-        </button>
+<div class="rm-page">
+    <header class="rm-page-header">
+        <div class="rm-section-head" style="margin-bottom:0;">
+            <div>
+                <h1 class="rm-page-title">Server Logs</h1>
+                <p class="rm-lead" style="margin-bottom:0;">Filter by type, text, and date range. Today's logs are retained when clearing.</p>
+            </div>
+            <div class="rm-field-actions">
+                <button class="btn btn-outline-danger" type="button" @onclick="ClearAllLogs">Delete Logs</button>
+                <button class="btn rm-btn-ghost" onclick="window.open('/API/ServerLogs/Download', '_blank')">Download Logs</button>
+                <button class="btn rm-btn-ghost" onclick="window.open('/API/ScriptResults', '_blank')">Download Script History</button>
+            </div>
+        </div>
+    </header>
+    <div class="rm-toolbar" style="border-bottom:none; padding-bottom:0;">
+        <div class="rm-toolbar-group">
+            <div class="rm-field" style="min-width:160px;">
+                <label class="rm-label" for="logType">Type</label>
+                <select id="logType" class="form-control" @bind="LogLevel">
+                    <option value="">All</option>
+                    @foreach (var eventType in Enum.GetValues(typeof(LogLevel)))
+                    {
+                        <option @key="eventType" value="@eventType">@eventType</option>
+                    }
+                </select>
+            </div>
+            <div class="rm-field" style="min-width:200px; flex:1;">
+                <label class="rm-label" for="logFilter">Filter</label>
+                <input id="logFilter" type="text" class="form-control" @bind="MessageFilter" @bind:event="oninput" placeholder="Filter text" />
+            </div>
+            <div class="rm-field">
+                <label class="rm-label" for="logFrom">From</label>
+                <input id="logFrom" type="date" class="form-control" @bind="FromDate" />
+            </div>
+            <div class="rm-field">
+                <label class="rm-label" for="logTo">To</label>
+                <input id="logTo" type="date" class="form-control" @bind="ToDate" />
+            </div>
+        </div>
     </div>
-    <div>
-        <button class="btn btn-primary"
-                onclick="window.open('/API/ServerLogs/Download', '_blank')">
-            Download Logs
-        </button>
-    </div>
-    <div>
-        <button class="btn btn-primary"
-                onclick="window.open('/API/ScriptResults', '_blank')">
-            Download Script History
-        </button>
-    </div>
+    <textarea readonly class="logs-content rm-log" aria-label="Server log output">
+        @(string.Join(Environment.NewLine, _filteredLogs))
+    </textarea>
 </div>
-<div class="filters-row mb-3">
-    <div style="display:inline-block">
-        <strong>Type:</strong>
-        <br />
-        <select class="form-control-sm" @bind="LogLevel">
-            <option value="">All</option>
-            @foreach (var eventType in Enum.GetValues(typeof(LogLevel)))
-            {
-                <option @key="eventType" value="@eventType">@eventType</option>
-            }
-        </select>
-    </div>
-    <div style="display:inline-block">
-        <strong>Filter:</strong>
-        <br />
-        <input type="text" @bind="MessageFilter" @bind:event="oninput" />
-    </div>
-    <div style="display:inline-block">
-        <strong>From:</strong>
-        <br />
-        <input type="date" @bind="FromDate" />
-    </div>
-    <div style="display:inline-block">
-        <strong>To:</strong>
-        <br />
-        <input type="date" @bind="ToDate" />
-    </div>
-</div>
-
-<textarea readonly class="logs-content bg-dark text-white">
-    @(string.Join(Environment.NewLine, _filteredLogs))
-</textarea>
 
 @code {
     private readonly string _messageDebounceKey = Guid.NewGuid().ToString();
