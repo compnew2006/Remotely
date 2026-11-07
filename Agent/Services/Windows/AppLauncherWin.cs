@@ -11,6 +11,7 @@ using System.Runtime.Versioning;
 using System.Security.Principal;
 using System.Threading.Tasks;
 using Remotely.Desktop.Native.Windows;
+using System.Runtime.InteropServices;
 
 namespace Remotely.Agent.Services.Windows;
 
@@ -112,6 +113,12 @@ public class AppLauncherWin : IAppLauncher
                 $" --session-id \"{sessionId}\"" +
                 $" --access-key \"{accessKey}\"";
 
+            // The desktop client uses the keyboard layout of the thread that
+            // starts it, and the agent is a service that runs as the system.
+            // The layout of the window that has the focus is used, so the
+            // characters that the client captures are the ones of the user.
+            ApplyForegroundKeyboardLayout();
+
             var processId = LaunchDesktopProcess(arguments, targetSessionId, UnattendedRole);
 
             if (processId <= 0)
@@ -183,6 +190,51 @@ public class AppLauncherWin : IAppLauncher
             throw;
         }
     }
+
+    /// <summary>
+    /// Uses the keyboard layout of the window that has the focus.  The
+    /// desktop client inherits the keyboard layout of the thread that
+    /// starts it, and the agent runs as the system, which uses a different
+    /// layout than the user.
+    /// </summary>
+    private void ApplyForegroundKeyboardLayout()
+    {
+        try
+        {
+            var foregroundWindow = GetForegroundWindow();
+
+            if (foregroundWindow == IntPtr.Zero)
+            {
+                return;
+            }
+
+            var threadId = GetWindowThreadProcessId(foregroundWindow, out _);
+            var layout = GetKeyboardLayout(threadId);
+
+            if (layout == IntPtr.Zero || layout == GetKeyboardLayout(0))
+            {
+                return;
+            }
+
+            ActivateKeyboardLayout(layout, 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The keyboard layout of the focused window could not be used.");
+        }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetKeyboardLayout(uint threadId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr ActivateKeyboardLayout(IntPtr hkl, uint dwFlags);
 
     /// <summary>
     /// Starts the desktop client and hands the process over to the supervisor, so that it is

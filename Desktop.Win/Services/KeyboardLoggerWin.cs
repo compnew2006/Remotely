@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Remotely.Desktop.Shared.Abstractions;
+using Remotely.Desktop.UI.Services;
 using Remotely.Shared.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -44,6 +45,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     private const int _maxBurstLength = 2000;
 
     private readonly ILogger<KeyboardLoggerWin> _logger;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly StringBuilder _buffer = new();
     private readonly object _sync = new();
 
@@ -56,6 +58,11 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     /// The thread that installs the hook and pumps the Windows messages.
     /// </summary>
     private Thread? _hookThread;
+
+    /// <summary>
+    /// The thread that translates the keys that the hook has seen.
+    /// </summary>
+    private Thread? _translateThread;
 
     /// <summary>
     /// The id of the thread of the hook, as Windows knows it.  It is not
@@ -78,15 +85,31 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     /// </summary>
     private readonly ManualResetEventSlim _hookInstalled = new(false);
 
+    /// <summary>
+    /// The keys that the hook has seen and that are not translated yet.
+    /// </summary>
+    private System.Collections.Concurrent.BlockingCollection<CapturedKey> _pendingKeys = new();
+
+    /// <summary>
+    /// A key that the hook has seen.
+    /// </summary>
+    private readonly record struct CapturedKey(int VirtualKeyCode, int ScanCode, bool IsPaste);
+
+    /// <summary>
+    /// The number of keys that were translated, for the diagnostics.
+    /// </summary>
+    private int _diagnosticCount;
+
     private string _windowTitle = string.Empty;
     private string _processName = string.Empty;
     private IntPtr _foregroundHandle = IntPtr.Zero;
     private bool _isPasswordField;
     private DateTimeOffset _lastCharAt = DateTimeOffset.MinValue;
 
-    public KeyboardLoggerWin(ILogger<KeyboardLoggerWin> logger)
+    public KeyboardLoggerWin(ILogger<KeyboardLoggerWin> logger, IUiDispatcher uiDispatcher)
     {
         _logger = logger;
+        _uiDispatcher = uiDispatcher;
     }
 
     public bool IsRunning => Volatile.Read(ref _hookHandle) != IntPtr.Zero;
@@ -109,19 +132,43 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             _hookStartFailed = false;
             _hookInstalled.Reset();
 
+            // The queue of the keys is emptied when the capture is
+            // started again.
+            _pendingKeys = new System.Collections.Concurrent.BlockingCollection<CapturedKey>();
+
             // A low level hook is called in the context of the thread that
             // installed it, and the call is made by sending a message to
             // that thread.  The thread therefore has to pump the Windows
             // messages, or the hook is never called.  The hook is installed
             // on its own thread, so it does not depend on the thread that
             // asks for the capture.
-            _hookThread = new Thread(HookThreadProc)
+            //
+            // The threads are started by the thread of the user interface,
+            // because that thread uses the keyboard layout of the user.  The
+            // new threads inherit that layout with its character table, so
+            // the characters that are captured are the ones that are typed.
+            _uiDispatcher.Post(() =>
             {
-                IsBackground = true,
-                Name = "Remotely Keyboard Capture"
-            };
-            _hookThread.SetApartmentState(ApartmentState.STA);
-            _hookThread.Start();
+                PrepareKeyboardLayout();
+
+                var thread = new Thread(HookThreadProc)
+                {
+                    IsBackground = true,
+                    Name = "Remotely Keyboard Capture"
+                };
+
+                var translateThread = new Thread(TranslateThreadProc)
+                {
+                    IsBackground = true,
+                    Name = "Remotely Keyboard Translate"
+                };
+
+                _hookThread = thread;
+                _translateThread = translateThread;
+
+                translateThread.Start();
+                thread.Start();
+            });
 
             if (!_hookInstalled.Wait(TimeSpan.FromSeconds(5)))
             {
@@ -150,6 +197,8 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     public void Stop()
     {
+        _pendingKeys.CompleteAdding();
+
         var hookThread = _hookThread;
 
         if (hookThread is not null)
@@ -168,6 +217,9 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
             hookThread.Join(TimeSpan.FromSeconds(5));
         }
+
+        _translateThread?.Join(TimeSpan.FromSeconds(5));
+        _translateThread = null;
 
         // The hook is removed here as well, in case the thread was not
         // able to end its own message loop.
@@ -267,7 +319,28 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             {
                 try
                 {
-                    HandleKeyDown(lParam);
+                    var data = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
+
+                    var controlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+                    var altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
+                    // The text of a paste is not typed, so the clipboard is
+                    // read instead of the key.
+                    var isPaste = controlDown && !altDown && data.vkCode == VK_V;
+
+                    // The control and the alt keys modify the next key, so
+                    // the character of a shortcut is not the character that
+                    // was typed.
+                    if (!isPaste && (controlDown || altDown))
+                    {
+                        return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+                    }
+
+                    // The key is translated on another thread, because the
+                    // hook has to return as fast as possible and the
+                    // translation of a key is not allowed while the hook
+                    // is running.
+                    _pendingKeys.Add(new CapturedKey(data.vkCode, data.scanCode, isPaste));
                 }
                 catch (Exception ex)
                 {
@@ -279,33 +352,26 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
     }
 
-    private void HandleKeyDown(IntPtr lParam)
+    /// <summary>
+    /// Translates the keys that the hook has seen and keeps the text.
+    /// </summary>
+    private void TranslateThreadProc()
     {
-        var data = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
-
-        var controlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-        var altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-
-        // The text of a paste is not typed, so the clipboard is read
-        // instead.
-        if (controlDown && !altDown && data.vkCode == VK_V)
+        foreach (var key in _pendingKeys.GetConsumingEnumerable())
         {
-            AppendText(ReadClipboardText());
-            return;
-        }
+            try
+            {
+                var character = key.IsPaste ? ReadClipboardText() : ToUnicode(key.VirtualKeyCode, key.ScanCode);
 
-        // The control and the alt keys modify the next key, so the
-        // character of a shortcut is not the character that was typed.
-        if (controlDown || altDown)
-        {
-            return;
-        }
-
-        var character = ToUnicode(data.vkCode, data.scanCode);
-
-        if (!string.IsNullOrEmpty(character))
-        {
-            AppendText(character);
+                if (!string.IsNullOrEmpty(character))
+                {
+                    AppendText(character);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error while capturing a keystroke.");
+            }
         }
     }
 
@@ -331,11 +397,9 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             keyboardState[VK_CAPITAL] |= 0x01;
         }
 
-        // The characters are the ones of the window that has the focus, so
-        // the layout of that window is the one that is used.
-        ApplyForegroundLayout();
-
-        var buffer = new StringBuilder(8);
+            // The characters are translated with the keyboard layout of this
+            // thread, which is the layout of the user.
+            var buffer = new StringBuilder(8);
         var result = ToUnicodeEx(
             (uint)virtualKeyCode,
             (uint)scanCode,
@@ -355,14 +419,32 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         // Only the characters that the function reported are used.  The
         // buffer can hold more than that, and the extra characters are not
         // part of the key that was pressed.
-        return buffer.ToString(0, result);
+        var text = buffer.ToString(0, result);
+
+        if (Interlocked.Increment(ref _diagnosticCount) <= 10)
+        {
+            var fgWindow = GetForegroundWindow();
+            var fgThread = GetWindowThreadProcessId(fgWindow, out _);
+
+            _logger.LogInformation(
+                "The key {vk} (scan {scan}) was translated to '{text}' with the layout {layout} (the focused window uses {focused}).",
+                virtualKeyCode,
+                scanCode,
+                text,
+                GetKeyboardLayout(0).ToInt64(),
+                GetKeyboardLayout(fgThread).ToInt64());
+        }
+
+        return text;
     }
 
     /// <summary>
     /// Uses the keyboard layout of the window that has the focus, because
-    /// the text that is typed in that window uses that layout.
+    /// the text that is typed in that window uses that layout.  The layout
+    /// is used by the threads that are started afterwards, because a thread
+    /// inherits the layout of the thread that starts it.
     /// </summary>
-    private void ApplyForegroundLayout()
+    private void PrepareKeyboardLayout()
     {
         var foregroundWindow = GetForegroundWindow();
 
@@ -374,9 +456,24 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
         var threadId = GetWindowThreadProcessId(foregroundWindow, out _);
         var layout = GetKeyboardLayout(threadId);
 
-        if (layout == IntPtr.Zero)
+        if (layout == IntPtr.Zero || layout == GetKeyboardLayout(0))
         {
             return;
+        }
+
+        // The locale of the thread has to be the locale of the layout,
+        // and the layout is activated after that.  The character table of
+        // the layout is chosen with the locale of the thread.
+        var localeId = (uint)(layout.ToInt64() & 0xFFFF);
+
+        try
+        {
+            var culture = System.Globalization.CultureInfo.GetCultureInfo((int)localeId);
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The locale {locale} could not be used.", localeId);
         }
 
         ActivateKeyboardLayout(layout, 0);
@@ -396,6 +493,7 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
             keyboardState[virtualKeyCode] &= 0x7F;
         }
     }
+
 
     private void AppendText(string text)
     {
@@ -687,6 +785,15 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     [DllImport("kernel32.dll")]
     private static extern uint GetCurrentThreadId();
 
+    [DllImport("kernel32.dll")]
+    private static extern uint SetThreadLocale(uint localeId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr LoadKeyboardLayout(uint localeId, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetKeyboardLayoutList(int n, IntPtr[] layouts);
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetKeyboardLayout(uint threadId = 0);
 
@@ -719,6 +826,9 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetKeyboardState(byte[] lpKeyState);
 
     [DllImport("user32.dll")]
     private static extern int ToUnicodeEx(
