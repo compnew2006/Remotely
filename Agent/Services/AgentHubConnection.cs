@@ -484,7 +484,10 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
 
             _logger.LogInformation("File upload started by {requesterID}.", requesterId);
 
-            var sharedFilePath = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "RemotelySharedFiles")).FullName;
+            var sharedFileDirectory = OperatingSystem.IsWindows()
+                ? @"C:\RemotelySharedFiles"
+                : Path.Combine(Path.GetTempPath(), "RemotelySharedFiles");
+            var sharedFilePath = Directory.CreateDirectory(sharedFileDirectory).FullName;
 
             foreach (var fileID in fileIds)
             {

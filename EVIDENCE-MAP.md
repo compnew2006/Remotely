@@ -379,7 +379,7 @@ libman.json : error LIB002: The "@microsoft/signalr-protocol-msgpack@8.0.7" libr
 - `[TEST-EVIDENCE]` SDK 10.0.403: `dotnet build Remotely.sln` نجح (0 أخطاء، 18 تحذيرًا)؛ `dotnet test Remotely.sln --no-build` نجح: 163/163 (Server 80، Shared 83). فحص DI مؤقت استدعى تسجيل Windows الفعلي وتحقق أن concrete/interface/hosted service كلها نفس singleton.
 - نُشرت حزمة **x64 فقط**، الإصدار `2026.11.07.0255`، إلى `C:\Users\Administrator\Remotely\ServerApp\wwwroot\Content\Remotely-Win-x64.zip`، ونسخة المصدر `Server/wwwroot/Content`. SHA-256: `8B24A4DB538710071FE1F8E1C75B0E9FF8D5E8F4535FC2DD9EED5BD4394C324C`. السيرفر قدّم manifest والحزمة عبر HTTP 200؛ hash الملف المُنزّل يطابق manifest، وهاش المثبّت يطابق. KeyId=`a3bffd867ca0ede3`؛ ملف `.sig` موجود (64 بايت بعد Base64 decode)، ولم أتحقق مستقلًا من التوقيع بمفتاح عام.
 - النسخة الاحتياطية: `C:\Users\Administrator\Remotely\backups\win-package-predeploy-20261107-0255`. حزمة x86 لم تُمسّ؛ بقيت `2026.11.06.1438` وهاشها مطابقًا للـmanifest.
-- `ARKAN-DC02` ما زال يحتاج تثبيتًا يدويًا مرة واحدة؛ لم يُسجَّل تحقق تشغيل بعد التثبيت. G2 تبقى FAIL، ولم تُرقَّ أي بوابة.
+- `[RUNTIME-VERIFIED]` ثُبِّتت الحزمة يدويًا على `ARKAN-DC02` الساعة 03:20؛ الخدمة `Running`، الإصدار `2026.11.07.0255`، والسجل في `C:\ProgramData\RDP\Logs\Remotely_Agent\LogFile_2026-11-07.log`. أظهر تطبيق Remotely الجهاز `Online` بالـDevice ID نفسه. **غير متحقق بعد**: عميل Desktop يخرج بالرمز 1 ويعيد المشرف تشغيله؛ يلزم فحص سجل `Remotely_Desktop` قبل تأكيد التحكم التفاعلي. G2 تبقى FAIL، ولم تُرقَّ أي بوابة.
 
 | التاريخ | التغيير |
 |---|---|
