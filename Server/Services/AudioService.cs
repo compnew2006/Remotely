@@ -84,8 +84,13 @@ public class AudioService : IAudioService
     private readonly ILogger<AudioService> _logger;
     private readonly IWebHostEnvironment _hostEnvironment;
 
-    private readonly Dictionary<string, UploadSession> _uploads = new();
-    private readonly object _uploadLock = new();
+    // The sessions are shared between the instances of this service, so the
+    // service is registered as a singleton. A chunked upload spans several
+    // hub invocations, and each of them gets a new scope: a per-instance
+    // store would be empty in the scope that receives the next chunk, and
+    // that chunk would be dropped silently.
+    private static readonly Dictionary<string, UploadSession> _uploads = new();
+    private static readonly object _uploadLock = new();
 
     public AudioService(
         IAppDbFactory appDbFactory,

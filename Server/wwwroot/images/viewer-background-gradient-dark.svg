@@ -13,8 +13,8 @@
         </filter>
         <linearGradient id="paint0_linear_5856_24104" x1="1513.28" y1="443.062" x2="-45.6555"
             y2="443.062" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#087AFF" />
-            <stop offset="1" stop-color="#01EAD1" />
+            <stop stop-color="#1da1f2" />
+            <stop offset="1" stop-color="#1c9cf0" />
         </linearGradient>
     </defs>
 </svg>

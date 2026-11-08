@@ -94,8 +94,13 @@ public class CameraService : ICameraService
     private readonly ILogger<CameraService> _logger;
     private readonly IWebHostEnvironment _hostEnvironment;
 
-    private readonly Dictionary<string, UploadSession> _uploads = new();
-    private readonly object _uploadLock = new();
+    // The sessions are shared between the instances of this service, so the
+    // service is registered as a singleton. A chunked upload spans several
+    // hub invocations, and each of them gets a new scope: a per-instance
+    // store would be empty in the scope that receives the next chunk, and
+    // that chunk would be dropped silently.
+    private static readonly Dictionary<string, UploadSession> _uploads = new();
+    private static readonly object _uploadLock = new();
 
     public CameraService(
         IAppDbFactory appDbFactory,
@@ -284,6 +289,9 @@ public class CameraService : ICameraService
         {
             if (!_uploads.TryGetValue(clipId, out session))
             {
+                _logger.LogWarning(
+                    "A camera clip chunk {clipId} was ignored because its upload session does not exist.",
+                    clipId);
                 return false;
             }
         }
@@ -330,6 +338,9 @@ public class CameraService : ICameraService
         {
             if (!_uploads.Remove(clipId, out session))
             {
+                _logger.LogWarning(
+                    "The camera clip upload {clipId} was completed without a matching session, so nothing was stored.",
+                    clipId);
                 return null;
             }
         }

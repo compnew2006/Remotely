@@ -129,7 +129,13 @@ public class CamerasController : ControllerBase
             return Unauthorized();
         }
 
-        var device = await GetDevice(deviceId);
+        // The device authenticates with the session key above, so its
+        // record is loaded without the browser authorization check used by
+        // the other actions. That check needs a signed-in browser, which a
+        // device upload does not have; using it here returned the 404 the
+        // devices hit and sent every clip down the hub fallback.
+        var deviceResult = await _dataService.GetDevice(deviceId);
+        var device = deviceResult.IsSuccess ? deviceResult.Value : null;
         if (device is null)
         {
             return NotFound();

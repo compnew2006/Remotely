@@ -287,6 +287,32 @@ function Install-Remotely {
 	}
 
 	if (!$ConnectionInfo) {
+		# The running agent may live in a different directory (a manual or
+		# dev install, an AgentApp run). Reuse its identity instead of
+		# minting a new DeviceID, which would register a duplicate device.
+		foreach ($Process in @(Get-Process -Name "Remotely_Agent" -ErrorAction SilentlyContinue)) {
+			try {
+				$CandidatePath = Join-Path (Split-Path -Parent $Process.Path) "ConnectionInfo.json"
+				if (!(Test-Path -LiteralPath $CandidatePath)) {
+					continue
+				}
+				$Candidate = Get-Content -Path $CandidatePath -Raw | ConvertFrom-Json
+				if ($Candidate -and $Candidate.DeviceID) {
+					$ConnectionInfo = $Candidate
+					$ConnectionInfo.Host = $HostName
+					$ConnectionInfo.OrganizationID = $Organization
+					$ConnectionInfo.ServerVerificationToken = ""
+					Write-Log "Found existing agent install; reusing its DeviceID."
+					break
+				}
+			}
+			catch {
+				# A process we cannot inspect carries no usable identity here.
+			}
+		}
+	}
+
+	if (!$ConnectionInfo) {
 		$NewDeviceId = [System.Guid]::NewGuid().ToString();
 		$ConnectionInfo = @{
 			DeviceID                = $NewDeviceId;

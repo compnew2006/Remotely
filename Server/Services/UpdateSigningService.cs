@@ -40,7 +40,11 @@ public class UpdateSigningService : IUpdateSigningService
 {
     private const string KeyFileName = "update-signing.key";
     private const string ManifestSuffix = ".manifest.json";
-    private const string SignatureSuffix = ".sig";
+    // The agent downloads the signature as
+    // "<package>.manifest.sig" (see UpdaterWin.VerifyUpdatePackage). The
+    // file must be written with the same name, or every update fails
+    // closed when the download 404s.
+    private const string SignatureSuffix = ".manifest.sig";
 
     private readonly IWebHostEnvironment _hostEnvironment;
     private readonly ILogger<UpdateSigningService> _logger;

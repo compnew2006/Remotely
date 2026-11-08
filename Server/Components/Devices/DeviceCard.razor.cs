@@ -438,6 +438,18 @@ public partial class DeviceCard : AuthComponentBase
         }
     }
 
+    private async Task UpdateAgent()
+    {
+        if (!ServiceSessionCache.TryGetConnectionId(Device.ID, out _))
+        {
+            ToastService.ShowToast("Device is offline.  It will update itself when it reconnects.", classString: "bg-warning");
+            return;
+        }
+
+        var updated = await CircuitConnection.UpdateAgents(new[] { Device.ID });
+        ToastService.ShowToast(updated > 0 ? "Update command sent." : "Device is offline.  It will update itself when it reconnects.", classString: updated > 0 ? string.Empty : "bg-warning");
+    }
+
     private async Task WakeDevice()
     {
         var result = await CircuitConnection.WakeDevice(Device);

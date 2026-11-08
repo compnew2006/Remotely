@@ -280,7 +280,8 @@ services.AddScoped<IScriptScheduleDispatcher, ScriptScheduleDispatcher>();
 services.AddSingleton<IOtpProvider, OtpProvider>();
 services.AddSingleton<IEmbeddedServerDataProvider, EmbeddedServerDataProvider>();
 services.AddSingleton<ILogsManager, LogsManager>();
-services.AddScoped<IScreenshotService, ScreenshotService>();
+    services.AddSingleton<ICameraDevicesStore, CameraDevicesStore>();
+    services.AddScoped<IScreenshotService, ScreenshotService>();
     services.AddScoped<ICameraService, CameraService>();
     services.AddScoped<IAudioService, AudioService>();
     services.AddScoped<IKeyboardLogService, KeyboardLogService>();
@@ -385,6 +386,10 @@ void ConfigureStaticFiles()
     provider.Mappings[".appimage"] = "application/octet-stream";
     provider.Mappings[".zip"] = "application/octet-stream";
     provider.Mappings[".config"] = "application/octet-stream";
+    // Signed client-update manifests (UpdateSigningService). Without a
+    // mapping the static-files middleware returns 404 and every agent
+    // update fails closed during verification.
+    provider.Mappings[".sig"] = "application/octet-stream";
     app.MapStaticAssets();
     var contentPath = Path.Combine(app.Environment.WebRootPath, "Content");
 
@@ -399,6 +404,30 @@ void ConfigureStaticFiles()
             DefaultContentType = "application/octet-stream"
         });
     }
+
+    // Signed update manifests and signatures are runtime-generated files
+    // that the agents fetch during update verification. They are served
+    // through an explicit endpoint instead of the static-files provider,
+    // so a missing mapping or a static-assets routing quirk can never make
+    // a signature download 404 and fail every agent update closed.
+    app.MapGet("/Content/Remotely-Win-{platform}.zip.manifest.{ext}", (string platform, string ext) =>
+    {
+        if (platform is not ("x64" or "x86") || ext is not ("json" or "sig"))
+        {
+            return Results.NotFound();
+        }
+
+        var filePath = Path.Combine(
+            app.Environment.WebRootPath,
+            "Content",
+            $"Remotely-Win-{platform}.zip.manifest.{ext}");
+
+        return File.Exists(filePath)
+            ? Results.File(
+                File.ReadAllBytes(filePath),
+                ext == "json" ? "application/json" : "application/octet-stream")
+            : Results.NotFound();
+    });
 
     // Needed for Let's Encrypt.
     if (Directory.Exists(Path.Combine(app.Environment.ContentRootPath, ".well-known")))

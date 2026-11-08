@@ -173,17 +173,17 @@ button {
     }
 
     #menuFrame #disconnectButton {
-        background-color: #a61930;
-        border: 1px solid #a61930;
+        background-color: oklch(0.6188 0.2376 25.7658);
+        border: 1px solid oklch(0.6188 0.2376 25.7658);
         color: #fff;
         font-size: 16px;
     }
 
         #menuFrame #disconnectButton:hover {
-            border: 1px solid #384346;
+            border: 1px solid oklch(0.3795 0.0220 240.5943);
         }
         #menuFrame #disconnectButton:active {
-            border: 1px solid #009888;
+            border: 1px solid oklch(0.6818 0.1584 243.3540);
         }
 
 .menu-column {
@@ -235,7 +235,7 @@ button {
 #fileTransferProgress {
     vertical-align: middle;
     width: 100%;
-    background-color: limegreen;
+    background-color: oklch(0.6907 0.1554 160.3454);
 }
 
 .d-none {

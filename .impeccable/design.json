@@ -1,571 +1,253 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-06T20:20:00Z",
+  "generatedAt": "2026-11-07T00:00:00Z",
   "title": "Design System: Remotely",
   "extensions": {
     "colorMeta": {
-      "console-accent": {
-        "role": "accent",
-        "displayName": "Console Accent",
-        "canonical": "oklch(77% 0.073 248)",
-        "tonalRamp": [
-          "oklch(42% 0.073 248)",
-          "oklch(55% 0.073 248)",
-          "oklch(65% 0.073 248)",
-          "oklch(77% 0.073 248)",
-          "oklch(86% 0.073 248)",
-          "oklch(95% 0.073 248)",
-          "oklch(97% 0.073 248)",
-          "oklch(97% 0.073 248)"
-        ]
-      },
-      "console-accent-strong": {
-        "role": "accent",
-        "displayName": "Console Accent Strong",
-        "canonical": "oklch(85% 0.054 248)",
-        "tonalRamp": [
-          "oklch(47% 0.054 248)",
-          "oklch(61% 0.054 248)",
-          "oklch(72% 0.054 248)",
-          "oklch(85% 0.054 248)",
-          "oklch(95% 0.054 248)",
-          "oklch(97% 0.054 248)",
-          "oklch(97% 0.054 248)",
-          "oklch(97% 0.054 248)"
-        ]
-      },
-      "console-status-ok": {
-        "role": "status",
-        "displayName": "Console Status OK",
-        "canonical": "oklch(71% 0.145 167)",
-        "tonalRamp": [
-          "oklch(39% 0.145 167)",
-          "oklch(51% 0.145 167)",
-          "oklch(60% 0.145 167)",
-          "oklch(71% 0.145 167)",
-          "oklch(79% 0.145 167)",
-          "oklch(87% 0.145 167)",
-          "oklch(96% 0.145 167)",
-          "oklch(97% 0.145 167)"
-        ]
-      },
-      "light-accent": {
-        "role": "accent",
-        "displayName": "Light Console Accent",
-        "canonical": "oklch(50% 0.103 236)",
-        "tonalRamp": [
-          "oklch(27% 0.103 236)",
-          "oklch(36% 0.103 236)",
-          "oklch(42% 0.103 236)",
-          "oklch(50% 0.103 236)",
-          "oklch(56% 0.103 236)",
-          "oklch(61% 0.103 236)",
-          "oklch(67% 0.103 236)",
-          "oklch(74% 0.103 236)"
-        ]
-      },
-      "light-accent-strong": {
-        "role": "accent",
-        "displayName": "Light Console Accent Strong",
-        "canonical": "oklch(41% 0.082 234)",
-        "tonalRamp": [
-          "oklch(22% 0.082 234)",
-          "oklch(29% 0.082 234)",
-          "oklch(35% 0.082 234)",
-          "oklch(41% 0.082 234)",
-          "oklch(46% 0.082 234)",
-          "oklch(50% 0.082 234)",
-          "oklch(55% 0.082 234)",
-          "oklch(61% 0.082 234)"
-        ]
-      },
-      "signal-cyan": {
+      "platform-blue": {
         "role": "primary",
-        "displayName": "Signal Cyan",
-        "canonical": "oklch(88% 0.145 175)",
+        "displayName": "Platform Blue",
+        "canonical": "oklch(0.6723 0.1606 244.9955)",
         "tonalRamp": [
-          "oklch(15% 0.045 175)",
-          "oklch(28% 0.075 175)",
-          "oklch(42% 0.105 175)",
-          "oklch(58% 0.135 175)",
-          "oklch(70% 0.13 175)",
-          "oklch(80% 0.11 175)",
-          "oklch(88% 0.145 175)",
-          "oklch(95% 0.05 175)"
+          "oklch(0.15 0.08 245)",
+          "oklch(0.25 0.11 245)",
+          "oklch(0.35 0.13 245)",
+          "oklch(0.45 0.15 245)",
+          "oklch(0.55 0.15 245)",
+          "oklch(0.65 0.16 245)",
+          "oklch(0.75 0.14 245)",
+          "oklch(0.85 0.10 245)"
         ]
       },
-      "signal-cyan-bright": {
-        "role": "primary",
-        "displayName": "Cyan Hover",
-        "canonical": "oklch(95% 0.15 175)",
+      "canvas-dark": {
+        "role": "neutral",
+        "displayName": "Canvas Dark",
+        "canonical": "oklch(0 0 0)",
         "tonalRamp": [
-          "oklch(15% 0.045 175)",
-          "oklch(28% 0.075 175)",
-          "oklch(42% 0.105 175)",
-          "oklch(58% 0.135 175)",
-          "oklch(72% 0.14 175)",
-          "oklch(85% 0.15 175)",
-          "oklch(95% 0.15 175)",
-          "oklch(99% 0.05 175)"
+          "oklch(0 0 0)",
+          "oklch(0.11 0 0)",
+          "oklch(0.21 0.008 274.5332)",
+          "oklch(0.31 0.008 274.5332)",
+          "oklch(0.41 0.007 274.5332)",
+          "oklch(0.55 0.006 274.5332)",
+          "oklch(0.70 0.005 274.5332)",
+          "oklch(0.85 0.003 274.5332)"
         ]
       },
-      "signal-cyan-deep": {
-        "role": "primary",
-        "displayName": "Cyan Press",
-        "canonical": "oklch(63% 0.12 175)",
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Card Dark",
+        "canonical": "oklch(0.2097 0.0080 274.5332)",
         "tonalRamp": [
-          "oklch(15% 0.045 175)",
-          "oklch(28% 0.075 175)",
-          "oklch(42% 0.105 175)",
-          "oklch(52% 0.12 175)",
-          "oklch(63% 0.12 175)",
-          "oklch(75% 0.1 175)",
-          "oklch(86% 0.07 175)",
-          "oklch(95% 0.04 175)"
+          "oklch(0.05 0.004 274.5332)",
+          "oklch(0.10 0.006 274.5332)",
+          "oklch(0.2097 0.0080 274.5332)",
+          "oklch(0.30 0.008 274.5332)",
+          "oklch(0.40 0.007 274.5332)",
+          "oklch(0.55 0.006 274.5332)",
+          "oklch(0.70 0.005 274.5332)",
+          "oklch(0.85 0.003 274.5332)"
         ]
       },
-      "console-primary": {
-        "role": "secondary",
-        "displayName": "Slate Blue",
-        "canonical": "oklch(43% 0.07 258)",
+      "canvas-light": {
+        "role": "neutral",
+        "displayName": "Canvas Light",
+        "canonical": "oklch(1.0000 0 0)",
         "tonalRamp": [
-          "oklch(15% 0.02 258)",
-          "oklch(25% 0.035 258)",
-          "oklch(35% 0.055 258)",
-          "oklch(43% 0.07 258)",
-          "oklch(55% 0.075 258)",
-          "oklch(68% 0.065 258)",
-          "oklch(82% 0.045 258)",
-          "oklch(94% 0.02 258)"
+          "oklch(0.15 0.005 240)",
+          "oklch(0.30 0.006 240)",
+          "oklch(0.45 0.008 240)",
+          "oklch(0.60 0.009 240)",
+          "oklch(0.72 0.009 240)",
+          "oklch(0.82 0.008 240)",
+          "oklch(0.92 0.005 240)",
+          "oklch(1.0000 0 0)"
         ]
       },
-      "light-primary": {
-        "role": "secondary",
-        "displayName": "Light Primary",
-        "canonical": "oklch(61% 0.11 210)",
+      "card-light": {
+        "role": "neutral",
+        "displayName": "Card Light",
+        "canonical": "oklch(0.9784 0.0011 197.1387)",
         "tonalRamp": [
-          "oklch(18% 0.04 210)",
-          "oklch(30% 0.07 210)",
-          "oklch(45% 0.095 210)",
-          "oklch(61% 0.11 210)",
-          "oklch(72% 0.1 210)",
-          "oklch(84% 0.06 210)",
-          "oklch(92% 0.03 210)",
-          "oklch(97% 0.015 210)"
+          "oklch(0.15 0.005 240)",
+          "oklch(0.30 0.006 240)",
+          "oklch(0.45 0.008 240)",
+          "oklch(0.60 0.009 240)",
+          "oklch(0.72 0.009 240)",
+          "oklch(0.84 0.006 240)",
+          "oklch(0.92 0.004 240)",
+          "oklch(0.9784 0.0011 197.1387)"
         ]
       },
-      "console-danger": {
+      "ink-light": {
+        "role": "neutral",
+        "displayName": "Ink Light",
+        "canonical": "oklch(0.1884 0.0128 248.5103)",
+        "tonalRamp": [
+          "oklch(0.1884 0.0128 248.5103)",
+          "oklch(0.30 0.012 248.5103)",
+          "oklch(0.40 0.012 248.5103)",
+          "oklch(0.50 0.020 248.0000)",
+          "oklch(0.55 0.015 248.0000)",
+          "oklch(0.65 0.012 248.0000)",
+          "oklch(0.80 0.010 248.0000)",
+          "oklch(0.92 0.006 248.0000)"
+        ]
+      },
+      "destructive": {
         "role": "tertiary",
-        "displayName": "Danger Red",
-        "canonical": "oklch(58% 0.19 27)",
+        "displayName": "Destructive",
+        "canonical": "oklch(0.6188 0.2376 25.7658)",
         "tonalRamp": [
-          "oklch(16% 0.05 27)",
-          "oklch(28% 0.09 27)",
-          "oklch(42% 0.14 27)",
-          "oklch(58% 0.19 27)",
-          "oklch(68% 0.17 27)",
-          "oklch(78% 0.13 27)",
-          "oklch(88% 0.07 27)",
-          "oklch(95% 0.03 27)"
+          "oklch(0.20 0.10 25)",
+          "oklch(0.30 0.15 25)",
+          "oklch(0.40 0.19 25)",
+          "oklch(0.50 0.21 25)",
+          "oklch(0.5600 0.2200 25.0000)",
+          "oklch(0.6188 0.2376 25.7658)",
+          "oklch(0.72 0.16 25)",
+          "oklch(0.85 0.08 25)"
         ]
       },
-      "viewer-disconnect": {
+      "status-ok": {
         "role": "tertiary",
-        "displayName": "Disconnect Crimson",
-        "canonical": "oklch(40% 0.15 352)",
+        "displayName": "Status OK",
+        "canonical": "oklch(0.6907 0.1554 160.3454)",
         "tonalRamp": [
-          "oklch(15% 0.05 352)",
-          "oklch(25% 0.09 352)",
-          "oklch(33% 0.13 352)",
-          "oklch(40% 0.15 352)",
-          "oklch(52% 0.14 352)",
-          "oklch(65% 0.11 352)",
-          "oklch(80% 0.07 352)",
-          "oklch(92% 0.03 352)"
+          "oklch(0.20 0.08 160)",
+          "oklch(0.30 0.11 160)",
+          "oklch(0.40 0.13 160)",
+          "oklch(0.5200 0.1400 160.0000)",
+          "oklch(0.60 0.15 160)",
+          "oklch(0.6907 0.1554 160.3454)",
+          "oklch(0.78 0.13 160)",
+          "oklch(0.88 0.08 160)"
         ]
       },
-      "viewer-status": {
-        "role": "secondary",
-        "displayName": "Signal Blue",
-        "canonical": "oklch(74% 0.14 235)",
+      "status-warn": {
+        "role": "tertiary",
+        "displayName": "Status Warn",
+        "canonical": "oklch(0.8214 0.1600 82.5337)",
         "tonalRamp": [
-          "oklch(18% 0.05 235)",
-          "oklch(32% 0.085 235)",
-          "oklch(48% 0.115 235)",
-          "oklch(62% 0.135 235)",
-          "oklch(74% 0.14 235)",
-          "oklch(84% 0.11 235)",
-          "oklch(92% 0.06 235)",
-          "oklch(97% 0.025 235)"
-        ]
-      },
-      "console-canvas": {
-        "role": "neutral",
-        "displayName": "Console Canvas",
-        "canonical": "oklch(22% 0.004 260)",
-        "tonalRamp": [
-          "oklch(12% 0.003 260)",
-          "oklch(22% 0.004 260)",
-          "oklch(32% 0.006 260)",
-          "oklch(45% 0.007 260)",
-          "oklch(60% 0.008 260)",
-          "oklch(74% 0.008 260)",
-          "oklch(86% 0.006 260)",
-          "oklch(95% 0.004 260)"
-        ]
-      },
-      "console-surface": {
-        "role": "neutral",
-        "displayName": "Card Surface",
-        "canonical": "oklch(33% 0.004 260)",
-        "tonalRamp": [
-          "oklch(16% 0.003 260)",
-          "oklch(24% 0.004 260)",
-          "oklch(33% 0.004 260)",
-          "oklch(45% 0.005 260)",
-          "oklch(60% 0.006 260)",
-          "oklch(74% 0.006 260)",
-          "oklch(86% 0.004 260)",
-          "oklch(95% 0.003 260)"
-        ]
-      },
-      "console-surface-raised": {
-        "role": "neutral",
-        "displayName": "Divider Grey",
-        "canonical": "oklch(44% 0.005 260)",
-        "tonalRamp": [
-          "oklch(18% 0.003 260)",
-          "oklch(28% 0.004 260)",
-          "oklch(44% 0.005 260)",
-          "oklch(56% 0.006 260)",
-          "oklch(68% 0.006 260)",
-          "oklch(80% 0.005 260)",
-          "oklch(90% 0.003 260)",
-          "oklch(96% 0.002 260)"
-        ]
-      },
-      "console-ink": {
-        "role": "neutral",
-        "displayName": "Pure White",
-        "canonical": "oklch(100% 0 0)",
-        "tonalRamp": [
-          "oklch(16% 0.002 260)",
-          "oklch(30% 0.003 260)",
-          "oklch(45% 0.003 260)",
-          "oklch(60% 0.002 260)",
-          "oklch(74% 0.001 260)",
-          "oklch(85% 0 0)",
-          "oklch(93% 0 0)",
-          "oklch(100% 0 0)"
-        ]
-      },
-      "viewer-canvas": {
-        "role": "neutral",
-        "displayName": "Operations Canvas",
-        "canonical": "oklch(17% 0.004 195)",
-        "tonalRamp": [
-          "oklch(10% 0.003 195)",
-          "oklch(17% 0.004 195)",
-          "oklch(27% 0.006 195)",
-          "oklch(38% 0.007 195)",
-          "oklch(52% 0.008 195)",
-          "oklch(66% 0.008 195)",
-          "oklch(80% 0.006 195)",
-          "oklch(93% 0.003 195)"
-        ]
-      },
-      "viewer-panel": {
-        "role": "neutral",
-        "displayName": "Panel Grey",
-        "canonical": "oklch(25% 0.006 195)",
-        "tonalRamp": [
-          "oklch(12% 0.003 195)",
-          "oklch(19% 0.005 195)",
-          "oklch(25% 0.006 195)",
-          "oklch(36% 0.007 195)",
-          "oklch(50% 0.008 195)",
-          "oklch(64% 0.008 195)",
-          "oklch(79% 0.006 195)",
-          "oklch(92% 0.003 195)"
-        ]
-      },
-      "viewer-field": {
-        "role": "neutral",
-        "displayName": "Field Black",
-        "canonical": "oklch(13% 0.002 195)",
-        "tonalRamp": [
-          "oklch(8% 0.002 195)",
-          "oklch(13% 0.002 195)",
-          "oklch(22% 0.004 195)",
-          "oklch(34% 0.006 195)",
-          "oklch(48% 0.007 195)",
-          "oklch(62% 0.007 195)",
-          "oklch(78% 0.005 195)",
-          "oklch(92% 0.003 195)"
-        ]
-      },
-      "viewer-hover-border": {
-        "role": "neutral",
-        "displayName": "Hover Border",
-        "canonical": "oklch(37% 0.01 195)",
-        "tonalRamp": [
-          "oklch(14% 0.003 195)",
-          "oklch(24% 0.006 195)",
-          "oklch(37% 0.01 195)",
-          "oklch(50% 0.011 195)",
-          "oklch(64% 0.01 195)",
-          "oklch(78% 0.008 195)",
-          "oklch(90% 0.004 195)",
-          "oklch(96% 0.002 195)"
+          "oklch(0.25 0.08 82)",
+          "oklch(0.35 0.11 82)",
+          "oklch(0.45 0.13 82)",
+          "oklch(0.55 0.15 80)",
+          "oklch(0.65 0.15 82)",
+          "oklch(0.74 0.16 82)",
+          "oklch(0.8214 0.1600 82.5337)",
+          "oklch(0.90 0.08 82)"
         ]
       }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "The single page-level heading of a console page, e.g. \"Devices\". Never more than one per page."
-      },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Field-name labels inside device cards (\"User\", \"Platform\", \"CPU\"). Weight 500, never bold."
-      },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Device names, card values, dropdown items — the console's default text size."
-      },
-      "body": {
-        "displayName": "Body",
-        "purpose": "Running text and control labels at the console's default size."
-      },
-      "label": {
-        "displayName": "Label",
-        "purpose": "Navigation links, muted metadata, form labels and small buttons."
-      }
+      "display": { "displayName": "Display", "purpose": "Page titles only. One per page." },
+      "headline": { "displayName": "Headline", "purpose": "Section and modal titles." },
+      "title": { "displayName": "Title", "purpose": "Panel titles and card headers." },
+      "body": { "displayName": "Body", "purpose": "Prose and lead text, capped near 70ch." },
+      "label": { "displayName": "Label", "purpose": "Field labels, form groups, tab text." },
+      "micro-label": { "displayName": "Micro Label", "purpose": "Stat labels and uppercase table headers." }
     },
     "shadows": [
-      {
-        "name": "floating-prompt",
-        "value": "10px 10px 5px rgba(50, 50, 50, 0.9)",
-        "purpose": "The viewer's modal prompt only — the one element that physically floats over the remote screen."
-      },
-      {
-        "name": "error-strip",
-        "value": "0 -1px 2px rgba(0, 0, 0, 0.2)",
-        "purpose": "The Blazor error bar only, anchored to the bottom of the viewport."
-      }
+      { "name": "resting", "value": "0 1px 2px rgba(29,161,242,0.15)", "purpose": "Panels, cards, toasts at rest." },
+      { "name": "hover", "value": "0 4px 16px rgba(29,161,242,0.18)", "purpose": "Hoverable panels, device cards, dropdowns." },
+      { "name": "raised", "value": "0 12px 32px rgba(29,161,242,0.22)", "purpose": "Modals, auth and landing panels." }
     ],
     "motion": [
-      {
-        "name": "menu-toggle",
-        "value": ".5s ease all",
-        "purpose": "The viewer's menu button rotating its icon 180° when the menu opens."
-      },
-      {
-        "name": "bar-expand",
-        "value": "all 250ms",
-        "purpose": "The viewer's horizontal button bar expanding from height 0 to auto."
-      },
-      {
-        "name": "popup-menu",
-        "value": ".2s ease all",
-        "purpose": "Viewer popup menus opening with their 10px padding."
-      },
-      {
-        "name": "toast-message",
-        "value": "toast-message .5s ease-in 2s forwards",
-        "purpose": "Viewer toast notifications sliding out to the right after a 2s delay."
-      },
-      {
-        "name": "field-focus",
-        "value": ".1s linear all",
-        "purpose": "Viewer inputs transitioning their border to white on focus."
-      },
-      {
-        "name": "bootstrap-control",
-        "value": ".15s ease-in-out",
-        "purpose": "Bootstrap's own control transitions, inherited by every console component."
-      }
+      { "name": "state", "value": "0.15s ease", "purpose": "Default transition for background, border, color, shadow, and the 1px press." }
     ],
     "breakpoints": [
-      {
-        "name": "viewer-compact",
-        "value": "667px"
-      }
+      { "name": "sm", "value": "640.98px" },
+      { "name": "md", "value": "760px" }
     ]
   },
   "components": [
     {
-      "name": "Console Primary Button",
+      "name": "Primary Button",
       "kind": "button",
-      "refersTo": "console-button-primary",
-      "description": "The console's primary action — quiet, soft, and low-contrast against the dark canvas.",
-      "html": "<button class=\"ds-console-btn-primary\">Refresh</button>",
-      "css": ".ds-console-btn-primary { background: #375a7f; color: #ffffff; border: 1px solid rgba(143, 184, 224, 0.55); border-radius: 6px; padding: 4px 8px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 21px; font-weight: 400; cursor: pointer; } .ds-console-btn-primary:hover { background: #2f4a69; border-color: rgba(143, 184, 224, 0.55); } .ds-console-btn-primary:focus-visible { outline: 2px solid #8fb8e0; outline-offset: 2px; }"
+      "refersTo": "button-primary",
+      "description": "The one blue action. Deepened fill in light, dark ink on raw blue in dark.",
+      "html": "<button class=\"ds-btn-primary\">Refresh</button>",
+      "css": ".ds-btn-primary { background: oklch(0.55 0.15 245); color: #ffffff; border: 1px solid oklch(0.5 0.13 245); border-radius: 1.3rem; padding: 6px 14px; font-family: 'Open Sans', sans-serif; font-size: 14px; line-height: 21px; font-weight: 500; cursor: pointer; transition: background-color .15s ease, transform .15s ease; } .ds-btn-primary:hover { background: oklch(0.5 0.13 245); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.55 0.15 245); outline-offset: 2px; }"
     },
     {
-      "name": "Console Ghost Button",
+      "name": "Ghost Button",
       "kind": "button",
-      "refersTo": "console-button-ghost",
-      "description": "Secondary console actions — transparent, grey ink, 6px radius.",
-      "html": "<button class=\"ds-console-btn-ghost\">Account</button>",
-      "css": ".ds-console-btn-ghost { background: transparent; color: rgba(255, 255, 255, 0.75); border: 1px solid transparent; border-radius: 6px; padding: 6px 12px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; cursor: pointer; } .ds-console-btn-ghost:hover { color: #ffffff; } .ds-console-btn-ghost:focus-visible { outline: 2px solid #8fb8e0; outline-offset: 2px; }"
+      "refersTo": "button-ghost",
+      "description": "Secondary action: transparent, bordered, soft-blue hover.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: oklch(0.5 0.02 248); border: 1px solid oklch(0.9317 0.0118 231.6594); border-radius: 1.3rem; padding: 6px 14px; font-family: 'Open Sans', sans-serif; font-size: 14px; line-height: 21px; font-weight: 500; cursor: pointer; transition: background-color .15s ease, color .15s ease; } .ds-btn-ghost:hover { color: oklch(0.1884 0.0128 248.5103); background: oklch(0.9392 0.0166 250.8453); border-color: oklch(0.6818 0.1584 243.3540); } .ds-btn-ghost:focus-visible { outline: 2px solid oklch(0.55 0.15 245); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Pill field with white well and blue focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search device properties\" />",
+      "css": ".ds-input { background: #ffffff; color: oklch(0.1884 0.0128 248.5103); border: 1px solid oklch(0.88 0.008 240); border-radius: 1.3rem; height: 38px; padding: 0 12px; font-family: 'Open Sans', sans-serif; font-size: 14px; line-height: 21px; } .ds-input::placeholder { color: rgba(15,20,25,0.45); } .ds-input:focus { border-color: oklch(0.6818 0.1584 243.3540); outline: none; box-shadow: 0 0 0 3px rgba(0,119,194,0.25); } .ds-input:disabled { background: oklch(0.9222 0.0013 286.3737); color: oklch(0.55 0.015 248); }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Raised content surface: pill radius, 1px border, resting blue-tinted shadow.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-panel-title\">Device</div><div class=\"ds-panel-body\">Host: ARKAN-DC02</div></div>",
+      "css": ".ds-panel { background: oklch(0.9784 0.0011 197.1387); color: oklch(0.1884 0.0128 248.5103); border: 1px solid oklch(0.9317 0.0118 231.6594); border-radius: 1.3rem; padding: 20px; box-shadow: 0 1px 2px rgba(29,161,242,0.15); font-family: 'Open Sans', sans-serif; } .ds-panel-title { font-size: 16px; line-height: 24px; font-weight: 500; margin: 0 0 12px; } .ds-panel-body { font-size: 14px; line-height: 21px; color: oklch(0.5 0.02 248); }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Sidebar row: muted at rest, soft-blue hover, raised active pill.",
+      "html": "<a class=\"ds-nav ds-nav-active\">Home</a>",
+      "css": ".ds-nav { display: block; color: oklch(0.5 0.02 248); background: transparent; border: 1px solid transparent; border-radius: 1.3rem; padding: 8px 16px; font-family: 'Open Sans', sans-serif; font-size: 14px; line-height: 21px; font-weight: 500; text-decoration: none; } .ds-nav:hover { color: oklch(0.1884 0.0128 248.5103); background: oklch(0.9392 0.0166 250.8453); } .ds-nav-active { color: oklch(0.5 0.13 245); background: oklch(0.9392 0.0166 250.8453); border-color: oklch(0.9317 0.0118 231.6594); } .ds-nav:focus-visible { outline: 2px solid oklch(0.55 0.15 245); outline-offset: 2px; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "description": "Count chip: soft blue fill with accent-strong text, never a solid wash.",
+      "html": "<span class=\"ds-badge\">3</span>",
+      "css": ".ds-badge { display: inline-block; background: oklch(0.9392 0.0166 250.8453); color: oklch(0.5 0.13 245); border: 1px solid oklch(0.6818 0.1584 243.3540); border-radius: 1.3rem; padding: 2px 10px; font-family: 'Open Sans', sans-serif; font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }"
     },
     {
       "name": "Device Card",
       "kind": "card",
-      "refersTo": "console-card",
-      "description": "The console's unit of meaning — a status readout with an online glyph, a device name and a field grid.",
-      "html": "<div class=\"ds-device-card\"><div class=\"ds-device-card-head\"><svg class=\"ds-dot\" width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><circle cx=\"6\" cy=\"6\" r=\"5\" fill=\"#00bc8c\"/></svg><span class=\"ds-device-name\">ARKAN-DC02</span></div><div class=\"ds-device-body\"><div class=\"ds-field\"><span class=\"ds-field-label\">Platform</span><span class=\"ds-field-value\">Windows</span></div><div class=\"ds-field\"><span class=\"ds-field-label\">CPU</span><span class=\"ds-field-value\">7 %</span></div></div></div>",
-      "css": ".ds-device-card { background: #303030; color: #ffffff; border: 1px solid #444444; border-radius: 6px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; overflow: hidden; } .ds-device-card-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; } .ds-dot { display: block; flex: none; } .ds-device-name { font-weight: 400; } .ds-device-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding: 0 16px 16px; } .ds-field { display: flex; flex-direction: column; } .ds-field-label { font-size: 14.4px; line-height: 21.6px; color: #8fb8e0; } .ds-field-value { font-size: 16px; line-height: 24px; }"
-    },
-    {
-      "name": "Console Field",
-      "kind": "input",
-      "refersTo": "console-field",
-      "description": "Console inputs and selects — white surface, 6px radius, 1px dark border.",
-      "html": "<input class=\"ds-console-field\" type=\"text\" placeholder=\"Search device properties\" />",
-      "css": ".ds-console-field { background: #ffffff; color: #303030; border: 1px solid #222222; border-radius: 6px; padding: 6px 12px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 24px; } .ds-console-field:focus { outline: 0; border-color: #8fb8e0; box-shadow: 0 0 0 2px rgba(143, 184, 224, 0.45); } .ds-console-field:disabled, .ds-console-field[readonly] { background: #adadad; }"
-    },
-    {
-      "name": "Console Nav Link",
-      "kind": "nav",
-      "refersTo": "console-nav-link",
-      "description": "Vertical navigation item; the active one is filled with a 25% white wash.",
-      "html": "<a class=\"ds-console-nav-link ds-console-nav-link--active\" href=\"#\">Home</a>",
-      "css": ".ds-console-nav-link { display: block; color: rgba(255, 255, 255, 0.75); background: transparent; border-radius: 6px; padding: 8px 32px; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14.4px; line-height: 21.6px; text-decoration: none; } .ds-console-nav-link:hover { background: rgba(143, 184, 224, 0.12); color: #ffffff; } .ds-console-nav-link--active { background: rgba(143, 184, 224, 0.12); color: #b3d2f0; } .ds-console-nav-link:focus-visible { outline: 2px solid #8fb8e0; outline-offset: 2px; }"
-    },
-    {
-      "name": "Viewer Button",
-      "kind": "button",
-      "refersTo": "viewer-button",
-      "description": "Square, flat, 40px tall — the viewer's default control. Hover only brightens the border.",
-      "html": "<button class=\"ds-viewer-btn\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M2 3h12v8H2z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M5 13h6\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg><span>Upload File</span></button>",
-      "css": ".ds-viewer-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; min-width: 40px; padding: 1px 6px; background: #212526; color: #ffffff; border: 1px solid #212526; border-radius: 0; font-family: Arial, sans-serif; font-size: 13.33px; cursor: pointer; } .ds-viewer-btn:hover { border-color: #384346; } .ds-viewer-btn:active { border-color: #009888; } .ds-viewer-btn:focus-visible { outline: 2px solid #01e9d1; outline-offset: 2px; }"
-    },
-    {
-      "name": "Viewer Toggled Button",
-      "kind": "button",
-      "refersTo": "viewer-button-toggled",
-      "description": "An engaged control reads as pressed in, not lit up.",
-      "html": "<button class=\"ds-viewer-btn ds-viewer-btn--toggled\"><span>Block Remote Input</span></button>",
-      "css": ".ds-viewer-btn--toggled { background: #16191a; color: #07b5a4; border: 1px solid #16191a; } .ds-viewer-btn--toggled:hover { border-color: #384346; }"
-    },
-    {
-      "name": "Viewer Connect Button",
-      "kind": "button",
-      "refersTo": "viewer-button-primary",
-      "description": "The one action in the viewer that is loud: Signal Cyan, black text, uppercase machine label.",
-      "html": "<button class=\"ds-viewer-connect\">Connect</button>",
-      "css": ".ds-viewer-connect { height: 40px; width: 100%; background: #01e9d1; color: #000000; border: 1px solid #212526; border-radius: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; font-weight: 700; line-height: 14px; letter-spacing: 0.6px; text-transform: uppercase; cursor: pointer; } .ds-viewer-connect:hover { background: #33ffe9; } .ds-viewer-connect:active { background: #01ad9b; border-color: #009888; } .ds-viewer-connect:disabled { background: #152826; color: #01e9d1; border: none; cursor: no-drop; } .ds-viewer-connect:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }"
-    },
-    {
-      "name": "Viewer Field",
-      "kind": "input",
-      "refersTo": "viewer-field",
-      "description": "A hole punched in the panel: near-black field, square, 40px tall.",
-      "html": "<input class=\"ds-viewer-field\" type=\"text\" placeholder=\"Request access\" />",
-      "css": ".ds-viewer-field { height: 40px; width: 100%; padding: 1px 14px; box-sizing: border-box; background: #0d0d0d; color: #ffffff; border: 1px solid #323334; border-radius: 0; outline: none; font-family: Arial, sans-serif; font-size: 14px; font-weight: 300; line-height: 16px; } .ds-viewer-field:focus { border-color: #ffffff; transition: 0.1s linear all; }"
-    },
-    {
-      "name": "Viewer Disconnect Button",
-      "kind": "button",
-      "refersTo": "viewer-disconnect",
-      "description": "The only destructive color in the product. It ends the session, so it is unmissable.",
-      "html": "<button class=\"ds-viewer-disconnect\">Disconnect</button>",
-      "css": ".ds-viewer-disconnect { height: 40px; padding: 1px 6px; background: #a61930; color: #ffffff; border: 1px solid #a61930; border-radius: 0; font-family: Arial, sans-serif; font-size: 16px; cursor: pointer; } .ds-viewer-disconnect:hover { border-color: #384346; } .ds-viewer-disconnect:active { border-color: #009888; } .ds-viewer-disconnect:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }"
-    },
-    {
-      "name": "Console Data Table",
-      "kind": "custom",
-      "refersTo": "console-card",
-      "description": "Dense tabular data in the console — Bootstrap's table-sm, striped, hover vocabulary, never a custom table style.",
-      "html": "<table class=\"ds-console-table\"><thead><tr><th>Process</th><th>Id</th><th>Memory (MB)</th><th></th></tr></thead><tbody><tr><td>Remotely_Desktop</td><td>1420</td><td>44.4</td><td><button class=\"ds-console-btn-end\">End</button></td></tr></tbody></table>",
-      "css": ".ds-console-table { width: 100%; border-collapse: collapse; font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 21px; color: #ffffff; } .ds-console-table thead th { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.75); font-weight: 400; text-align: left; padding: 4px 8px; border-bottom: 1px solid #444444; } .ds-console-table tbody td { padding: 4px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); } .ds-console-table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.04); } .ds-console-table tbody tr:hover { background: rgba(255, 255, 255, 0.1); } .ds-console-btn-end { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 6px; padding: 0 6px; font-size: 14px; cursor: pointer; } .ds-console-btn-end:hover { background: #e74c3c; color: #ffffff; } .ds-console-btn-end:focus-visible { outline: 2px solid #e74c3c; outline-offset: 2px; }"
-    },
-    {
-      "name": "Console Toolbar",
-      "kind": "toolbar",
-      "refersTo": "console-toolbar",
-      "description": "The device toolbar: filters on the left, view controls on the right, a micro-label above every field, 38px controls on one baseline, and a 1px hairline closing the bar.",
-      "html": "<div class=\"ds-toolbar\"><div class=\"ds-toolbar-group\"><div class=\"ds-field\"><span class=\"ds-micro-label\">Device Group</span><div class=\"ds-field-control\"><select class=\"ds-console-field ds-select\"><option>All</option></select><button class=\"ds-console-btn-ghost ds-icon\" title=\"Wake devices in group\"><span class=\"ds-icon-glyph\">&#9211;</span></button></div></div><div class=\"ds-field\"><span class=\"ds-micro-label\">Sort</span><div class=\"ds-field-control\"><select class=\"ds-console-field ds-select\"><option>Device Name</option></select><button class=\"ds-console-btn-ghost ds-icon\" title=\"Sort direction\"><span class=\"ds-icon-glyph\">&#8645;</span></button></div></div></div><div class=\"ds-toolbar-group ds-toolbar-group--end\"><div class=\"ds-field\"><span class=\"ds-micro-label\">Search</span><input class=\"ds-console-field ds-search\" type=\"text\" placeholder=\"Search device properties\" /></div></div></div>",
-      "css": ".ds-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid #444444; } .ds-toolbar-group { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; } .ds-toolbar-group--end { justify-content: flex-end; } .ds-field { display: flex; flex-direction: column; gap: 4px; } .ds-field-control { display: flex; align-items: center; gap: 8px; } .ds-micro-label { font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); } .ds-console-field.ds-select { width: 150px; height: 38px; } .ds-console-field.ds-search { width: 200px; height: 38px; } .ds-console-btn-ghost.ds-icon { width: 40px; height: 38px; padding: 0; background: #444444; border: 1px solid #444444; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; } .ds-console-btn-ghost.ds-icon:hover { background: #555555; }"
+      "description": "Status readout first: name + online dot, field grid with accent field names.",
+      "html": "<div class=\"ds-device\"><div class=\"ds-device-head\"><span class=\"ds-dot\"></span><span class=\"ds-device-name\">ARKAN-DC02</span></div><div class=\"ds-device-body\"><div><span class=\"ds-field-label\">Platform</span><span class=\"ds-field-value\">Windows</span></div><div><span class=\"ds-field-label\">CPU</span><span class=\"ds-field-value\">7 %</span></div></div></div>",
+      "css": ".ds-device { background: oklch(0.9784 0.0011 197.1387); color: oklch(0.1884 0.0128 248.5103); border: 1px solid oklch(0.9317 0.0118 231.6594); border-radius: 1.3rem; box-shadow: 0 1px 2px rgba(29,161,242,0.15); font-family: 'Open Sans', sans-serif; overflow: hidden; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; } .ds-device:hover { border-color: oklch(0.6818 0.1584 243.3540); box-shadow: 0 4px 16px rgba(29,161,242,0.18); transform: translateY(-1px); } .ds-device-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid oklch(0.9317 0.0118 231.6594); } .ds-dot { width: 12px; height: 12px; border-radius: 50%; background: oklch(0.6907 0.1554 160.3454); flex: none; } .ds-device-name { font-size: 16px; line-height: 24px; font-weight: 500; } .ds-device-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding: 16px; } .ds-field-label { display: block; font-size: 14px; line-height: 21px; font-weight: 500; color: oklch(0.55 0.15 245); } .ds-field-value { font-size: 16px; line-height: 24px; }"
     }
   ],
   "narrative": {
-    "northStar": "The Operations Room",
-    "overview": "Remotely is a room with one bright thing in it. A technician opens the console, finds the machine that is in trouble, and opens it; from that moment the remote screen is the only object in the room that matters, and every piece of interface around it is instrumentation — a switch, a readout, a way out. The system is built around that one relationship, and it shows in the code: the viewer gives the remote canvas the entire viewport (#workAreaGrid is a fixed inset-0 grid with grid-template-rows: auto 1fr), while the console stays a quiet directory of devices waiting to be chosen.\n\nTwo surfaces, one product, two deliberately different manners. The operator console is a Bootstrap 5.3.2 application wearing a Bootswatch theme (Darkly for dark, Yeti for light) — soft 4–6px radii, tonal grey layering, Lato. The remote viewer is hand-written CSS with no framework at all — square 0px controls, hard 1px borders, Lucida Sans, and a single electric accent that only ever appears on the connect and toggle affordances. The console is furniture; the viewer is an instrument. The difference is not drift — it is the difference between a waiting room and the console of a machine.\n\nThe governing personality is strictly functional: every element serves the session. Nothing in either surface is decorative. The console has no shadows, no gradients, no illustrations — depth is carried entirely by three greys (#222 canvas → #303030 card → #444 border) and by 1px borders. The viewer has exactly one shadow in the entire system, on the one element that genuinely floats (.modal-prompt). Color is used as signal, never as mood: the console's slate blue marks the primary action, the viewer's Signal Cyan marks the one thing you can act on, and crimson appears once, on the button that ends the session. Where the system is incomplete, it says so plainly — the viewer's light theme is a TODO in Server/Pages/Viewer.cshtml.cs:42 — and where the console drifted, it was corrected rather than excused: site.css no longer declares a font or a link colour that the theme overrides, the sidebar's steelblue gradient is gone, and every console colour now comes from one token layer (--rm-*) shared by both themes.",
+    "northStar": "Platform Liveliness",
+    "overview": "Remotely is an operations console first and a brand surface second: an IT technician opens it to reach a machine and act on it, not to browse. The visual world therefore borrows the energy of a social platform — one vivid blue voice on a black-or-white stage, pill-shaped controls, generous rounding — while keeping the density and plainness of a working tool. The liveliness is in the accent, not in the chrome: surfaces stay quiet so the single blue can carry action, selection, and status. The system is built on one accent family (Twitter blue in OKLCH) plus semantic status hues that are signals, never decoration. Dark and light themes are two composed palettes sharing the same token names — every component rule is written once against `--rm-*` tokens declared in `Server/wwwroot/css/Themes/*.custom.css`, so a theme switch never leaves a surface behind. Depth is tonal, not shadowed: flat surfaces separated by lightness and 1px borders, with blue-tinted shadows reserved for hover elevation.",
     "keyCharacteristics": [
-      "The remote screen owns the viewport; all chrome floats over it as a thin, square-edged overlay.",
-      "Two type systems with different jobs: Lato for the console's readability, Lucida Sans for the viewer's deliberate plainness.",
-      "Zero decorative color, zero ornament, zero resting shadows.",
-      "One accent per surface, reserved for action: Signal Cyan in the viewer, slate blue in the console.",
-      "Radii are a vocabulary, not a gradient: a single 6px in the console, 5px on floating panels, 0px on viewer controls."
+      "One chromatic voice: Platform Blue carries every action, link, and live state.",
+      "Pill controls: `1.3rem` radius on buttons, inputs, panels, and cards.",
+      "Flat by default: tonal layers and borders, shadows only on hover.",
+      "Open Sans everywhere; Menlo for code and data.",
+      "Status colors are signals (green = online, yellow = outdated, red = destructive), never decoration."
     ],
     "rules": [
-      {
-        "name": "The Signal Cyan Rule",
-        "body": "Signal Cyan is reserved for the connect and toggle affordances in the viewer. It is never used for decoration, for data, for hover states on other elements, or anywhere in the console. Its rarity is the point.",
-        "section": "colors"
-      },
-      {
-        "name": "The Three-Grey Rule",
-        "body": "The console's depth comes from exactly three greys — #222, #303030, #444 — plus a 1px border. Introducing a fourth surface tone is a change to the system, not a style choice.",
-        "section": "colors"
-      },
-      {
-        "name": "The Cascade Rule",
-        "body": "The theme stylesheet is loaded after site.css, so any declaration in site.css that the theme also sets is dead. The file used to declare font-family: 'Helvetica Neue' on html, body and a { color: #0366d6 } while the rendered console used Lato and theme-coloured links; both declarations are now deleted rather than left to be overridden. Verify against computed styles in the running app, never against the source file.",
-        "section": "colors"
-      },
-      {
-        "name": "The One-Hue Rule",
-        "body": "The console has one chromatic family — slate blue — plus status colours. Green means online and nothing else, so links are the accent, never green: a green link reads as a status. Yellow means outdated agent, red means destructive. A new colour must be a signal or it does not ship.",
-        "section": "colors"
-      },
-      {
-        "name": "The Token Rule",
-        "body": "Every colour the console paints comes from a --rm-* token declared in Server/wwwroot/css/Themes/*.custom.css (dark: darkly.custom.css, light: yeti.custom.css). A raw hex value in a component rule is drift waiting to happen: it will not survive a theme switch. Both themes must declare the same token names.",
-        "section": "colors"
-      },
-      {
-        "name": "The Two-Stacks Rule",
-        "body": "The console and the viewer keep separate type systems. Moving Lato into the viewer, or Lucida Sans into the console, merges two surfaces that are deliberately unlike each other.",
-        "section": "typography"
-      },
-      {
-        "name": "The Weight-500 Rule",
-        "body": "In the console, hierarchy is carried by size and by weight 500 — never by bold 700, never by color alone. Weight 300 and 400 are the default in the viewer.",
-        "section": "typography"
-      },
-      {
-        "name": "The Flat-By-Default Rule",
-        "body": "Surfaces are flat at rest. If a new element needs to be distinguished from its neighbors, give it a different tone or a 1px border. A shadow is a last resort and is reserved for something that physically floats over the remote screen.",
-        "section": "elevation"
-      },
-      {
-        "name": "The One Vocabulary Rule",
-        "body": "Never mix radii within a surface. The console has exactly one radius, 6px, enforced by overriding --bs-border-radius, --bs-border-radius-sm and --bs-border-radius-lg in both themes — a 6px button next to a 4px button in the console is a bug, and so is a rounded button in the viewer.",
-        "section": "shapes"
-      }
+      { "name": "The One Voice Rule", "body": "Platform Blue is the only decorative hue. Green, amber, and red appear only as status signals with text or shape reinforcement; a green link would read as \"online\" and is never used.", "section": "colors" },
+      { "name": "The One Sans Rule", "body": "Open Sans is the only text face. Menlo appears only for code, logs, and tabular data — never as a \"technical\" costume for UI copy.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Depth appears as a response to state (hover, modal, focus). A resting panel with a soft shadow is drift; a resting panel with a border is the system.", "section": "elevation" },
+      { "name": "The Pill Rule", "body": "If it is a control or a container in the console, it is `1.3rem`. Small radii survive only in the viewer's legacy chrome.", "section": "shapes" }
     ],
     "dos": [
-      "Do let the remote screen occupy the whole viewport in the viewer, and float the chrome above it.",
-      "Do keep the console's depth in the three greys (#222 / #303030 / #444) and 1px borders.",
-      "Do take every console colour from a --rm-* token, and declare the same token in both themes.",
-      "Do reserve Signal Cyan for the connect and toggle affordances, and slate blue #375a7f for the console's primary action.",
-      "Do verify a change against computed styles in the running app — the theme stylesheet loads after site.css and overrides it.",
-      "Do keep every control in the viewer at 40px height so the target size stays constant across the toolbar.",
-      "Do use Bootstrap's dense vocabulary (table-sm, striped, hover, thead.table-light, btn-sm) for tabular console data instead of inventing a table style.",
-      "Do use Lato in the console and Lucida Sans in the viewer, and not the other way round."
+      "Do paint every console color from a `--rm-*` token declared in `Server/wwwroot/css/Themes/*.custom.css` — a raw hex in a component rule will not survive a theme switch.",
+      "Do keep both themes declaring the same token names; a missing token silently keeps old behavior in one theme.",
+      "Do derive text colors at AA: body ≥ 4.5:1, controls and focus ≥ 3:1 — verify computed pairs, not eyeballs.",
+      "Do let Platform Blue own action, selection, focus, and the connect affordance — and nothing decorative.",
+      "Do pair every status color with text, a dot, or a glyph.",
+      "Do use pill radius (`1.3rem`) for console controls and containers; keep tabular numerals for data."
     ],
     "donts": [
-      "Don't add a shadow to a resting surface. The only shadow belongs to the floating prompt.",
-      "Don't introduce a second accent color in either surface, and don't carry Signal Cyan into the console.",
-      "Don't use green for anything but \"online\" — a green link reads as a status, not an action.",
-      "Don't round a viewer control, mix two radii in the console, or soften a square edge.",
-      "Don't decorate, illustrate, or add an empty state that isn't about a device or a session.",
-      "Don't assume the viewer has a light theme; Server/Pages/Viewer.cshtml.cs:42 hard-codes dark with a TODO.",
-      "Don't declare a colour in site.css that the theme also sets — it is dead code by construction; the console's colours belong to the --rm-* tokens."
+      "Don't introduce a second accent hue (no cyan, no slate blue, no generic Bootstrap palette escapes) — Bootstrap classes must route through the `--bs-*` bridges in the custom theme files.",
+      "Don't put white text on raw Platform Blue (`#1DA1F2` is 2.94:1) — deepen it in light, use dark ink in dark.",
+      "Don't use green for links or interactive text — green means online.",
+      "Don't add resting drop shadows for depth — use tonal steps and borders; shadows are hover/modal only.",
+      "Don't show a placeholder and a floating label at the same time — the placeholder stays transparent until focus.",
+      "Don't regenerate the enforced brand assets (logos, banners, icons) — they are authoritative inputs, not design output."
     ]
   }
 }

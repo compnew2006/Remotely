@@ -1,3 +1,4 @@
+using Remotely.Desktop.Native.Windows;
 using Remotely.Desktop.Shared.Abstractions;
 using Remotely.Desktop.Win.Helpers;
 using Remotely.Shared.Models;
@@ -36,6 +37,23 @@ internal class CameraCapturerWin : ICameraCapturer
     {
         var result = new List<CameraDeviceInfo>();
 
+        // The enumeration runs on a pool thread that has no desktop of its
+        // own, so EnumDisplayMonitors finds no screens. Switch to the
+        // input desktop first, exactly like the screen streamer does.
+        try
+        {
+            var switched = Win32Interop.SwitchToInputDesktop();
+            _logger.LogInformation(
+                "The camera enumeration switched to the input desktop: {switched}.",
+                switched);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "The input desktop switch failed before the camera enumeration.");
+        }
+
         try
         {
             result.AddRange(ScreenRecorderLib.Recorder
@@ -45,9 +63,9 @@ internal class CameraCapturerWin : ICameraCapturer
                     x.FriendlyName,
                     CameraDeviceKind.Camera)));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // The cameras can't be listed, so only the displays are offered.
+            _logger.LogWarning(ex, "The cameras could not be listed.");
         }
 
         try
@@ -66,10 +84,14 @@ internal class CameraCapturerWin : ICameraCapturer
                 index++;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // The displays can't be listed, so only the cameras are offered.
+            _logger.LogWarning(ex, "The displays could not be listed.");
         }
+
+        _logger.LogInformation(
+            "The camera enumeration found {count} cameras and screens.",
+            result.Count);
 
         return result;
     }
@@ -80,35 +102,97 @@ internal class CameraCapturerWin : ICameraCapturer
 
         try
         {
-            result.AddRange(ScreenRecorderLib.Recorder
-                .GetSystemAudioLoopbackDevices()
-                .Select(x => new CameraAudioDeviceInfo(
-                    x.DeviceName,
-                    x.FriendlyName,
-                    CameraAudioSource.SystemAudio,
-                    x.IsDefaultDevice)));
+            Win32Interop.SwitchToInputDesktop();
         }
         catch (Exception)
         {
-            // The system audio devices can't be listed.
+            // The audio devices are listed anyway; they are listed when
+            // the switch works.
         }
 
-        try
+        // The recording library's native audio enumeration crashes the
+        // whole process (access violation) when the endpoint list it
+        // enumerates is empty (no microphone, or no speakers). Check each
+        // direction with NAudio first and never call the library for a
+        // direction the device does not have.
+        var endpoints = GetActiveAudioEndpoints();
+        if (!endpoints.Captures && !endpoints.Renders)
         {
-            result.AddRange(ScreenRecorderLib.Recorder
-                .GetSystemAudioCaptureDevices()
-                .Select(x => new CameraAudioDeviceInfo(
-                    x.DeviceName,
-                    x.FriendlyName,
-                    CameraAudioSource.Microphone,
-                    x.IsDefaultDevice)));
+            _logger.LogInformation(
+                "This device has no active audio endpoints, so the audio list is empty.");
+            return result;
         }
-        catch (Exception)
+
+        if (endpoints.Renders)
         {
-            // The microphones can't be listed.
+            try
+            {
+                result.AddRange(ScreenRecorderLib.Recorder
+                    .GetSystemAudioLoopbackDevices()
+                    .Select(x => new CameraAudioDeviceInfo(
+                        x.DeviceName,
+                        x.FriendlyName,
+                        CameraAudioSource.SystemAudio,
+                        x.IsDefaultDevice)));
+            }
+            catch (Exception)
+            {
+                // The system audio devices can't be listed.
+            }
         }
+
+        if (endpoints.Captures)
+        {
+            try
+            {
+                result.AddRange(ScreenRecorderLib.Recorder
+                    .GetSystemAudioCaptureDevices()
+                    .Select(x => new CameraAudioDeviceInfo(
+                        x.DeviceName,
+                        x.FriendlyName,
+                        CameraAudioSource.Microphone,
+                        x.IsDefaultDevice)));
+            }
+            catch (Exception)
+            {
+                // The microphones can't be listed.
+            }
+        }
+
+        _logger.LogInformation(
+            "The audio enumeration found {count} audio devices.",
+            result.Count);
 
         return result;
+    }
+
+    /// <summary>
+    /// Whether the device has an active capture (microphone) endpoint and an
+    /// active render (speaker) endpoint. The recording library crashes the
+    /// process when it enumerates an audio direction that has no endpoint,
+    /// so callers must not ask it for a direction the device does not have.
+    /// </summary>
+    private static (bool Captures, bool Renders) GetActiveAudioEndpoints()
+    {
+        try
+        {
+            using var enumerator = new NAudio.CoreAudioApi.MMDeviceEnumerator();
+
+            var captures =
+                enumerator.EnumerateAudioEndPoints(
+                    NAudio.CoreAudioApi.DataFlow.Capture,
+                    NAudio.CoreAudioApi.DeviceState.Active);
+            var renders =
+                enumerator.EnumerateAudioEndPoints(
+                    NAudio.CoreAudioApi.DataFlow.Render,
+                    NAudio.CoreAudioApi.DeviceState.Active);
+
+            return (captures.Count > 0, renders.Count > 0);
+        }
+        catch (Exception)
+        {
+            return (false, false);
+        }
     }
 
     public async Task<Result<string>> RecordAsync(
@@ -117,6 +201,19 @@ internal class CameraCapturerWin : ICameraCapturer
     {
         try
         {
+            // Recording a display needs a thread that is on the input
+            // desktop, exactly like the screen streamer. GetCameras()
+            // already switched, but this is again the entry point when
+            // the encoding starts.
+            try
+            {
+                Win32Interop.SwitchToInputDesktop();
+            }
+            catch (Exception)
+            {
+                // The recording is attempted anyway.
+            }
+
             var cameras = GetCameras();
             if (cameras.Count == 0)
             {

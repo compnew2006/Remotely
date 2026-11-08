@@ -97,8 +97,18 @@ internal class CameraCaptureService : ICameraCaptureService
         try
         {
             var cameras = _cameraCapturer.GetCameras();
+
+            // The cameras are sent first, so the administrator can pick a
+            // screen even when the audio devices can't be listed (or the
+            // listing of audio devices fails on this device).
+            await _desktopHubConnection.SendCameraDevices(
+                cameras.ToArray(),
+                Array.Empty<CameraAudioDeviceInfo>());
+
             var audioDevices = _cameraCapturer.GetAudioDevices();
-            await _desktopHubConnection.SendCameraDevices(cameras.ToArray(), audioDevices.ToArray());
+            await _desktopHubConnection.SendCameraDevices(
+                cameras.ToArray(),
+                audioDevices.ToArray());
         }
         catch (Exception ex)
         {
@@ -192,7 +202,19 @@ internal class CameraCaptureService : ICameraCaptureService
 
             try
             {
-                var uploaded = await UploadAsync(deviceId, path, request, durationSeconds, camera.Name, captureToken);
+                // The upload runs after the recording itself, so it must
+                // not use the capture cancellation token: pressing Stop
+                // while recording cancels that token, and it would cancel
+                // the upload of the clip that was just recorded, discarding
+                // it. On a stop the clip is saved (this is what stopping
+                // the recording is supposed to do).
+                var uploaded = await UploadAsync(
+                    deviceId,
+                    path,
+                    request,
+                    durationSeconds,
+                    camera.Name,
+                    CancellationToken.None);
                 if (!uploaded.IsSuccess)
                 {
                     return uploaded;

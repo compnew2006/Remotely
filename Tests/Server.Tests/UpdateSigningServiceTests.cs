@@ -77,7 +77,7 @@ public class UpdateSigningServiceTests
 
         var contentDirectory = Path.Combine(_webRoot, "Content");
         Assert.IsTrue(File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json")));
-        Assert.IsTrue(File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.sig")));
+        Assert.IsTrue(File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.sig")));
     }
 
     [TestMethod]
@@ -104,7 +104,7 @@ public class UpdateSigningServiceTests
         var manifestBytes = File.ReadAllBytes(
             Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json"));
         var signature = File.ReadAllText(
-            Path.Combine(contentDirectory, "Remotely-Win-x64.zip.sig"));
+            Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.sig"));
 
         var packageBytes = File.ReadAllBytes(packagePath);
         var installerBytes = File.ReadAllBytes(
@@ -135,7 +135,7 @@ public class UpdateSigningServiceTests
         var manifestBytes = File.ReadAllBytes(
             Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json"));
         var signature = File.ReadAllText(
-            Path.Combine(contentDirectory, "Remotely-Win-x64.zip.sig"));
+            Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.sig"));
 
         // The package is changed after it was signed.
         File.WriteAllBytes(packagePath, new byte[] { 1, 2, 3, 4, 5 });
@@ -166,7 +166,7 @@ public class UpdateSigningServiceTests
         var manifestBytes = File.ReadAllBytes(
             Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json"));
         var signature = File.ReadAllText(
-            Path.Combine(contentDirectory, "Remotely-Win-x64.zip.sig"));
+            Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.sig"));
 
         var result = UpdatePackageVerifier.Verify(
             manifestBytes,

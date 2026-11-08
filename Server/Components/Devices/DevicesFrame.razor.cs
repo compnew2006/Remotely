@@ -347,6 +347,27 @@ public partial class DevicesFrame : AuthComponentBase
         CardStore.InvokeSelectionsChanged();
     }
 
+    private async Task UpdateSelectedAgents()
+    {
+        EnsureUserSet();
+
+        var selectedDeviceIds = CardStore.SelectedDevices.ToArray();
+
+        if (!selectedDeviceIds.Any())
+        {
+            ToastService.ShowToast("Select one or more devices first.", classString: "bg-warning");
+            return;
+        }
+
+        var updated = await CircuitConnection.UpdateAgents(selectedDeviceIds);
+        var skipped = selectedDeviceIds.Length - updated;
+
+        ToastService.ShowToast(
+            $"Update command sent to {updated} device(s)" +
+            (skipped > 0 ? $".  {skipped} device(s) offline (they will update themselves when they reconnect)." : "."),
+            classString: skipped > 0 ? "bg-warning" : string.Empty);
+    }
+
     private void ToggleSortDirection()
     {
         if (_sortDirection == ListSortDirection.Ascending)

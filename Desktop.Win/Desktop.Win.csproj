@@ -52,11 +52,11 @@
     on AnyCPU, so it is only referenced for the platforms that support it.
     The camera capture is not available in the AnyCPU build.
   -->
-  <PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(Platform)' == 'x86' Or '$(Platform)' == 'Win32' Or '$(Platform)' == 'ARM64'">
+  <PropertyGroup Condition="'$(Platform)' == 'x64' Or '$(Platform)' == 'x86' Or '$(Platform)' == 'Win32' Or '$(Platform)' == 'ARM64' Or '$(PlatformTarget)' == 'x64' Or '$(PlatformTarget)' == 'x86' Or '$(PlatformTarget)' == 'ARM64' Or '$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-x86' Or '$(RuntimeIdentifier)' == 'win-arm64'">
     <DefineConstants>$(DefineConstants);SCREEN_RECORDER_LIB</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(Platform)' == 'x64' Or '$(Platform)' == 'x86' Or '$(Platform)' == 'Win32' Or '$(Platform)' == 'ARM64'">
+  <ItemGroup Condition="'$(Platform)' == 'x64' Or '$(Platform)' == 'x86' Or '$(Platform)' == 'Win32' Or '$(Platform)' == 'ARM64' Or '$(PlatformTarget)' == 'x64' Or '$(PlatformTarget)' == 'x86' Or '$(PlatformTarget)' == 'ARM64' Or '$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-x86' Or '$(RuntimeIdentifier)' == 'win-arm64'">
     <PackageReference Include="ScreenRecorderLib" Version="7.0.1" />
   </ItemGroup>
 

@@ -6,8 +6,8 @@
  *
  * Reference: Authorized Devices home (DevicesFrame + device toolbar + device
  * cards). Every other console surface adopts the same vocabulary:
- *   canvas #222/#fff -> raised panel -> 1px border -> 6px radius
- *   Lato only, slate-blue accent only, 32/20/16 type scale with weight 500.
+ *   canvas -> raised panel -> 1px border -> token radius (Twitter 1.3rem)
+ *   Open Sans only, Twitter blue accent only, 32/20/16 type scale with weight 500.
  *
  * Depth is tokened (--rm-shadow-sm/md/lg): resting panels carry --rm-shadow-sm,
  * hoverable panels + device cards + landing/auth panels use --rm-shadow-md/lg.
@@ -623,8 +623,14 @@ a.rm-panel:hover,
     color: var(--rm-accent-strong);
 }
 
+/*
+ * Floating labels replace the placeholder text: the placeholder must stay
+ * invisible until focus, otherwise the label and the placeholder overlap
+ * (both sit at the same spot). The generic ::placeholder rule above uses
+ * !important, so this needs it too - and it is more specific, so it wins.
+ */
 .form-floating > .form-control::placeholder {
-    color: transparent;
+    color: transparent !important;
 }
 
 .form-floating > .form-control:focus::placeholder {
@@ -765,7 +771,7 @@ kbd {
 .rm-callout-success {
     background-color: transparent;
     border-color: var(--rm-status-ok);
-    color: var(--rm-status-ok);
+    color: var(--rm-status-ok-ink);
 }
 
 /* Bootstrap alerts inherit the same edge + radius */
@@ -795,7 +801,7 @@ kbd {
 }
 
 .alert-success {
-    --bs-alert-color: var(--rm-status-ok);
+    --bs-alert-color: var(--rm-status-ok-ink);
     --bs-alert-bg: transparent;
     --bs-alert-border-color: var(--rm-status-ok);
 }
@@ -828,7 +834,7 @@ kbd {
 
 .badge.bg-success {
     background-color: transparent !important;
-    color: var(--rm-status-ok) !important;
+    color: var(--rm-status-ok-ink) !important;
     border: 1px solid var(--rm-status-ok);
 }
 
@@ -878,7 +884,7 @@ kbd {
 
 .nav-pills .nav-link.active {
     background-color: var(--rm-primary-fill);
-    color: var(--rm-ink);
+    color: var(--rm-primary-ink);
     border: 1px solid var(--rm-primary-edge);
 }
 
@@ -1098,7 +1104,7 @@ kbd {
 
 .chat-header {
     background-color: var(--rm-primary-fill) !important;
-    color: var(--rm-ink) !important;
+    color: var(--rm-primary-ink) !important;
     border-radius: var(--rm-radius-control) var(--rm-radius-control) 0 0;
 }
 
@@ -1109,6 +1115,7 @@ kbd {
 
 .chat-card .chat-bubble.bg-primary {
     background-color: var(--rm-primary-fill) !important;
+    color: var(--rm-primary-ink) !important;
 }
 
 .chat-card .chat-bubble.bg-dark {

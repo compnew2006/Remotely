@@ -1,87 +1,171 @@
-﻿/*
+﻿@import url(https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap);
+
+/*
  * Remotely console - design tokens (dark theme).
  *
- * The console keeps exactly three surfaces (canvas #222, raised #303030,
- * border #444) and one chromatic family (slate blue). Status colours are the
- * only other hue in the console, and they are signals rather than decoration:
- * green = online, yellow = outdated agent, red = destructive.
+ * Twitter theme (tweakcn, oklch) translated onto the console's --rm-* tokens.
+ * The verbatim tweakcn values are kept as --background/--primary/... aliases
+ * below; the --rm-* tokens that paint text on the dark card are brightened
+ * at the same hue so they pass WCAG AA:
+ *   - accent text uses L 0.75 / 0.80 (8.06:1 / 9.52:1 on the card).
+ *   - primary fill keeps the raw tweakcn blue; white text on it is 2.94:1,
+ *     so --rm-primary-ink is dark ink (7.15:1) in this theme only.
+ *   - muted/faint are L 0.65 / 0.60 (5.49:1 / 4.50:1 on the card); the raw
+ *     --muted-foreground (L 0.5637) is only 4.59:1 on pure black and less
+ *     on the raised card.
+ * Green stays a status signal (online), never a link colour.
  */
 :root {
-    --rm-font-sans: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --rm-font-sans: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* tweakcn / shadcn aliases (verbatim, dark) */
+    --background: oklch(0 0 0);
+    --foreground: oklch(0.9328 0.0025 228.7857);
+    --card: oklch(0.2097 0.0080 274.5332);
+    --card-foreground: oklch(0.8853 0 0);
+    --popover: oklch(0 0 0);
+    --popover-foreground: oklch(0.9328 0.0025 228.7857);
+    --primary: oklch(0.6692 0.1607 245.0110);
+    --primary-foreground: oklch(1.0000 0 0);
+    --secondary: oklch(0.9622 0.0035 219.5331);
+    --secondary-foreground: oklch(0.1884 0.0128 248.5103);
+    --muted: oklch(0.2090 0 0);
+    --muted-foreground: oklch(0.5637 0.0078 247.9662);
+    --accent: oklch(0.1928 0.0331 242.5459);
+    --accent-foreground: oklch(0.6692 0.1607 245.0110);
+    --destructive: oklch(0.6188 0.2376 25.7658);
+    --destructive-foreground: oklch(1.0000 0 0);
+    --border: oklch(0.2674 0.0047 248.0045);
+    --input: oklch(0.3020 0.0288 244.8244);
+    --ring: oklch(0.6818 0.1584 243.3540);
+    --chart-1: oklch(0.6723 0.1606 244.9955);
+    --chart-2: oklch(0.6907 0.1554 160.3454);
+    --chart-3: oklch(0.8214 0.1600 82.5337);
+    --chart-4: oklch(0.7064 0.1822 151.7125);
+    --chart-5: oklch(0.5919 0.2186 10.5826);
+    --sidebar: oklch(0.2097 0.0080 274.5332);
+    --sidebar-foreground: oklch(0.8853 0 0);
+    --sidebar-primary: oklch(0.6818 0.1584 243.3540);
+    --sidebar-primary-foreground: oklch(1.0000 0 0);
+    --sidebar-accent: oklch(0.1928 0.0331 242.5459);
+    --sidebar-accent-foreground: oklch(0.6692 0.1607 245.0110);
+    --sidebar-border: oklch(0.3795 0.0220 240.5943);
+    --sidebar-ring: oklch(0.6818 0.1584 243.3540);
+    --radius: 1.3rem;
+
     /* Surfaces */
-    --rm-surface-canvas: #222222;
-    --rm-surface-raised: #303030;
-    --rm-surface-sidebar: #222222;
-    --rm-surface-hover: #343434;
-    --rm-surface-sunken: #1a1a1a;
-    --rm-border: #444444;
-    --rm-border-soft: rgba(255, 255, 255, 0.08);
+    --rm-surface-canvas: oklch(0 0 0);
+    --rm-surface-raised: oklch(0.2097 0.0080 274.5332);
+    --rm-surface-sidebar: oklch(0.2097 0.0080 274.5332);
+    --rm-surface-hover: oklch(0.1928 0.0331 242.5459);
+    --rm-surface-sunken: oklch(0.2090 0 0);
+    --rm-border: oklch(0.2674 0.0047 248.0045);
+    --rm-border-soft: color-mix(in oklch, oklch(0.2674 0.0047 248.0045) 60%, black);
+    /* Field borders sit on the raised card, so a stronger step. */
+    --rm-border-strong: oklch(0.3795 0.0220 240.5943);
     --rm-navbar-scrim: rgba(0, 0, 0, 0.3);
 
     /* Ink */
-    --rm-ink: #ffffff;
-    --rm-ink-muted: rgba(255, 255, 255, 0.75);
-    --rm-ink-faint: rgba(255, 255, 255, 0.60);
+    --rm-ink: oklch(0.9328 0.0025 228.7857);
+    --rm-ink-muted: oklch(0.6500 0.0100 248.0000);
+    --rm-ink-faint: oklch(0.6000 0.0100 248.0000);
 
-    /* Accent - one family, four steps */
-    --rm-accent: #8fb8e0;
-    --rm-accent-strong: #b3d2f0;
-    --rm-accent-soft: rgba(143, 184, 224, 0.12);
-    --rm-accent-line: rgba(143, 184, 224, 0.55);
-    --rm-focus-ring: rgba(143, 184, 224, 0.45);
+    /* Accent - Twitter blue, brightened for text on dark surfaces */
+    --rm-accent: oklch(0.7500 0.1200 245.0000);
+    --rm-accent-strong: oklch(0.8000 0.1200 245.0000);
+    --rm-accent-soft: oklch(0.1928 0.0331 242.5459);
+    --rm-accent-line: oklch(0.6818 0.1584 243.3540);
+    --rm-focus-ring: color-mix(in oklch, oklch(0.6818 0.1584 243.3540) 55%, transparent);
 
-    /* Status */
-    --rm-status-ok: #00bc8c;
-    --rm-status-warn: #f5d76e;
-    --rm-status-warn-ink: #f5d76e;
-    --rm-status-danger: #e74c3c;
-    --rm-status-danger-ink: #ff8a7a;
+    /* Status - chart hues; *-ink variants are the AA text steps */
+    --rm-status-ok: oklch(0.6907 0.1554 160.3454);
+    --rm-status-ok-ink: oklch(0.7500 0.1500 160.0000);
+    --rm-status-warn: oklch(0.8214 0.1600 82.5337);
+    --rm-status-warn-ink: oklch(0.8214 0.1600 82.5337);
+    --rm-status-danger: oklch(0.6188 0.2376 25.7658);
+    --rm-status-danger-ink: oklch(0.7200 0.1600 25.0000);
 
-    /* Primary action - quiet fill, visible edge */
-    --rm-primary-fill: #375a7f;
-    --rm-primary-fill-hover: #2f4e6f;
-    --rm-primary-edge: rgba(143, 184, 224, 0.55);
+    /* Primary action - raw tweakcn blue fill, dark ink on it (7.15:1) */
+    --rm-primary-fill: oklch(0.6692 0.1607 245.0110);
+    --rm-primary-fill-hover: oklch(0.7200 0.1500 245.0000);
+    --rm-primary-edge: oklch(0.6818 0.1584 243.3540);
+    --rm-primary-ink: oklch(0.1500 0.0100 248.0000);
 
-    /* Fields */
-    --rm-field-bg: #ffffff;
-    --rm-field-ink: #303030;
-    --rm-field-border: #222222;
-    --rm-field-placeholder: rgba(48, 48, 48, 0.45);
+    /* Fields - Bootswatch paints .form-control white in both themes, so the
+       field tokens describe that white well (dark placeholder on white). */
+    --rm-field-bg: oklch(1.0000 0 0);
+    --rm-field-ink: oklch(0.1884 0.0128 248.5103);
+    --rm-field-border: oklch(0.8800 0.0080 240.0000);
+    --rm-field-placeholder: color-mix(in oklch, oklch(0.1884 0.0128 248.5103) 55%, transparent);
 
-    /* Depth */
-    --rm-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
-    --rm-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.26);
-    --rm-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.34);
+    /* Depth - Twitter-blue tint, with real offset + blur */
+    --rm-shadow-sm: 0 1px 2px rgba(29, 161, 242, 0.25);
+    --rm-shadow-md: 0 4px 16px rgba(29, 161, 242, 0.28);
+    --rm-shadow-lg: 0 12px 32px rgba(29, 161, 242, 0.32);
 
     /* Shape + metrics */
-    --rm-radius-control: 6px;
+    --rm-radius-control: 1.3rem;
     --rm-control-height: 38px;
     --rm-page-max: 1180px;
     --rm-auth-max: 480px;
 
-    /* Bootstrap bridges */
+    /* Bootstrap bridges - so components outside console.css follow too */
+    --bs-font-sans-serif: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --bs-font-monospace: Menlo, monospace;
+    --bs-body-font-family: var(--rm-font-sans);
+    --bs-body-bg: var(--rm-surface-canvas);
+    --bs-body-color: var(--rm-ink);
+    --bs-border-color: var(--rm-border);
+    --bs-primary: var(--rm-primary-fill);
+    --bs-primary-rgb: 30, 157, 241;
+    --bs-info: var(--rm-accent);
+    --bs-info-rgb: 104, 181, 245;
+    --bs-success: var(--rm-status-ok);
+    --bs-success-rgb: 0, 184, 122;
+    --bs-warning: var(--rm-status-warn);
+    --bs-warning-rgb: 247, 185, 40;
+    --bs-danger: var(--rm-status-danger);
+    --bs-danger-rgb: 244, 33, 46;
     --bs-border-radius: var(--rm-radius-control);
     --bs-border-radius-sm: var(--rm-radius-control);
     --bs-border-radius-lg: var(--rm-radius-control);
     --bs-focus-ring-color: var(--rm-focus-ring);
     --bs-link-color: var(--rm-accent);
     --bs-link-hover-color: var(--rm-accent-strong);
-    --bs-info: var(--rm-accent);
-    --bs-info-rgb: 143, 184, 224;
 }
 
 /*
- * The primary action keeps its slate-blue fill but gains a visible edge:
- * #375a7f on the #222 canvas is 2.22:1 - under the 3:1 non-text floor for a
- * component boundary. The edge keeps the button quiet and makes it findable.
+ * The primary action is the raw Twitter blue fill. White text on it is
+ * 2.94:1, so the button ink is dark (7.15:1) in this theme; the light
+ * theme keeps white ink on its AA-deepened fill instead.
  */
 .btn.btn-primary {
+    --bs-btn-color: var(--rm-primary-ink);
     --bs-btn-bg: var(--rm-primary-fill);
     --bs-btn-border-color: var(--rm-primary-edge);
+    --bs-btn-hover-color: var(--rm-primary-ink);
     --bs-btn-hover-bg: var(--rm-primary-fill-hover);
     --bs-btn-hover-border-color: var(--rm-primary-edge);
+    --bs-btn-active-color: var(--rm-primary-ink);
     --bs-btn-active-bg: var(--rm-primary-fill);
     --bs-btn-active-border-color: var(--rm-primary-edge);
+    --bs-btn-disabled-color: var(--rm-primary-ink);
+    --bs-btn-disabled-bg: var(--rm-primary-fill);
+}
+
+/* Destructive fill is deepened (L 0.56) so white text passes AA in both themes. */
+.btn.btn-danger {
+    --bs-btn-color: #ffffff;
+    --bs-btn-bg: oklch(0.5600 0.2200 25.0000);
+    --bs-btn-border-color: oklch(0.5600 0.2200 25.0000);
+    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-bg: oklch(0.5000 0.2000 25.0000);
+    --bs-btn-hover-border-color: oklch(0.5000 0.2000 25.0000);
+    --bs-btn-active-color: #ffffff;
+    --bs-btn-active-bg: oklch(0.5600 0.2200 25.0000);
+    --bs-btn-active-border-color: oklch(0.5600 0.2200 25.0000);
+    --bs-btn-disabled-color: #ffffff;
+    --bs-btn-disabled-bg: oklch(0.5600 0.2200 25.0000);
 }
 
 /*
@@ -112,4 +196,13 @@ hr {
 
 .form-floating > label {
     color: var(--rm-ink-muted);
+}
+
+/*
+ * Floating labels sit on white Bootstrap fields even in the dark theme, so
+ * they need the dark field ink, not the light --rm-ink-faint (which would
+ * be near-invisible on white).
+ */
+.form-floating > label {
+    color: var(--rm-field-placeholder) !important;
 }

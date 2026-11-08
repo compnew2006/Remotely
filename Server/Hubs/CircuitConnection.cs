@@ -32,6 +32,14 @@ public interface ICircuitConnection
 
     Task ReinstallAgents(string[] deviceIDs);
 
+    /// <summary>
+    /// Tells the online devices to update their agent to the latest signed
+    /// package (no deletion, no re-registration, no removal from the list).
+    /// Offline devices are skipped; they update on their own when they
+    /// reconnect.  Returns the number of devices that were told to update.
+    /// </summary>
+    Task<int> UpdateAgents(string[] deviceIDs);
+
     Task<Result<RemoteControlSession>> RemoteControl(string deviceID, bool viewOnly);
 
     Task<Result> StartMonitoring(string deviceId, int intervalMinutes);
@@ -218,6 +226,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     private readonly IAgentHubSessionCache _agentSessionCache;
     private readonly ICameraService _cameraService;
     private readonly IAudioService _audioService;
+    private readonly ICameraDevicesStore _cameraDevicesStore;
     private readonly IKeyboardLogService _keyboardLogService;
     private readonly IKeyboardCaptureManager _keyboardCaptureManager;
     private readonly IMessenger _messenger;
@@ -237,6 +246,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         IScreenshotService screenshotService,
         ICameraService cameraService,
         IAudioService audioService,
+        ICameraDevicesStore cameraDevicesStore,
         IKeyboardLogService keyboardLogService,
         IKeyboardCaptureManager keyboardCaptureManager,
         IAgentHubSessionCache agentSessionCache,
@@ -255,6 +265,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         _screenshotService = screenshotService;
         _cameraService = cameraService;
         _audioService = audioService;
+        _cameraDevicesStore = cameraDevicesStore;
         _keyboardLogService = keyboardLogService;
         _keyboardCaptureManager = keyboardCaptureManager;
         _agentSessionCache = agentSessionCache;
@@ -374,6 +385,20 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         var connections = GetActiveConnectionsForUserOrg(deviceIDs);
         await _agentHubContext.Clients.Clients(connections).ReinstallAgent();
         _dataService.RemoveDevices(deviceIDs);
+    }
+
+    public async Task<int> UpdateAgents(string[] deviceIDs)
+    {
+        deviceIDs = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
+        var connections = GetActiveConnectionsForUserOrg(deviceIDs).ToList();
+
+        _logger.LogInformation(
+            "Agent update requested by {username} for {deviceIds}.",
+            User?.UserName,
+            string.Join(", ", deviceIDs));
+
+        await _agentHubContext.Clients.Clients(connections).ReinstallAgent();
+        return connections.Count;
     }
 
     public async Task<Result<RemoteControlSession>> RemoteControl(string deviceId, bool viewOnly)
@@ -1110,7 +1135,17 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         var session = _remoteControlSessionCache.Sessions
             .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraCapture);
 
-        return session?.CameraDevices.ToArray() ?? Array.Empty<CameraDeviceInfo>();
+        var cameras = session?.CameraDevices.ToArray();
+
+        if (cameras is { Length: > 0 })
+        {
+            return cameras;
+        }
+
+        // The session may have been removed (for example when the recording
+        // was stopped), but the devices the machine reported before are
+        // still what the manager wants to see.
+        return _cameraDevicesStore.Get(deviceId).Cameras;
     }
 
     /// <summary>
@@ -1127,7 +1162,17 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         var session = _remoteControlSessionCache.Sessions
             .FirstOrDefault(x => x.DeviceId == deviceId && x.IsCameraCapture);
 
-        return session?.CameraAudioDevices.ToArray() ?? Array.Empty<CameraAudioDeviceInfo>();
+        var audioDevices = session?.CameraAudioDevices.ToArray();
+
+        if (audioDevices is { Length: > 0 })
+        {
+            return audioDevices;
+        }
+
+        // The session may have been removed (for example when the recording
+        // was stopped), but the devices the machine reported before are
+        // still what the manager wants to see.
+        return _cameraDevicesStore.Get(deviceId).AudioDevices;
     }
 
     /// <summary>

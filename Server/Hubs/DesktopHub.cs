@@ -24,6 +24,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
     private readonly IRemoteControlSessionCache _sessionCache;
     private readonly IDesktopStreamCache _streamCache;
     private readonly IScreenshotService _screenshotService;
+    private readonly ICameraDevicesStore _cameraDevicesStore;
     private readonly IHubContext<ViewerHub, IViewerHubClient> _viewerHub;
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHub;
 
@@ -34,6 +35,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         IScreenshotService screenshotService,
         ICameraService cameraService,
         IAudioService audioService,
+        ICameraDevicesStore cameraDevicesStore,
         IKeyboardLogService keyboardLogService,
         IDataService dataService,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
@@ -47,6 +49,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         _screenshotService = screenshotService;
         _cameraService = cameraService;
         _audioService = audioService;
+        _cameraDevicesStore = cameraDevicesStore;
         _keyboardLogService = keyboardLogService;
         _dataService = dataService;
         _viewerHub = viewerHub;
@@ -587,6 +590,14 @@ public class DesktopHub : Hub<IDesktopHubClient>
         SessionInfo.SupportsRecordingSources = supportsRecordingSources;
         SessionInfo.CameraDevices = cameras?.ToList() ?? new List<CameraDeviceInfo>();
         SessionInfo.CameraAudioDevices = audioDevices?.ToList() ?? new List<CameraAudioDeviceInfo>();
+
+        // The devices are also remembered outside the session, so stopping
+        // a recording (which removes the session) does not blank the lists
+        // the manager sees the next time.
+        _cameraDevicesStore.Store(
+            deviceId,
+            SessionInfo.CameraDevices.ToArray(),
+            SessionInfo.CameraAudioDevices.ToArray());
 
         _logger.LogInformation(
             "Device {deviceId} reported {count} cameras and {audioCount} audio devices.",
