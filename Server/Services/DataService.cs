@@ -2253,6 +2253,19 @@ public class DataService : IDataService
         int retentionHours,
         string? pauseWindows = null)
     {
+        directory = string.IsNullOrWhiteSpace(directory) ? null : directory.Trim();
+        pauseWindows = string.IsNullOrWhiteSpace(pauseWindows) ? null : pauseWindows;
+
+        if (directory?.Length > 500)
+        {
+            return Result.Fail("The screenshot directory must be 500 characters or fewer.");
+        }
+
+        if (pauseWindows?.Length > 500)
+        {
+            return Result.Fail("The screenshot pause windows exceed the storage limit.");
+        }
+
         using var dbContext = _appDbFactory.GetContext();
 
         var device = await dbContext.Devices.FindAsync(deviceId);
@@ -2261,15 +2274,29 @@ public class DataService : IDataService
             return Result.Fail("Device not found.");
         }
 
-        device.ScreenshotDirectory = string.IsNullOrWhiteSpace(directory) ?
-            null :
-            directory.Trim();
+        var screenshotDirectories = new[]
+        {
+            string.IsNullOrWhiteSpace(device.ScreenshotDirectory) ?
+                Path.Combine(_hostEnvironment.ContentRootPath, "AppData", "Screenshots", device.ID) :
+                device.ScreenshotDirectory,
+            Path.Combine(_hostEnvironment.ContentRootPath, "AppData", "Screenshots", device.ID)
+        };
 
+        var legacyScreenshots = await dbContext.Screenshots
+            .Where(x => x.DeviceID == device.ID && x.StorageDirectory == null)
+            .ToListAsync();
+
+        foreach (var screenshot in legacyScreenshots)
+        {
+            screenshot.StorageDirectory = FindExistingMediaDirectory(
+                screenshot.FileName,
+                screenshotDirectories);
+        }
+
+        device.ScreenshotDirectory = directory;
         device.ScreenshotRetentionCount = retentionCount > 0 ? retentionCount : 200;
         device.ScreenshotRetentionHours = retentionHours > 0 ? retentionHours : 24;
-        device.ScreenshotPauseWindows = string.IsNullOrWhiteSpace(pauseWindows) ?
-            null :
-            pauseWindows;
+        device.ScreenshotPauseWindows = pauseWindows;
 
         await dbContext.SaveChangesAsync();
 
@@ -2306,6 +2333,25 @@ public class DataService : IDataService
         if (device is null)
         {
             return Result.Fail("Device not found.");
+        }
+
+        var cameraDirectories = new[]
+        {
+            string.IsNullOrWhiteSpace(device.CameraDirectory) ?
+                Path.Combine(_hostEnvironment.ContentRootPath, "AppData", "Camera", device.ID) :
+                device.CameraDirectory,
+            Path.Combine(_hostEnvironment.ContentRootPath, "AppData", "Camera", device.ID)
+        };
+
+        var legacyClips = await dbContext.CameraClips
+            .Where(x => x.DeviceID == device.ID && x.StorageDirectory == null)
+            .ToListAsync();
+
+        foreach (var clip in legacyClips)
+        {
+            clip.StorageDirectory = FindExistingMediaDirectory(
+                clip.FileName,
+                cameraDirectories);
         }
 
         device.CameraDirectory = directory;
@@ -2348,6 +2394,25 @@ public class DataService : IDataService
         if (device is null)
         {
             return Result.Fail("Device not found.");
+        }
+
+        var audioDirectories = new[]
+        {
+            string.IsNullOrWhiteSpace(device.AudioDirectory) ?
+                Path.Combine(_hostEnvironment.ContentRootPath, "AppData", "Audio", device.ID) :
+                device.AudioDirectory,
+            Path.Combine(_hostEnvironment.ContentRootPath, "AppData", "Audio", device.ID)
+        };
+
+        var legacyClips = await dbContext.AudioClips
+            .Where(x => x.DeviceID == device.ID && x.StorageDirectory == null)
+            .ToListAsync();
+
+        foreach (var clip in legacyClips)
+        {
+            clip.StorageDirectory = FindExistingMediaDirectory(
+                clip.FileName,
+                audioDirectories);
         }
 
         device.AudioDirectory = directory;
@@ -2505,4 +2570,37 @@ public class DataService : IDataService
             .Select(x => x.Id)
             .ToArray();
     }
+
+    private static string? FindExistingMediaDirectory(
+        string fileName,
+        IEnumerable<string> candidateDirectories)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            fileName != Path.GetFileName(fileName) ||
+            fileName.Contains(".."))
+        {
+            return null;
+        }
+
+        foreach (var directory in candidateDirectories.Distinct(GetPathComparer()))
+        {
+            try
+            {
+                var fullDirectory = Path.GetFullPath(directory);
+                if (File.Exists(Path.Combine(fullDirectory, fileName)))
+                {
+                    return fullDirectory;
+                }
+            }
+            catch
+            {
+                // A path that cannot be checked is not safe to assign to a legacy row.
+            }
+        }
+
+        return null;
+    }
+
+    private static StringComparer GetPathComparer() =>
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 }

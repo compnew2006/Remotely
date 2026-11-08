@@ -7,15 +7,7 @@ public class SqliteDbContextDesignTime : IDesignTimeDbContextFactory<SqliteDbCon
 {
     public SqliteDbContext CreateDbContext(string[] args)
     {
-        var appSettings = new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:SQLite"] = "Data Source=remotely.db",
-            ["ApplicationOptions:DbProvider"] = "sqlite"
-        };
-
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(appSettings)
-            .Build();
+        var configuration = DesignTimeContextConfiguration.Create("SQLite", "SQLite");
 
         return new SqliteDbContext(configuration, new DesignTimeWebHostEnvironment());
     }
@@ -25,15 +17,7 @@ public class SqlServerDbContextDesignTime : IDesignTimeDbContextFactory<SqlServe
 {
     public SqlServerDbContext CreateDbContext(string[] args)
     {
-        var appSettings = new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:SqlServer"] = "Server=(localdb)\\mssqllocaldb;Database=Remotely-Server-53bc9b9d-9d6a-45d4-8429-2a2761773502;Trusted_Connection=True;MultipleActiveResultSets=true",
-            ["ApplicationOptions:DbProvider"] = "SqlServer"
-        };
-
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(appSettings)
-            .Build();
+        var configuration = DesignTimeContextConfiguration.Create("SQLServer", "SQLServer");
 
         return new SqlServerDbContext(configuration, new DesignTimeWebHostEnvironment());
     }
@@ -43,17 +27,31 @@ public class PostgreSqlDbContextDesignTime : IDesignTimeDbContextFactory<Postgre
 {
     public PostgreSqlDbContext CreateDbContext(string[] args)
     {
-        var appSettings = new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:PostgreSql"] = "Host=localhost;Database=Remotely;Username=postgres;",
-            ["ApplicationOptions:DbProvider"] = "PostgreSql"
-        };
-
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(appSettings)
-            .Build();
+        var configuration = DesignTimeContextConfiguration.Create("PostgreSQL", "PostgreSQL");
 
         return new PostgreSqlDbContext(configuration, new DesignTimeWebHostEnvironment());
+    }
+}
+
+internal static class DesignTimeContextConfiguration
+{
+    public static IConfiguration Create(string provider, string connectionStringName)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddEnvironmentVariables("Remotely_")
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ApplicationOptions:DbProvider"] = provider
+            })
+            .Build();
+
+        if (string.IsNullOrWhiteSpace(configuration.GetConnectionString(connectionStringName)))
+        {
+            throw new InvalidOperationException(
+                $"Set the Remotely_ConnectionStrings__{connectionStringName} environment variable.");
+        }
+
+        return configuration;
     }
 }
 

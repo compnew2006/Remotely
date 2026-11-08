@@ -301,8 +301,7 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         {
             EnsureHubConnection();
             var session = _scriptingShellFactory.GetOrCreatePsCoreShell(senderConnectionId);
-            var completion = session.GetCompletions(inputText, currentIndex, forward);
-            var completionModel = completion.ToPwshCompletion();
+            var completionModel = session.GetCompletions(inputText, currentIndex, forward);
             await _hubConnection
                 .InvokeAsync("ReturnPowerShellCompletions", completionModel, intent, senderConnectionId)
                 .ConfigureAwait(false);

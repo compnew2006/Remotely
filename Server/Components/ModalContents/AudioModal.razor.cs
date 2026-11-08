@@ -49,6 +49,12 @@ public partial class AudioModal : AuthComponentBase, IDisposable
     [Parameter]
     public string DeviceName { get; set; } = string.Empty;
 
+    [Parameter]
+    public bool CanRecordAudio { get; set; } = true;
+
+    [Parameter]
+    public bool CanListenLive { get; set; } = true;
+
     [Inject]
     public required ICircuitConnection CircuitConnection { get; init; }
 

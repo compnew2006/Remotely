@@ -65,6 +65,12 @@
             }
         } 
         <div>
+            @if (!string.IsNullOrWhiteSpace(DeviceCapabilities.Notice))
+            {
+                <div class="alert alert-warning py-2" role="status">
+                    @DeviceCapabilities.Notice
+                </div>
+            }
             <div class="font-weight-bold text-info">
                 <label>User</label>
             </div>
@@ -81,51 +87,100 @@
                     </ButtonContent>
                     <ChildListItems>
                         <li>
-                            <button class="dropdown-item" @onclick="StartChat">
+                            <button class="dropdown-item" @onclick="StartChat"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.Chat))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.Chat)">
                                 <i class="oi oi-chat" title="Chat"></i>
                                 <span class="ms-2">Chat</span>
+                                @if (DeviceCapabilities.Chat != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.Chat)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="() => StartRemoteControl(false)">
+                            <button class="dropdown-item" @onclick="() => StartRemoteControl(false)"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.RemoteControl))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)">
                                 <i class="oi oi-laptop" title="Remote Control"></i>
                                 <span class="ms-2">Remote Control</span>
+                                @if (DeviceCapabilities.RemoteControl != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="() => StartRemoteControl(true)">
+                            <button class="dropdown-item" @onclick="() => StartRemoteControl(true)"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.RemoteControl))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)">
                                 <i class="oi oi-eye" title="View Only"></i>
                                 <span class="ms-2">View Only</span>
+                                @if (DeviceCapabilities.RemoteControl != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="ShowTaskManager">
+                            <button class="dropdown-item" @onclick="ShowTaskManager"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.TaskManager))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.TaskManager)">
                                 <i class="oi oi-task" title="Task Manager"></i>
                                 <span class="ms-2">Task Manager</span>
+                                @if (DeviceCapabilities.TaskManager != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.TaskManager)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="ShowScreenshots">
+                            <button class="dropdown-item" @onclick="ShowScreenshots"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.Screenshots))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.Screenshots)">
                                 <i class="oi oi-image" title="Screenshots"></i>
                                 <span class="ms-2">Screenshots</span>
+                                @if (DeviceCapabilities.Screenshots != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.Screenshots)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="ShowCamera">
+                            <button class="dropdown-item" @onclick="ShowCamera"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.CameraRecording))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.CameraRecording)">
                                 <i class="oi oi-video" title="Camera"></i>
                                 <span class="ms-2">Camera</span>
+                                @if (DeviceCapabilities.CameraRecording != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.CameraRecording)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="ShowAudio">
+                            <button class="dropdown-item" @onclick="ShowAudio"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.AudioRecording) && !IsFeatureAvailable(DeviceCapabilities.LiveAudio))"
+                                    title="@GetAudioFeatureStatusLabel(DeviceCapabilities)">
                                 <i class="oi oi-audio-spectrum" title="Audio"></i>
                                 <span class="ms-2">Audio</span>
+                                @if (DeviceCapabilities.AudioRecording != FeatureSupport.Supported ||
+                                    DeviceCapabilities.LiveAudio != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetAudioFeatureStatusLabel(DeviceCapabilities)</span>
+                                }
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item" @onclick="ShowKeyboard">
+                            <button class="dropdown-item" @onclick="ShowKeyboard"
+                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.KeyboardCapture))"
+                                    title="@GetFeatureStatusLabel(DeviceCapabilities.KeyboardCapture)">
                                 <i class="oi oi-key" title="Keyboard"></i>
                                 <span class="ms-2">Keyboard</span>
+                                @if (DeviceCapabilities.KeyboardCapture != FeatureSupport.Supported)
+                                {
+                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.KeyboardCapture)</span>
+                                }
                             </button>
                         </li>
                         <li>

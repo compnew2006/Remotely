@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Remotely.Server.Components.ModalContents;
 using Remotely.Server.Enums;
 using Remotely.Server.Hubs;
+using Remotely.Server.Models;
 using Remotely.Server.Models.Messages;
 using Remotely.Server.Services;
 using Remotely.Server.Services.Stores;
@@ -63,6 +64,26 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
         result < _currentVersion;
 
     private bool IsSelected => SelectedCards.SelectedDevices.Contains(Device.ID);
+
+    private DesktopCapabilities DeviceCapabilities =>
+        DesktopCapabilityMatrix.For(Device);
+
+    private static bool IsFeatureAvailable(FeatureSupport support) =>
+        support is FeatureSupport.Supported or FeatureSupport.Conditional;
+
+    private static string GetFeatureStatusLabel(FeatureSupport support) =>
+        DesktopCapabilities.GetStatusLabel(support);
+
+    private static string GetAudioFeatureStatusLabel(DesktopCapabilities capabilities) =>
+        (capabilities.AudioRecording, capabilities.LiveAudio) switch
+        {
+            (FeatureSupport.Supported, FeatureSupport.Supported) => "Supported",
+            (FeatureSupport.Unsupported, FeatureSupport.Supported) => "Live audio only",
+            (FeatureSupport.Unsupported, FeatureSupport.Unsupported) => "Not supported",
+            (FeatureSupport.Unknown, FeatureSupport.Unknown) => "Unverified",
+            _ => $"Recording: {GetFeatureStatusLabel(capabilities.AudioRecording)}; " +
+                $"live audio: {GetFeatureStatusLabel(capabilities.LiveAudio)}"
+        };
 
     [Inject]
     private IJsInterop JsInterop { get; init; } = null!;
@@ -469,6 +490,11 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
             builder.OpenComponent<AudioModal>(0);
             builder.AddAttribute(1, "DeviceId", Device.ID);
             builder.AddAttribute(2, "DeviceName", Device.DeviceName);
+            var capabilities = DesktopCapabilityMatrix.For(Device);
+            builder.AddAttribute(3, "CanRecordAudio",
+                IsFeatureAvailable(capabilities.AudioRecording));
+            builder.AddAttribute(4, "CanListenLive",
+                IsFeatureAvailable(capabilities.LiveAudio));
             builder.CloseComponent();
         }
 

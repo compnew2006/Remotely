@@ -24,7 +24,7 @@ public class DataCleanupService : BackgroundService, IDisposable
 
         await PerformCleanup();
 
-        using var timer = new PeriodicTimer(TimeSpan.FromDays(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -43,14 +43,20 @@ public class DataCleanupService : BackgroundService, IDisposable
 
     private async Task PerformCleanup()
     {
+        await RunCleanupStep("database records", RemoveExpiredDbRecords);
+        await RunCleanupStep("session recordings", RemoveExpiredRecordings);
+        await RunCleanupStep("media", RemoveExpiredMedia);
+    }
+
+    private async Task RunCleanupStep(string stepName, Func<Task> cleanup)
+    {
         try
         {
-            await RemoveExpiredDbRecords();
-            await RemoveExpiredRecordings();
+            await cleanup();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during data cleanup.");
+            _logger.LogError(ex, "Error during {cleanupStep} cleanup.", stepName);
         }
     }
 
@@ -59,6 +65,28 @@ public class DataCleanupService : BackgroundService, IDisposable
         using var scope = _scopeFactory.CreateScope();
         var dataService = scope.ServiceProvider.GetRequiredService<IDataService>();
         await dataService.CleanupOldRecords();
+    }
+
+    private async Task RemoveExpiredMedia()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var appDbFactory = scope.ServiceProvider.GetRequiredService<Remotely.Server.Data.IAppDbFactory>();
+        var screenshotService = scope.ServiceProvider.GetRequiredService<IScreenshotService>();
+        var cameraService = scope.ServiceProvider.GetRequiredService<ICameraService>();
+        var audioService = scope.ServiceProvider.GetRequiredService<IAudioService>();
+
+        Remotely.Shared.Entities.Device[] devices;
+        using (var dbContext = appDbFactory.GetContext())
+        {
+            devices = dbContext.Devices.ToArray();
+        }
+
+        foreach (var device in devices)
+        {
+            await screenshotService.DeleteExpiredScreenshots(device);
+            await cameraService.DeleteExpiredClips(device);
+            await audioService.DeleteExpiredClips(device);
+        }
     }
 
     private async Task RemoveExpiredRecordings()

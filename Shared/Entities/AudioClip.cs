@@ -21,6 +21,13 @@ public class AudioClip
     /// </summary>
     public required string FileName { get; set; }
 
+    /// <summary>
+    /// The directory where the file was stored. Null for older rows whose
+    /// directory was not recorded.
+    /// </summary>
+    [StringLength(2048)]
+    public string? StorageDirectory { get; set; }
+
     public long SizeBytes { get; set; }
 
     /// <summary>

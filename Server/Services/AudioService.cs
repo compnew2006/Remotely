@@ -162,6 +162,33 @@ public class AudioService : IAudioService
         }
     }
 
+    private AudioClip[] GetClipBatch(
+        string deviceId,
+        DateTimeOffset? cursorTimestamp,
+        string? cursorId,
+        int batchSize)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+        var query = dbContext.AudioClips
+            .AsNoTracking()
+            .Where(x => x.DeviceID == deviceId);
+
+        if (cursorTimestamp.HasValue && cursorId is not null)
+        {
+            var lastTimestamp = cursorTimestamp.Value;
+            var lastId = cursorId;
+            query = query.Where(x =>
+                x.TimeStamp < lastTimestamp ||
+                (x.TimeStamp == lastTimestamp && string.Compare(x.ID, lastId) < 0));
+        }
+
+        return query
+            .OrderByDescending(x => x.TimeStamp)
+            .ThenByDescending(x => x.ID)
+            .Take(batchSize)
+            .ToArray();
+    }
+
     /// <summary>
     /// Returns the path of a clip, or null when the file name is not a plain
     /// file name, or when the file does not exist.
@@ -173,9 +200,19 @@ public class AudioService : IAudioService
             return null;
         }
 
-        var path = Path.Combine(GetAudioDirectory(device), fileName);
+        string? path;
+        using (var dbContext = _appDbFactory.GetContext())
+        {
+            var clip = dbContext.AudioClips
+                .AsNoTracking()
+                .FirstOrDefault(x => x.DeviceID == device.ID && x.FileName == fileName);
 
-        if (!File.Exists(path))
+            path = clip is null ?
+                Path.Combine(GetAudioDirectory(device), fileName) :
+                GetClipPath(device, clip);
+        }
+
+        if (path is null || !File.Exists(path))
         {
             return null;
         }
@@ -348,14 +385,21 @@ public class AudioService : IAudioService
                 return null;
             }
 
-            var directory = GetAudioDirectory(device);
+            var directory = Path.GetFullPath(GetAudioDirectory(device));
             var fileName = BuildFileName();
             var destination = Path.Combine(directory, fileName);
 
             Directory.CreateDirectory(directory);
             File.Move(session.Path, destination, true);
 
-            return await AddClipMetadata(device, fileName, size, quality, durationSeconds, source);
+            return await AddClipMetadata(
+                device,
+                directory,
+                fileName,
+                size,
+                quality,
+                durationSeconds,
+                source);
         }
         catch (Exception ex)
         {
@@ -387,11 +431,12 @@ public class AudioService : IAudioService
             return null;
         }
 
-        var directory = GetAudioDirectory(device);
+        string directory;
         var fileName = BuildFileName();
 
         try
         {
+            directory = Path.GetFullPath(GetAudioDirectory(device));
             Directory.CreateDirectory(directory);
             await File.WriteAllBytesAsync(Path.Combine(directory, fileName), contents);
         }
@@ -401,11 +446,19 @@ public class AudioService : IAudioService
             return null;
         }
 
-        return await AddClipMetadata(device, fileName, contents.Length, quality, durationSeconds, source);
+        return await AddClipMetadata(
+            device,
+            directory,
+            fileName,
+            contents.Length,
+            quality,
+            durationSeconds,
+            source);
     }
 
     private async Task<AudioClip?> AddClipMetadata(
         Device device,
+        string storageDirectory,
         string fileName,
         long size,
         AudioQuality quality,
@@ -418,6 +471,7 @@ public class AudioService : IAudioService
             DeviceID = device.ID,
             TimeStamp = DateTimeOffset.Now,
             FileName = fileName,
+            StorageDirectory = storageDirectory,
             SizeBytes = size,
             Quality = AudioQualityPresets.GetPreset(quality).Quality.ToString(),
             DurationSeconds = durationSeconds,
@@ -457,22 +511,18 @@ public class AudioService : IAudioService
 
         try
         {
-            var path = Path.Combine(GetAudioDirectory(device), fileName);
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error while deleting audio clip {fileName}.", fileName);
-        }
-
-        try
-        {
             using var dbContext = _appDbFactory.GetContext();
             var clip = dbContext.AudioClips
                 .FirstOrDefault(x => x.DeviceID == device.ID && x.FileName == fileName);
+
+            var path = clip is null ?
+                Path.Combine(GetAudioDirectory(device), fileName) :
+                GetClipPath(device, clip);
+
+            if (path is null || !TryDeleteFile(path))
+            {
+                return;
+            }
 
             if (clip is not null)
             {
@@ -482,7 +532,7 @@ public class AudioService : IAudioService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error while deleting audio clip metadata for {fileName}.", fileName);
+            _logger.LogWarning(ex, "Error while deleting audio clip {fileName}.", fileName);
         }
     }
 
@@ -491,9 +541,71 @@ public class AudioService : IAudioService
     /// </summary>
     public void ClearClips(Device device)
     {
+        const int batchSize = 250;
+        var removedCount = 0;
+        DateTimeOffset? cursorTimestamp = null;
+        string? cursorId = null;
+
+        while (true)
+        {
+            var clips = GetClipBatch(
+                device.ID,
+                cursorTimestamp,
+                cursorId,
+                batchSize);
+
+            if (clips.Length == 0)
+            {
+                break;
+            }
+
+            var lastClip = clips[^1];
+            cursorTimestamp = lastClip.TimeStamp;
+            cursorId = lastClip.ID;
+
+            var removable = new List<AudioClip>();
+            foreach (var clip in clips)
+            {
+                var path = GetClipPath(device, clip);
+                if (path is null)
+                {
+                    _logger.LogWarning(
+                        "Keeping audio clip metadata for {fileName}; its legacy path could not be resolved.",
+                        clip.FileName);
+                    continue;
+                }
+
+                if (TryDeleteFile(path))
+                {
+                    removable.Add(clip);
+                }
+            }
+
+            if (removable.Count > 0)
+            {
+                try
+                {
+                    using var dbContext = _appDbFactory.GetContext();
+                    dbContext.AudioClips.RemoveRange(removable);
+                    dbContext.SaveChanges();
+                    removedCount += removable.Count;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while clearing audio clip metadata for device {deviceId}.", device.ID);
+                    break;
+                }
+            }
+
+            if (clips.Length < batchSize)
+            {
+                break;
+            }
+        }
+
         try
         {
-            var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            var directories = new HashSet<string>(GetPathComparer())
             {
                 GetAudioDirectory(device),
                 GetDefaultAudioDirectory(device)
@@ -525,71 +637,82 @@ public class AudioService : IAudioService
         {
             _logger.LogError(ex, "Error while clearing audio clips for device {deviceId}.", device.ID);
         }
-
-        try
-        {
-            using var dbContext = _appDbFactory.GetContext();
-            var rows = dbContext.AudioClips.Where(x => x.DeviceID == device.ID);
-            dbContext.AudioClips.RemoveRange(rows);
-            dbContext.SaveChanges();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error while clearing audio clip metadata for device {deviceId}.", device.ID);
-        }
     }
 
     public async Task DeleteExpiredClips(Device device)
     {
+        const int batchSize = 250;
+
         try
         {
-            var expired = new List<AudioClip>();
             var retentionCount = GetRetentionCount(device);
-            var clips = GetClips(device.ID, int.MaxValue);
-
             var cutoff = DateTimeOffset.Now.AddHours(-GetRetentionHours(device));
-            foreach (var clip in clips)
+            var sweepStartedAt = DateTimeOffset.Now;
+            long processedCount = 0;
+            DateTimeOffset? cursorTimestamp = null;
+            string? cursorId = null;
+
+            while (true)
             {
-                if (clip.TimeStamp < cutoff)
+                var clips = GetClipBatch(
+                    device.ID,
+                    cursorTimestamp,
+                    cursorId,
+                    batchSize);
+
+                if (clips.Length == 0)
                 {
-                    expired.Add(clip);
+                    break;
                 }
-            }
 
-            // Keep the newest ones and drop everything over the limit.
-            foreach (var clip in clips.Skip(retentionCount))
-            {
-                if (!expired.Any(x => x.ID == clip.ID))
+                var lastClip = clips[^1];
+                cursorTimestamp = lastClip.TimeStamp;
+                cursorId = lastClip.ID;
+
+                var removable = new List<AudioClip>();
+                foreach (var clip in clips)
                 {
-                    expired.Add(clip);
-                }
-            }
+                    var overRetentionCount = processedCount >= retentionCount;
+                    processedCount++;
 
-            if (expired.Count == 0)
-            {
-                return;
-            }
-
-            var directory = GetAudioDirectory(device);
-            foreach (var clip in expired)
-            {
-                try
-                {
-                    var path = Path.Combine(directory, clip.FileName);
-                    if (File.Exists(path))
+                    var expiredByAge = clip.TimeStamp < cutoff;
+                    if (!expiredByAge && !overRetentionCount)
                     {
-                        File.Delete(path);
+                        continue;
+                    }
+
+                    if (overRetentionCount && clip.TimeStamp >= sweepStartedAt)
+                    {
+                        continue;
+                    }
+
+                    var path = GetClipPath(device, clip);
+                    if (path is null)
+                    {
+                        _logger.LogWarning(
+                            "Keeping expired audio clip metadata for {fileName}; its legacy path could not be resolved.",
+                            clip.FileName);
+                        continue;
+                    }
+
+                    if (TryDeleteFile(path))
+                    {
+                        removable.Add(clip);
                     }
                 }
-                catch (Exception ex)
+
+                if (removable.Count > 0)
                 {
-                    _logger.LogWarning(ex, "Error while deleting audio clip {fileName}.", clip.FileName);
+                    using var dbContext = _appDbFactory.GetContext();
+                    dbContext.AudioClips.RemoveRange(removable);
+                    await dbContext.SaveChangesAsync();
+                }
+
+                if (clips.Length < batchSize)
+                {
+                    break;
                 }
             }
-
-            using var dbContext = _appDbFactory.GetContext();
-            dbContext.AudioClips.RemoveRange(expired);
-            await dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -597,20 +720,63 @@ public class AudioService : IAudioService
         }
     }
 
-    private void TryDeleteFile(string path)
+    private string? GetClipPath(Device device, AudioClip clip)
+    {
+        if (!IsSafeFileName(clip.FileName))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(clip.StorageDirectory))
+        {
+            return Path.Combine(clip.StorageDirectory, clip.FileName);
+        }
+
+        foreach (var directory in new[]
+        {
+            GetAudioDirectory(device),
+            GetDefaultAudioDirectory(device)
+        }.Distinct(GetPathComparer()))
+        {
+            try
+            {
+                var path = Path.Combine(directory, clip.FileName);
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            catch
+            {
+                // Legacy rows are resolved only from folders whose paths can be checked.
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryDeleteFile(string path)
     {
         try
         {
-            if (File.Exists(path))
+            File.Delete(path);
+            if (!File.Exists(path))
             {
-                File.Delete(path);
+                return true;
             }
+
+            _logger.LogWarning("File remains after delete attempt: {path}.", path);
+            return false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error while deleting the file {path}.", path);
+            return false;
         }
     }
+
+    private static StringComparer GetPathComparer() =>
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private sealed record UploadSession(string DeviceId, string Path);
 }

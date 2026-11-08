@@ -103,6 +103,13 @@ public class AgentHub : Hub<IAgentHubClient>
                 return;
             }
 
+            using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(Device.ID);
+            if (!_serviceSessionCache.TryGetConnectionId(Device.ID, out var currentConnectionId) ||
+                currentConnectionId != Context.ConnectionId)
+            {
+                return;
+            }
+
             _logger.LogDebug(
                 "Checking for pending remote control sessions for device {deviceId}.",
                 Device.ID);
@@ -137,6 +144,13 @@ public class AgentHub : Hub<IAgentHubClient>
     public async Task CheckForPendingScriptRuns()
     {
         if (Device is null)
+        {
+            return;
+        }
+
+        using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(Device.ID);
+        if (!_serviceSessionCache.TryGetConnectionId(Device.ID, out var currentConnectionId) ||
+            currentConnectionId != Context.ConnectionId)
         {
             return;
         }
@@ -179,6 +193,8 @@ public class AgentHub : Hub<IAgentHubClient>
             {
                 return false;
             }
+
+            using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(device.ID);
 
             var result = await _dataService.AddOrUpdateDevice(device);
             if (!result.IsSuccess)
@@ -246,32 +262,39 @@ public class AgentHub : Hub<IAgentHubClient>
             return;
         }
 
-
-        var result = await _dataService.AddOrUpdateDevice(device);
-
-        if (!result.IsSuccess)
+        using (await _serviceSessionCache.AcquireDeviceLockAsync(device.ID))
         {
-            return;
+            if (!_serviceSessionCache.TryGetConnectionId(device.ID, out var currentConnectionId) ||
+                currentConnectionId != Context.ConnectionId)
+            {
+                return;
+            }
+
+            var result = await _dataService.AddOrUpdateDevice(device);
+
+            if (!result.IsSuccess)
+            {
+                return;
+            }
+
+            Device = result.Value;
+
+            _serviceSessionCache.AddOrUpdateByConnectionId(Context.ConnectionId, Device);
+
+            var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
+
+            var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, Device.ID);
+
+            var connections = _circuitManager.Connections
+                .Where(x => x.User.OrganizationID == Device.OrganizationID &&
+                    filteredUserIDs.Contains(x.User.Id));
+
+            foreach (var connection in connections)
+            {
+                var message = new DeviceStateChangedMessage(Device);
+                await _messenger.Send(message, connection.ConnectionId);
+            }
         }
-
-        Device = result.Value;
-
-        _serviceSessionCache.AddOrUpdateByConnectionId(Context.ConnectionId, Device);
-
-        var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
-
-        var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, Device.ID);
-
-        var connections = _circuitManager.Connections
-            .Where(x => x.User.OrganizationID == Device.OrganizationID &&
-                filteredUserIDs.Contains(x.User.Id));
-
-        foreach (var connection in connections)
-        {
-            var message = new DeviceStateChangedMessage(Device);
-            await _messenger.Send(message, connection.ConnectionId);
-        }
-
 
         await CheckForPendingScriptRuns();
     }
@@ -321,29 +344,39 @@ public class AgentHub : Hub<IAgentHubClient>
         {
             if (Device != null)
             {
-                _dataService.DeviceDisconnected(Device.ID);
+                using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(Device.ID);
 
-                Device.IsOnline = false;
-
-                var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
-
-                var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, Device.ID);
-
-                var connections = _circuitManager.Connections
-                    .Where(x => x.User.OrganizationID == Device.OrganizationID &&
-                        filteredUserIDs.Contains(x.User.Id));
-
-                foreach (var connection in connections)
+                if (_serviceSessionCache.TryRemoveByConnectionId(Context.ConnectionId, out var disconnectedDevice))
                 {
-                    var message = new DeviceStateChangedMessage(Device);
-                    await _messenger.Send(message, connection.ConnectionId);
+                    _dataService.DeviceDisconnected(disconnectedDevice.ID);
+
+                    disconnectedDevice.IsOnline = false;
+
+                    var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
+
+                    var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, disconnectedDevice.ID);
+
+                    var connections = _circuitManager.Connections
+                        .Where(x => x.User.OrganizationID == disconnectedDevice.OrganizationID &&
+                            filteredUserIDs.Contains(x.User.Id));
+
+                    foreach (var connection in connections)
+                    {
+                        var message = new DeviceStateChangedMessage(disconnectedDevice);
+                        await _messenger.Send(message, connection.ConnectionId);
+                    }
                 }
             }
+
             await base.OnDisconnectedAsync(exception);
         }
         finally
         {
-            _serviceSessionCache.TryRemoveByConnectionId(Context.ConnectionId, out _);
+            if (Device != null)
+            {
+                using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(Device.ID);
+                _serviceSessionCache.TryRemoveByConnectionId(Context.ConnectionId, out _);
+            }
         }
     }
 

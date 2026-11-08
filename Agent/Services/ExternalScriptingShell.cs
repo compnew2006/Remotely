@@ -24,7 +24,7 @@ public class ExternalScriptingShell : IExternalScriptingShell
     private readonly ILogger<ExternalScriptingShell> _logger;
     private readonly ManualResetEvent _outputDone = new(false);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
-    private bool _disposedValue;
+    private int _disposedValue;
     private string _errorOut = string.Empty;
     private string _lastInputID = string.Empty;
     private string _lineEnding = Environment.NewLine;
@@ -44,7 +44,8 @@ public class ExternalScriptingShell : IExternalScriptingShell
         _logger = logger;
     }
 
-    public bool IsDisposed => _disposedValue;
+    public bool IsBusy => _writeLock.CurrentCount == 0;
+    public bool IsDisposed => Volatile.Read(ref _disposedValue) != 0;
 
     public Process? ShellProcess { get; private set; }
 
@@ -86,6 +87,7 @@ public class ExternalScriptingShell : IExternalScriptingShell
         ShellProcess.BeginErrorReadLine();
         ShellProcess.BeginOutputReadLine();
 
+        _processIdleTimeout.Dispose();
         _processIdleTimeout = new System.Timers.Timer(TimeSpan.FromMinutes(10))
         {
             AutoReset = false
@@ -104,11 +106,16 @@ public class ExternalScriptingShell : IExternalScriptingShell
 
     public async Task<ScriptResultDto> WriteInput(string input, TimeSpan timeout)
     {
-        await _writeLock.WaitAsync();
+        await _writeLock.WaitAsync().ConfigureAwait(false);
         var sw = Stopwatch.StartNew();
 
         try
         {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(ExternalScriptingShell));
+            }
+
             if (ShellProcess?.HasExited != false)
             {
                 throw new InvalidOperationException("Shell process is not running.");
@@ -149,10 +156,16 @@ public class ExternalScriptingShell : IExternalScriptingShell
             _errorOut += Environment.NewLine + ex.Message;
 
             // Something's wrong.  Let the next command start a new session.
-            Dispose();
+            DisposeCore();
         }
         finally
         {
+            if (!IsDisposed)
+            {
+                _processIdleTimeout.Stop();
+                _processIdleTimeout.Start();
+            }
+
             _writeLock.Release();
         }
 
@@ -161,25 +174,47 @@ public class ExternalScriptingShell : IExternalScriptingShell
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!_disposedValue)
+        if (!disposing)
         {
-            if (disposing)
-            {
-                try
-                {
-                    if (ShellProcess?.HasExited == false)
-                    {
-                        ShellProcess.Kill();
-                        ShellProcess.Dispose();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error while disposing scripting shell process.");
-                }
-            }
+            return;
+        }
 
-            _disposedValue = true;
+        _writeLock.Wait();
+
+        try
+        {
+            DisposeCore();
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    private void DisposeCore()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        _processIdleTimeout.Stop();
+
+        try
+        {
+            if (ShellProcess?.HasExited == false)
+            {
+                ShellProcess.Kill();
+                ShellProcess.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while disposing scripting shell process.");
+        }
+        finally
+        {
+            Volatile.Write(ref _disposedValue, 1);
         }
     }
 
@@ -217,12 +252,27 @@ public class ExternalScriptingShell : IExternalScriptingShell
             HadErrors = !string.IsNullOrWhiteSpace(_errorOut) ||
                 (ShellProcess?.HasExited == true && ShellProcess.ExitCode != 0)
         };
-        Dispose();
+        DisposeCore();
         return partialResult;
     }
     private void ProcessIdleTimeout_Elapsed(object? sender, ElapsedEventArgs e)
     {
-        Dispose();
+        if (_writeLock.Wait(0))
+        {
+            try
+            {
+                DisposeCore();
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
+        }
+        else
+        {
+            _processIdleTimeout.Stop();
+            _processIdleTimeout.Start();
+        }
     }
 
     private void ShellProcess_ErrorDataReceived(object sender, DataReceivedEventArgs e)

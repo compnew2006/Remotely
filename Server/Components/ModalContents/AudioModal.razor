@@ -1,16 +1,29 @@
 @inherits AuthComponentBase
 
+@if (!CanRecordAudio)
+{
+    <div class="alert alert-warning py-2" role="status">
+        Saved and scheduled audio recording is unavailable for this device configuration. Live listening remains available when supported.
+    </div>
+}
+@if (!CanListenLive)
+{
+    <div class="alert alert-warning py-2" role="status">
+        Live audio listening is unavailable for this platform.
+    </div>
+}
+
 <div class="row mb-3 g-2">
     <div class="col-sm-3">
         <label class="form-label mb-1" for="audioSource">Source</label>
-        <select id="audioSource" class="form-select form-select-sm" @bind="_source" disabled="@_isBusy">
+        <select id="audioSource" class="form-select form-select-sm" @bind="_source" disabled="@(_isBusy || !CanRecordAudio)">
             <option value="@AudioSource.SystemAudio">System audio</option>
             <option value="@AudioSource.Microphone">Microphone</option>
         </select>
     </div>
     <div class="col-sm-3">
         <label class="form-label mb-1" for="audioMicrophone">Microphone</label>
-        <select id="audioMicrophone" class="form-select form-select-sm" @bind="_selectedMicrophoneId" disabled="@(_isBusy || _source != AudioSource.Microphone)">
+        <select id="audioMicrophone" class="form-select form-select-sm" @bind="_selectedMicrophoneId" disabled="@(_isBusy || !CanRecordAudio || _source != AudioSource.Microphone)">
             @if (_microphones.Count == 0)
             {
                 <option value="">No microphones have been reported yet</option>
@@ -26,7 +39,7 @@
     </div>
     <div class="col-sm-2">
         <label class="form-label mb-1" for="audioQuality">Quality</label>
-        <select id="audioQuality" class="form-select form-select-sm" @bind="_quality" disabled="@_isBusy">
+        <select id="audioQuality" class="form-select form-select-sm" @bind="_quality" disabled="@(_isBusy || !CanRecordAudio)">
             @foreach (var option in _qualityOptions)
             {
                 <option value="@option.Value">@option.Label</option>
@@ -36,18 +49,18 @@
     <div class="col-sm-2">
         <label class="form-label mb-1" for="audioDuration">Duration (seconds)</label>
         <input id="audioDuration" type="number" class="form-control form-control-sm" min="5" max="600"
-               @bind="_durationSeconds" disabled="@_isBusy" />
+               @bind="_durationSeconds" disabled="@(_isBusy || !CanRecordAudio)" />
     </div>
     <div class="col-sm-2">
         <label class="form-label mb-1" for="audioInterval">Every (minutes)</label>
         <input id="audioInterval" type="number" class="form-control form-control-sm" min="1" max="30"
-               @bind="_intervalMinutes" disabled="@_isBusy" />
+               @bind="_intervalMinutes" disabled="@(_isBusy || !CanRecordAudio)" />
     </div>
 </div>
 
 <div class="row mb-3 g-2">
     <div class="col-12">
-        <button class="btn btn-primary btn-sm me-2" @onclick="RecordClip" disabled="@_isBusy">Record clip</button>
+        <button class="btn btn-primary btn-sm me-2" @onclick="RecordClip" disabled="@(_isBusy || !CanRecordAudio)">Record clip</button>
         <button class="btn btn-danger btn-sm me-2" @onclick="StopRecording" disabled="@_isBusy">Stop</button>
         @if (_isMonitoring)
         {
@@ -55,7 +68,7 @@
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm me-2" @onclick="StartMonitoring" disabled="@_isBusy">Start schedule</button>
+            <button class="btn btn-outline-primary btn-sm me-2" @onclick="StartMonitoring" disabled="@(_isBusy || !CanRecordAudio)">Start schedule</button>
         }
         <button class="btn btn-outline-secondary btn-sm me-2" @onclick="RefreshMicrophones" disabled="@_isBusy">Refresh microphones</button>
         <button class="btn btn-secondary btn-sm" @onclick="RefreshAsync" disabled="@_isBusy">Refresh</button>
@@ -79,14 +92,14 @@
     <div class="row g-2 align-items-end">
         <div class="col-sm-4">
             <label class="form-label mb-1" for="audioLiveSource">Source</label>
-            <select id="audioLiveSource" class="form-select form-select-sm" @bind="_liveSource" disabled="@(_isBusy || _isLive)">
+            <select id="audioLiveSource" class="form-select form-select-sm" @bind="_liveSource" disabled="@(_isBusy || _isLive || !CanListenLive)">
                 <option value="@AudioSource.SystemAudio">System audio</option>
                 <option value="@AudioSource.Microphone">Microphone</option>
             </select>
         </div>
         <div class="col-sm-4">
             <label class="form-label mb-1" for="audioLiveMicrophone">Microphone</label>
-            <select id="audioLiveMicrophone" class="form-select form-select-sm" @bind="_liveMicrophoneId" disabled="@(_isBusy || _isLive || _liveSource != AudioSource.Microphone)">
+            <select id="audioLiveMicrophone" class="form-select form-select-sm" @bind="_liveMicrophoneId" disabled="@(_isBusy || _isLive || !CanListenLive || _liveSource != AudioSource.Microphone)">
                 @if (_microphones.Count == 0)
                 {
                     <option value="">No microphones have been reported yet</option>
@@ -107,7 +120,7 @@
             }
             else
             {
-                <button class="btn btn-primary btn-sm w-100" @onclick="StartLive" disabled="@_isBusy">Listen live</button>
+                <button class="btn btn-primary btn-sm w-100" @onclick="StartLive" disabled="@(_isBusy || !CanListenLive)">Listen live</button>
             }
         </div>
     </div>

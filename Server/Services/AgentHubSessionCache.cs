@@ -1,11 +1,13 @@
 ﻿using Remotely.Shared.Entities;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Remotely.Server.Services;
 
 public interface IAgentHubSessionCache
 {
+    Task<IDisposable> AcquireDeviceLockAsync(string deviceId);
     void AddOrUpdateByConnectionId(string connectionId, Device device);
     IEnumerable<string> FilterDevicesByOnlineStatus(IEnumerable<string> deviceIds, bool isOnline);
 
@@ -18,9 +20,41 @@ public interface IAgentHubSessionCache
 
 public class AgentHubSessionCache : IAgentHubSessionCache
 {
-
     private readonly ConcurrentDictionary<string, Device> _connectionIdToDeviceLookup = new();
     private readonly ConcurrentDictionary<string, string> _deviceIdToConnectionIdLookup = new();
+    private readonly object _deviceLockEntriesLock = new();
+    private readonly Dictionary<string, DeviceLockEntry> _deviceLockEntries = new(StringComparer.Ordinal);
+
+    public async Task<IDisposable> AcquireDeviceLockAsync(string deviceId)
+    {
+        DeviceLockEntry entry;
+
+        lock (_deviceLockEntriesLock)
+        {
+            if (_deviceLockEntries.TryGetValue(deviceId, out var existingEntry))
+            {
+                entry = existingEntry;
+            }
+            else
+            {
+                entry = new DeviceLockEntry();
+                _deviceLockEntries.Add(deviceId, entry);
+            }
+
+            entry.ReferenceCount++;
+        }
+
+        try
+        {
+            await entry.Semaphore.WaitAsync();
+            return new DeviceLockLease(this, deviceId, entry);
+        }
+        catch
+        {
+            ReleaseDeviceLockReference(deviceId, entry);
+            throw;
+        }
+    }
 
     public void AddOrUpdateByConnectionId(string connectionId, Device device)
     {
@@ -73,12 +107,77 @@ public class AgentHubSessionCache : IAgentHubSessionCache
     {
         if (_connectionIdToDeviceLookup.TryRemove(connectionId, out var lookupResult))
         {
-            device = lookupResult;
-            _ = _deviceIdToConnectionIdLookup.TryRemove(lookupResult.ID, out _);
-            return true;
+            // Remove the device mapping only if it still points at the
+            // connection being removed. A newer connection may have replaced
+            // this one since the old connection was registered.
+            var removedCurrentMapping =
+                ((ICollection<KeyValuePair<string, string>>)_deviceIdToConnectionIdLookup)
+                    .Remove(new KeyValuePair<string, string>(lookupResult.ID, connectionId));
+
+            if (removedCurrentMapping)
+            {
+                device = lookupResult;
+                return true;
+            }
         }
 
         device = null;
         return false;
+    }
+
+    private void ReleaseDeviceLock(string deviceId, DeviceLockEntry entry)
+    {
+        lock (_deviceLockEntriesLock)
+        {
+            entry.Semaphore.Release();
+            ReleaseDeviceLockReferenceUnderLock(deviceId, entry);
+        }
+    }
+
+    private void ReleaseDeviceLockReference(string deviceId, DeviceLockEntry entry)
+    {
+        lock (_deviceLockEntriesLock)
+        {
+            ReleaseDeviceLockReferenceUnderLock(deviceId, entry);
+        }
+    }
+
+    private void ReleaseDeviceLockReferenceUnderLock(string deviceId, DeviceLockEntry entry)
+    {
+        entry.ReferenceCount--;
+
+        if (entry.ReferenceCount == 0 &&
+            _deviceLockEntries.TryGetValue(deviceId, out var currentEntry) &&
+            ReferenceEquals(currentEntry, entry))
+        {
+            _deviceLockEntries.Remove(deviceId);
+            entry.Semaphore.Dispose();
+        }
+    }
+
+    private sealed class DeviceLockEntry
+    {
+        public System.Threading.SemaphoreSlim Semaphore { get; } = new(1, 1);
+        public int ReferenceCount { get; set; }
+    }
+
+    private sealed class DeviceLockLease : IDisposable
+    {
+        private AgentHubSessionCache? _owner;
+        private readonly string _deviceId;
+        private readonly DeviceLockEntry _entry;
+
+        public DeviceLockLease(AgentHubSessionCache owner, string deviceId, DeviceLockEntry entry)
+        {
+            _owner = owner;
+            _deviceId = deviceId;
+            _entry = entry;
+        }
+
+        public void Dispose()
+        {
+            System.Threading.Interlocked.Exchange(ref _owner, null)?
+                .ReleaseDeviceLock(_deviceId, _entry);
+        }
     }
 }

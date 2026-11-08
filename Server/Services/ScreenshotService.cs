@@ -100,10 +100,11 @@ public class ScreenshotService : IScreenshotService
 
         var timestamp = DateTimeOffset.Now;
         var fileName = $"{timestamp:yyyyMMdd-HHmmssfff}.jpg";
-        var directory = GetScreenshotsDirectory(device);
+        string directory;
 
         try
         {
+            directory = Path.GetFullPath(GetScreenshotsDirectory(device));
             Directory.CreateDirectory(directory);
             await File.WriteAllBytesAsync(Path.Combine(directory, fileName), contents);
         }
@@ -119,6 +120,7 @@ public class ScreenshotService : IScreenshotService
             DeviceID = device.ID,
             TimeStamp = timestamp,
             FileName = fileName,
+            StorageDirectory = directory,
             SizeBytes = contents.Length
         };
 
@@ -156,21 +158,54 @@ public class ScreenshotService : IScreenshotService
         }
     }
 
+    private Screenshot[] GetScreenshotBatch(
+        string deviceId,
+        DateTimeOffset? cursorTimestamp,
+        string? cursorId,
+        int batchSize)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+        var query = dbContext.Screenshots
+            .AsNoTracking()
+            .Where(x => x.DeviceID == deviceId);
+
+        if (cursorTimestamp.HasValue && cursorId is not null)
+        {
+            var lastTimestamp = cursorTimestamp.Value;
+            var lastId = cursorId;
+            query = query.Where(x =>
+                x.TimeStamp < lastTimestamp ||
+                (x.TimeStamp == lastTimestamp && string.Compare(x.ID, lastId) < 0));
+        }
+
+        return query
+            .OrderByDescending(x => x.TimeStamp)
+            .ThenByDescending(x => x.ID)
+            .Take(batchSize)
+            .ToArray();
+    }
+
     public byte[]? GetScreenshotContents(Device device, string fileName)
     {
         try
         {
-            // Only allow plain file names, so the file name can't be used to
-            // reach outside of the device's screenshot directory.
-            if (fileName.Contains(Path.DirectorySeparatorChar) ||
-                fileName.Contains(Path.AltDirectorySeparatorChar) ||
-                fileName.Contains(".."))
+            if (!IsSafeFileName(fileName))
             {
                 return null;
             }
 
-            var path = Path.Combine(GetScreenshotsDirectory(device), fileName);
-            if (!File.Exists(path))
+            using var dbContext = _appDbFactory.GetContext();
+            var screenshot = dbContext.Screenshots
+                .AsNoTracking()
+                .FirstOrDefault(x => x.DeviceID == device.ID && x.FileName == fileName);
+
+            if (screenshot is null)
+            {
+                return null;
+            }
+
+            var path = GetScreenshotPath(device, screenshot);
+            if (path is null || !File.Exists(path))
             {
                 return null;
             }
@@ -189,24 +224,9 @@ public class ScreenshotService : IScreenshotService
     /// </summary>
     public void DeleteScreenshot(Device device, string fileName)
     {
-        if (fileName.Contains(Path.DirectorySeparatorChar) ||
-            fileName.Contains(Path.AltDirectorySeparatorChar) ||
-            fileName.Contains(".."))
+        if (!IsSafeFileName(fileName))
         {
             return;
-        }
-
-        try
-        {
-            var path = Path.Combine(GetScreenshotsDirectory(device), fileName);
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error while deleting screenshot {fileName}.", fileName);
         }
 
         try
@@ -215,15 +235,23 @@ public class ScreenshotService : IScreenshotService
             var screenshot = dbContext.Screenshots
                 .FirstOrDefault(x => x.DeviceID == device.ID && x.FileName == fileName);
 
-            if (screenshot is not null)
+            if (screenshot is null)
             {
-                dbContext.Screenshots.Remove(screenshot);
-                dbContext.SaveChanges();
+                return;
             }
+
+            var path = GetScreenshotPath(device, screenshot);
+            if (path is null || !TryDeleteFile(path))
+            {
+                return;
+            }
+
+            dbContext.Screenshots.Remove(screenshot);
+            dbContext.SaveChanges();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error while deleting screenshot metadata for {fileName}.", fileName);
+            _logger.LogWarning(ex, "Error while deleting screenshot {fileName}.", fileName);
         }
     }
 
@@ -232,11 +260,70 @@ public class ScreenshotService : IScreenshotService
     /// </summary>
     public void ClearScreenshots(Device device)
     {
-        var screenshots = GetScreenshots(device.ID, int.MaxValue);
+        const int batchSize = 250;
+        var removedCount = 0;
+        DateTimeOffset? cursorTimestamp = null;
+        string? cursorId = null;
 
-        // The screenshots may have been stored in a different folder before the
-        // folder was changed, so the default location is cleared as well.
-        var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        while (true)
+        {
+            var screenshots = GetScreenshotBatch(
+                device.ID,
+                cursorTimestamp,
+                cursorId,
+                batchSize);
+
+            if (screenshots.Length == 0)
+            {
+                break;
+            }
+
+            var lastScreenshot = screenshots[^1];
+            cursorTimestamp = lastScreenshot.TimeStamp;
+            cursorId = lastScreenshot.ID;
+
+            var removable = new List<Screenshot>();
+            foreach (var screenshot in screenshots)
+            {
+                var path = GetScreenshotPath(device, screenshot);
+                if (path is null)
+                {
+                    _logger.LogWarning(
+                        "Keeping screenshot metadata for {fileName}; its legacy path could not be resolved.",
+                        screenshot.FileName);
+                    continue;
+                }
+
+                if (TryDeleteFile(path))
+                {
+                    removable.Add(screenshot);
+                }
+            }
+
+            if (removable.Count > 0)
+            {
+                try
+                {
+                    using var dbContext = _appDbFactory.GetContext();
+                    dbContext.Screenshots.RemoveRange(removable);
+                    dbContext.SaveChanges();
+                    removedCount += removable.Count;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error while clearing screenshot metadata for device {deviceId}.", device.ID);
+                    break;
+                }
+            }
+
+            if (screenshots.Length < batchSize)
+            {
+                break;
+            }
+        }
+
+        // Also clear orphaned files from the current and default folders.
+        var directories = new HashSet<string>(GetPathComparer())
         {
             GetScreenshotsDirectory(device),
             GetDefaultScreenshotsDirectory(device)
@@ -253,14 +340,7 @@ public class ScreenshotService : IScreenshotService
 
                 foreach (var file in Directory.EnumerateFiles(directory, "*.jpg"))
                 {
-                    try
-                    {
-                        File.Delete(file);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Error while deleting screenshot {fileName}.", file);
-                    }
+                    TryDeleteFile(file);
                 }
             }
             catch (Exception ex)
@@ -269,79 +349,152 @@ public class ScreenshotService : IScreenshotService
             }
         }
 
-        try
-        {
-            using var dbContext = _appDbFactory.GetContext();
-            var rows = dbContext.Screenshots.Where(x => x.DeviceID == device.ID);
-            dbContext.Screenshots.RemoveRange(rows);
-            dbContext.SaveChanges();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error while clearing screenshot metadata for device {deviceId}.", device.ID);
-        }
-
         _logger.LogInformation(
             "Cleared {count} screenshots for device {deviceId}.",
-            screenshots.Length,
+            removedCount,
             device.ID);
     }
 
     public async Task DeleteExpiredScreenshots(Device device)
     {
+        const int batchSize = 250;
+
         try
         {
-            var expired = new List<Screenshot>();
             var retentionCount = GetRetentionCount(device);
-            var screenshots = GetScreenshots(device.ID, retentionCount * 2);
-
             var cutoff = DateTimeOffset.Now.AddHours(-GetRetentionHours(device));
-            foreach (var screenshot in screenshots)
+            var sweepStartedAt = DateTimeOffset.Now;
+            long processedCount = 0;
+            DateTimeOffset? cursorTimestamp = null;
+            string? cursorId = null;
+
+            while (true)
             {
-                if (screenshot.TimeStamp < cutoff)
+                var screenshots = GetScreenshotBatch(
+                    device.ID,
+                    cursorTimestamp,
+                    cursorId,
+                    batchSize);
+
+                if (screenshots.Length == 0)
                 {
-                    expired.Add(screenshot);
+                    break;
                 }
-            }
 
-            // Keep the newest ones and drop everything over the limit.
-            foreach (var screenshot in screenshots.Skip(retentionCount))
-            {
-                if (!expired.Any(x => x.ID == screenshot.ID))
+                var lastScreenshot = screenshots[^1];
+                cursorTimestamp = lastScreenshot.TimeStamp;
+                cursorId = lastScreenshot.ID;
+
+                var removable = new List<Screenshot>();
+                foreach (var screenshot in screenshots)
                 {
-                    expired.Add(screenshot);
-                }
-            }
+                    var overRetentionCount = processedCount >= retentionCount;
+                    processedCount++;
 
-            if (expired.Count == 0)
-            {
-                return;
-            }
-
-            var directory = GetScreenshotsDirectory(device);
-            foreach (var screenshot in expired)
-            {
-                try
-                {
-                    var path = Path.Combine(directory, screenshot.FileName);
-                    if (File.Exists(path))
+                    var expiredByAge = screenshot.TimeStamp < cutoff;
+                    if (!expiredByAge && !overRetentionCount)
                     {
-                        File.Delete(path);
+                        continue;
+                    }
+
+                    if (overRetentionCount && screenshot.TimeStamp >= sweepStartedAt)
+                    {
+                        continue;
+                    }
+
+                    var path = GetScreenshotPath(device, screenshot);
+                    if (path is null)
+                    {
+                        _logger.LogWarning(
+                            "Keeping expired screenshot metadata for {fileName}; its legacy path could not be resolved.",
+                            screenshot.FileName);
+                        continue;
+                    }
+
+                    if (TryDeleteFile(path))
+                    {
+                        removable.Add(screenshot);
                     }
                 }
-                catch (Exception ex)
+
+                if (removable.Count > 0)
                 {
-                    _logger.LogWarning(ex, "Error while deleting screenshot {fileName}.", screenshot.FileName);
+                    using var dbContext = _appDbFactory.GetContext();
+                    dbContext.Screenshots.RemoveRange(removable);
+                    await dbContext.SaveChangesAsync();
+                }
+
+                if (screenshots.Length < batchSize)
+                {
+                    break;
                 }
             }
-
-            using var dbContext = _appDbFactory.GetContext();
-            dbContext.Screenshots.RemoveRange(expired);
-            await dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while deleting expired screenshots for device {deviceId}.", device.ID);
+        }
+    }
+
+    private string? GetScreenshotPath(Device device, Screenshot screenshot)
+    {
+        if (!IsSafeFileName(screenshot.FileName))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(screenshot.StorageDirectory))
+        {
+            return Path.Combine(screenshot.StorageDirectory, screenshot.FileName);
+        }
+
+        foreach (var directory in new[]
+        {
+            GetScreenshotsDirectory(device),
+            GetDefaultScreenshotsDirectory(device)
+        }.Distinct(GetPathComparer()))
+        {
+            try
+            {
+                var path = Path.Combine(directory, screenshot.FileName);
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            catch
+            {
+                // Legacy rows are resolved only from folders whose paths can be checked.
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsSafeFileName(string fileName)
+    {
+        return !string.IsNullOrWhiteSpace(fileName) &&
+            fileName == Path.GetFileName(fileName) &&
+            !fileName.Contains("..");
+    }
+
+    private bool TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+            if (!File.Exists(path))
+            {
+                return true;
+            }
+
+            _logger.LogWarning("File remains after delete attempt: {path}.", path);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error while deleting screenshot {fileName}.", path);
+            return false;
         }
     }
 
@@ -397,4 +550,7 @@ public class ScreenshotService : IScreenshotService
 
         return listing;
     }
+
+    private static StringComparer GetPathComparer() =>
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 }

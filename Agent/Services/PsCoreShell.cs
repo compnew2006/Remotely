@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Remotely.Agent.Extensions;
 using Remotely.Agent.Interfaces;
 using Remotely.Shared.Dtos;
 using Remotely.Shared.Models;
@@ -6,6 +7,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Remotely.Agent.Services;
@@ -14,7 +16,7 @@ public interface IPsCoreShell : IDisposable, IScriptingShell
 {
     string? SenderConnectionId { get; set; }
 
-    CommandCompletion GetCompletions(string inputText, int currentIndex, bool? forward);
+    PwshCommandCompletion GetCompletions(string inputText, int currentIndex, bool? forward);
     Task<ScriptResultDto> WriteInput(string input);
 }
 
@@ -23,8 +25,9 @@ public class PsCoreShell : IPsCoreShell
     private readonly IConfigService _configService;
     private readonly ConnectionInfo _connectionInfo;
     private readonly ILogger<PsCoreShell> _logger;
+    private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly PowerShell _powershell;
-    private bool _disposedValue;
+    private int _disposedValue;
     private CommandCompletion? _lastCompletion;
     private string? _lastInputText;
 
@@ -48,7 +51,8 @@ public class PsCoreShell : IPsCoreShell
         _powershell.Invoke();
     }
 
-    public bool IsDisposed => _disposedValue;
+    public bool IsDisposed => Volatile.Read(ref _disposedValue) != 0;
+    public bool IsBusy => _operationLock.CurrentCount == 0;
     public string? SenderConnectionId { get; set; }
 
     public void Dispose()
@@ -57,30 +61,49 @@ public class PsCoreShell : IPsCoreShell
         GC.SuppressFinalize(this);
     }
 
-    public CommandCompletion GetCompletions(string inputText, int currentIndex, bool? forward)
+    public PwshCommandCompletion GetCompletions(string inputText, int currentIndex, bool? forward)
     {
-        if (_lastCompletion is null ||
-            inputText != _lastInputText)
-        {
-            _lastInputText = inputText;
-            _lastCompletion = CommandCompletion.CompleteInput(inputText, currentIndex, new(), _powershell);
-        }
+        _operationLock.Wait();
 
-        if (forward.HasValue)
+        try
         {
-            _lastCompletion.GetNextResult(forward.Value);
-        }
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(PsCoreShell));
+            }
 
-        return _lastCompletion;
+            if (_lastCompletion is null ||
+                inputText != _lastInputText)
+            {
+                _lastInputText = inputText;
+                _lastCompletion = CommandCompletion.CompleteInput(inputText, currentIndex, new(), _powershell);
+            }
+
+            if (forward.HasValue)
+            {
+                _lastCompletion.GetNextResult(forward.Value);
+            }
+
+            return _lastCompletion.ToPwshCompletion();
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     public async Task<ScriptResultDto> WriteInput(string input)
     {
         var deviceId = _configService.GetConnectionInfo().DeviceID;
+        await _operationLock.WaitAsync().ConfigureAwait(false);
         var sw = Stopwatch.StartNew();
 
         try
         {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(PsCoreShell));
+            }
 
             _powershell.Streams.ClearStreams();
             _powershell.Commands.Clear();
@@ -91,10 +114,10 @@ public class PsCoreShell : IPsCoreShell
             using var ps = PowerShell.Create();
             ps.AddScript("$args[0] | Out-String");
             ps.AddArgument(results);
-            var result = await ps.InvokeAsync();
-            
-            var hostOutput = result.Count > 0 ? 
-                $"{result[0].BaseObject}" : 
+            var result = await ps.InvokeAsync().ConfigureAwait(false);
+
+            var hostOutput = result.Count > 0 ?
+                $"{result[0].BaseObject}" :
                 string.Empty;
 
             var verboseOut = _powershell.Streams.Verbose.ReadAll().Select(x => x.Message);
@@ -110,7 +133,6 @@ public class PsCoreShell : IPsCoreShell
                 .Select(x => $"{x}");
 
             var errorAndWarningOut = errorOut.Concat(warningOut).ToArray();
-
 
             return new ScriptResultDto()
             {
@@ -139,17 +161,32 @@ public class PsCoreShell : IPsCoreShell
                 HadErrors = true
             };
         }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     protected virtual void Dispose(bool disposing)
     {
-        if (!_disposedValue)
+        if (!disposing)
         {
-            if (disposing)
+            return;
+        }
+
+        _operationLock.Wait();
+
+        try
+        {
+            if (!IsDisposed)
             {
                 _powershell.Dispose();
+                Volatile.Write(ref _disposedValue, 1);
             }
-            _disposedValue = true;
+        }
+        finally
+        {
+            _operationLock.Release();
         }
     }
 }
