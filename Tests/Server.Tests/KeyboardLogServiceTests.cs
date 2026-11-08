@@ -20,9 +20,9 @@ namespace Remotely.Server.Tests;
 [TestClass]
 public class KeyboardLogServiceTests
 {
-    private KeyboardLogService _keyboardLogService;
-    private Device _device;
-    private TestData _testData;
+    private KeyboardLogService _keyboardLogService = null!;
+    private Device _device = null!;
+    private TestData _testData = null!;
 
     [TestInitialize]
     public async Task Init()

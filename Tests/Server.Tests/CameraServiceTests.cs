@@ -1,9 +1,5 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-using Remotely.Server.Data;
 using Remotely.Server.Services;
 using Remotely.Shared.Entities;
 using System;
@@ -21,51 +17,28 @@ namespace Remotely.Server.Tests;
 [TestClass]
 public class CameraServiceTests
 {
-    private CameraService _cameraService;
-    private Device _device;
-    private string _contentRoot;
-    private TestData _testData;
+    private CameraService _cameraService = null!;
+    private Device _device = null!;
+    private string _contentRoot = null!;
+    private MediaServiceTestFixture _fixture = null!;
 
     [TestInitialize]
     public async Task Init()
     {
-        _testData = new TestData();
-        await _testData.Init();
-
-        _device = _testData.Org1Device1;
-
-        _contentRoot = Path.Combine(
-            Path.GetTempPath(),
-            "RemotelyCameraTests",
-            Guid.NewGuid().ToString("N"));
-
-        Directory.CreateDirectory(_contentRoot);
-
-        var hostEnvironment = new Mock<IWebHostEnvironment>();
-        hostEnvironment.Setup(x => x.ContentRootPath).Returns(_contentRoot);
-
-        var dbFactory = IoCActivator.ServiceProvider.GetRequiredService<IAppDbFactory>();
+        _fixture = await MediaServiceTestFixture.Create("RemotelyCameraTests");
+        _device = _fixture.Device;
+        _contentRoot = _fixture.ContentRoot;
 
         _cameraService = new CameraService(
-            dbFactory,
-            hostEnvironment.Object,
+            _fixture.DbFactory,
+            _fixture.HostEnvironment,
             NullLogger<CameraService>.Instance);
     }
 
     [TestCleanup]
     public void Cleanup()
     {
-        try
-        {
-            if (Directory.Exists(_contentRoot))
-            {
-                Directory.Delete(_contentRoot, true);
-            }
-        }
-        catch
-        {
-            // The temporary folder is left behind when it can't be removed.
-        }
+        _fixture?.Dispose();
     }
 
     [TestMethod]
@@ -245,7 +218,7 @@ public class CameraServiceTests
     {
         await SaveClipAsync();
 
-        var otherDevice = _testData.Org1Device2;
+        var otherDevice = _fixture.OtherDevice;
 
         Assert.AreEqual(1, _cameraService.GetClips(_device.ID, 10).Length);
         Assert.AreEqual(0, _cameraService.GetClips(otherDevice.ID, 10).Length);

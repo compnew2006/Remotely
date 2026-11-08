@@ -9,7 +9,6 @@ using Remotely.Shared.Services;
 using Remotely.Shared.Utilities;
 using System.Diagnostics;
 using System.Runtime.Versioning;
-using Remotely.Desktop.UI.Startup;
 
 namespace Remotely.Desktop.Win;
 
@@ -43,8 +42,6 @@ public class Program
 
         services.AddSingleton<IEmbeddedServerDataProvider>(EmbeddedServerDataProvider.Instance);
 
-        services.AddRemoteControlXplat();
-        services.AddRemoteControlUi();
         services.AddRemoteControlWindows();
 
         services.AddLogging(builder =>

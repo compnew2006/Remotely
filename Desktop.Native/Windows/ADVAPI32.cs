@@ -337,16 +337,6 @@ public static class ADVAPI32
         uint TokenInformationLength,
         out uint ReturnLength);
 
-    [DllImport("advapi32.dll", SetLastError = true, BestFitMapping = false, ThrowOnUnmappableChar = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool LogonUser(
-        [MarshalAs(UnmanagedType.LPStr)] string pszUserName,
-        [MarshalAs(UnmanagedType.LPStr)] string pszDomain,
-        [MarshalAs(UnmanagedType.LPStr)] string pszPassword,
-        int dwLogonType,
-        int dwLogonProvider,
-        out nint phToken);
-
     [DllImport("advapi32", SetLastError = true), SuppressUnmanagedCodeSecurity]
     public static extern bool OpenProcessToken(nint ProcessHandle, int DesiredAccess, ref nint TokenHandle);
     [DllImport("advapi32.dll", CharSet = CharSet.Auto, SetLastError = true)]

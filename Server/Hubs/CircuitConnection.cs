@@ -677,21 +677,21 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// <summary>
     /// Stops a monitoring session for a device.
     /// </summary>
-    public Task<Result> StopMonitoring(string deviceId)
+    public async Task<Result> StopMonitoring(string deviceId)
     {
         if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
         {
-            return Task.FromResult(Result.Fail("Unauthorized."));
+            return Result.Fail("Unauthorized.");
         }
 
-        StopExistingMonitoring(deviceId);
+        await StopExistingMonitoring(deviceId);
 
         _logger.LogInformation(
             "Monitoring stopped.  Device ID: {deviceId}.  Identity: {identity}.",
             deviceId,
             User.UserName);
 
-        return Task.FromResult(Result.Ok());
+        return Result.Ok();
     }
 
     /// <summary>

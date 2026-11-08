@@ -10,7 +10,6 @@ Reusable process-local helpers for throttling, chunked DTO transport, path-name 
 - DtoChunker.TryComplete collects chunks in a MemoryCache and deserializes the completed value [Shared/Helpers/DtoChunker.cs:TryComplete].
 - PathSanitizer.TrySanitizeFileName reduces an input to a file name and rejects empty names, invalid characters, dot entries, and Windows device names [Shared/Helpers/PathSanitizer.cs:TrySanitizeFileName].
 - RateLimiter.Throttle runs a callback at most once per cache key and duration; Reset clears its cache [Shared/Helpers/RateLImiter.cs:Throttle/Reset].
-- Debouncer.Debounce schedules an Action after a delay keyed by caller name [Shared/Helpers/Debouncer.cs:Debounce].
 - RandomGenerator.GenerateString and GenerateAccessKey create random strings [Shared/Helpers/RandomGenerator.cs:GenerateString/GenerateAccessKey].
 - Disposer.TryDisposeAll and WaitHelper.WaitFor/WaitForAsync provide cleanup and polling helpers [Shared/Helpers/Disposer.cs:TryDisposeAll; Shared/Helpers/WaitHelper.cs:WaitFor/WaitForAsync].
 

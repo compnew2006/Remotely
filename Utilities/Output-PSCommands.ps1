@@ -1,2 +1,12 @@
-Start-Process -FilePath "powershell.exe" -ArgumentList "-f C:\Users\Typic\Source\Repos\DoXM\Utilities\Get-PSCommands.ps1"
-Start-Process -FilePath "C:\Program Files\PowerShell\6\pwsh.exe" -ArgumentList "-f C:\Users\Typic\Source\Repos\DoXM\Utilities\Get-PSCommands.ps1"
+$scriptPath = Join-Path $PSScriptRoot 'Get-PSCommands.ps1'
+if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+    throw "PowerShell command export script not found at '$scriptPath'."
+}
+
+$argumentList = "-File `"$scriptPath`""
+Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentList
+
+$pwsh = Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue
+if ($pwsh) {
+    Start-Process -FilePath $pwsh.Source -ArgumentList $argumentList
+}

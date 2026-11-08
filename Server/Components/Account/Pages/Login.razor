@@ -74,8 +74,10 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
-    [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = new();
+    [SupplyParameterFromForm(Name = "Input")]
+    private InputModel? FormInput { get; set; }
+
+    private InputModel Input => FormInput ??= new();
 
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }

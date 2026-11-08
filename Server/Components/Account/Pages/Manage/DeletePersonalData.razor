@@ -46,12 +46,17 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    private InputModel? formInput;
+
     [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = new();
+    private InputModel Input
+    {
+        get => formInput ??= new();
+        set => formInput = value;
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        Input ??= new();
         user = await UserAccessor.GetRequiredUserAsync(HttpContext);
         requirePassword = await UserManager.HasPasswordAsync(user);
     }

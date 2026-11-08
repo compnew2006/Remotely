@@ -57,6 +57,4 @@ public static class LibXrandr
     [DllImport("libXrandr")]
     public static extern void XRRFreeMonitors(nint monitors);
 
-    [DllImport("libXrandr")]
-    public static extern nint XRRAllocateMonitor(nint display, int output);
 }

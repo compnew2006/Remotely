@@ -36,10 +36,9 @@ Shared contract folders:
 ## Side Effects
 
 - FileLogger.Log writes synchronously under the path returned by FileLoggerDefaults.GetLogPath; FileLogger.CleanupLogs deletes log files older than seven days [Shared/Services/FileLogger.cs:Log/CleanupLogs; Shared/Services/FileLoggerDefaults.cs:GetLogPath].
-- DtoChunker.TryComplete and RateLimiter use process-local MemoryCache state; both Debouncer implementations keep process-local timers [Shared/Helpers/DtoChunker.cs:TryComplete; Shared/Helpers/RateLImiter.cs:Throttle; Shared/Helpers/Debouncer.cs:Debounce; Shared/Utilities/Debouncer.cs:Debounce].
+- DtoChunker.TryComplete and RateLimiter use process-local MemoryCache state; the Utilities Debouncer keeps process-local timers [Shared/Helpers/DtoChunker.cs:TryComplete; Shared/Helpers/RateLImiter.cs:Throttle; Shared/Utilities/Debouncer.cs:Debounce].
 - ProcessInvoker.InvokeProcessOutput starts an external process and reads its standard output [Shared/Services/ProcessInvoker.cs:InvokeProcessOutput].
 - UpdatePackageVerifier.LoadTrustedKeysFile reads a JSON trust-key file; Verify hashes package bytes and performs ECDSA signature verification without writing files [Shared/Services/UpdatePackageVerifier.cs:LoadTrustedKeysFile/Verify].
-- AppendableStream delegates reads, writes, and disposal to its wrapped stream [Shared/Utilities/AppendableStream.cs:AppendableStream].
 
 ## Verification
 

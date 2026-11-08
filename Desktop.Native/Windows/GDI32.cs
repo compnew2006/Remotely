@@ -56,24 +56,5 @@ public static class GDI32
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool BitBlt([In] nint hdc, int nXDest, int nYDest, int nWidth, int nHeight, [In] nint hdcSrc, int nXSrc, int nYSrc, TernaryRasterOperations dwRop);
 
-    [DllImport("gdi32.dll")]
-    public static extern nint CreateDC(string lpszDriver, string lpszDevice, string lpszOutput, nint lpInitData);
-
-    [DllImport("GDI32.dll")]
-    public static extern nint CreateCompatibleBitmap(nint hdc, int nWidth, int nHeight); [DllImport("GDI32.dll")]
-    public static extern nint CreateCompatibleDC(nint hdc);
-
-    [DllImport("GDI32.dll")]
-    public static extern bool DeleteDC(nint hdc);
-
-    [DllImport("GDI32.dll")]
-    public static extern bool DeleteObject(nint hObject);
-
-    [DllImport("GDI32.dll")]
-    public static extern nint GetDeviceCaps(nint hdc, int nIndex);
-
-    [DllImport("GDI32.dll")]
-    public static extern nint SelectObject(nint hdc, nint hgdiobj);
-
     #endregion
 }

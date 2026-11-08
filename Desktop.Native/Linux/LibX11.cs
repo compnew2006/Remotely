@@ -35,60 +35,22 @@ public static unsafe class LibX11
     public static extern nint XGetImage(nint display, nint drawable, int x, int y, int width, int height, long plane_mask, int format);
 
     [DllImport("libX11")]
-    public static extern nint XDefaultVisual(nint display, int screen_number);
-    [DllImport("libX11")]
-    public static extern int XScreenCount(nint display);
-    [DllImport("libX11")]
     public static extern int XDefaultScreen(nint display);
     [DllImport("libX11")]
     public static extern nint XOpenDisplay(string display_name);
     [DllImport("libX11")]
     public static extern void XCloseDisplay(nint display);
     [DllImport("libX11")]
-    public static extern nint XRootWindow(nint display, int screen_number);
-
-    [DllImport("libX11")]
-    public static extern nint XGetSubImage(nint display, nint drawable, int x, int y, uint width, uint height, ulong plane_mask, int format, nint dest_image, int dest_x, int dest_y);
-    [DllImport("libX11")]
-    public static extern nint XScreenOfDisplay(nint display, int screen_number);
-    [DllImport("libX11")]
-    public static extern int XDisplayWidth(nint display, int screen_number);
-    [DllImport("libX11")]
-    public static extern int XDisplayHeight(nint display, int screen_number);
-    [DllImport("libX11")]
-    public static extern int XWidthOfScreen(nint screen);
-    [DllImport("libX11")]
-    public static extern int XHeightOfScreen(nint screen);
-    [DllImport("libX11")]
-    public static extern nint XDefaultGC(nint display, int screen_number);
-    [DllImport("libX11")]
     public static extern nint XDefaultRootWindow(nint display);
-    [DllImport("libX11")]
-    public static extern void XGetInputFocus(nint display, out nint focus_return, out int revert_to_return);
     [DllImport("libX11")]
     public static extern nint XStringToKeysym(string key);
     [DllImport("libX11")]
     public static extern uint XKeysymToKeycode(nint display, nint keysym);
 
     [DllImport("libX11")]
-    public static extern nint XRootWindowOfScreen(nint screen);
-    [DllImport("libX11")]
-    public static extern ulong XNextRequest(nint display);
-    [DllImport("libX11")]
-    public static extern void XForceScreenSaver(nint display, int mode);
-    [DllImport("libX11")]
     public static extern void XSync(nint display, bool discard);
     [DllImport("libX11")]
     public static extern void XDestroyImage(nint ximage);
-
-    [DllImport("libX11")]
-    public static extern void XNoOp(nint display);
-
-    [DllImport("libX11")]
-    public static extern void XFree(nint data);
-
-    [DllImport("libX11")]
-    public static extern int XGetWindowAttributes(nint display, nint window, out XWindowAttributes windowAttributes);
 
     public struct XImage
     {

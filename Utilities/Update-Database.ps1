@@ -1,53 +1,63 @@
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
-    [string]$MigrationName
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('SQLite', 'SQLServer', 'PostgreSQL')]
+    [string]$Provider,
+
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^(0|[A-Za-z0-9_][A-Za-z0-9_ -]*)$')]
+    [string]$MigrationName,
+
+    [string]$DotNetPath
 )
 
-if (!$MigrationName) {
-    exit 1
-}
+$ErrorActionPreference = 'Stop'
 
-$ErrorActionPreference = "Stop"
+$providerTargets = Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot 'MigrationProviderTargets.psd1')
 
+$providerTarget = $providerTargets[$Provider]
 
-function Replace-LineInFile($FilePath, $MatchPattern, $ReplaceLineWith, $MaxCount = -1){
-    $FullPath = (Get-Item -Path $FilePath).FullName
-    [string[]]$Content = Get-Content -Path $FullPath
-    $Count = 0
-    for ($i = 0; $i -lt $Content.Length; $i++)
-    {
-        if ($Content[$i] -ne $null -and $Content[$i].Contains($MatchPattern)) {
-            $Content[$i] = $ReplaceLineWith
-            $Count++
-        }
-        if ($MaxCount -gt 0 -and $Count -ge $MaxCount) {
-            break
-        }
+$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$serverProject = Join-Path $repositoryRoot 'Server/Server.csproj'
+
+Push-Location (Split-Path $serverProject -Parent)
+try {
+    $operation = "Apply migration '$MigrationName' to the configured $Provider target"
+    if (-not $PSCmdlet.ShouldProcess($providerTarget.ConnectionVariable, $operation)) {
+        return
     }
-    [System.IO.File]::WriteAllLines($FullPath, $Content)
+
+    if (-not (Test-Path "Env:$($providerTarget.ConnectionVariable)")) {
+        throw "Set the configured target in environment variable $($providerTarget.ConnectionVariable)."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($DotNetPath)) {
+        $dotnetCommand = Get-Command dotnet -ErrorAction Stop
+        $DotNetPath = $dotnetCommand.Source
+    }
+    elseif (-not (Test-Path -LiteralPath $DotNetPath -PathType Leaf)) {
+        throw "The .NET executable was not found at '$DotNetPath'."
+    }
+
+    $dotnetArguments = @(
+        'ef'
+        'database'
+        'update'
+        $MigrationName
+        '--context'
+        $providerTarget.Context
+        '--project'
+        $serverProject
+        '--startup-project'
+        $serverProject
+    )
+
+    & $DotNetPath @dotnetArguments
+    $dotnetExitCode = $LASTEXITCODE
+    if ($dotnetExitCode -ne 0) {
+        throw "dotnet ef database update failed with exit code $dotnetExitCode."
+    }
 }
-
-
-if ($PSScriptRoot) {
-    $Root = (Get-Item -Path $PSScriptRoot).Parent.FullName + "\Server"
+finally {
+    Pop-Location
 }
-else {
-    $Root = (Get-Item -Path (Get-Location).Path).Parent.FullName + "\Server"
-}
-
-Push-Location "$Root"
-
-Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider":' -ReplaceLineWith '    "DBProvider": "SQLite",' -MaxCount 1
-
-dotnet ef database update $MigrationName --context "SqliteDbContext"
-
-Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider":' -ReplaceLineWith '    "DBProvider": "SQLServer",' -MaxCount 1
-
-dotnet ef database update $MigrationName --context "SqlServerDbContext"
-
-Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider":' -ReplaceLineWith '    "DBProvider": "PostgreSQL",' -MaxCount 1
-
-dotnet ef database update $MigrationName --context "PostgreSqlDbContext"
-
-Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider":' -ReplaceLineWith '    "DBProvider": "SQLite",' -MaxCount 1
-
-Pop-Location

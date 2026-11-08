@@ -28,8 +28,6 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
     private bool _isEnabled;
     private bool _showPasswords;
     private bool _isBusy;
-    private bool _showFolderPicker;
-
     [Parameter]
     public string DeviceId { get; set; } = string.Empty;
 

@@ -1,16 +1,56 @@
-$ErrorActionPreference = "Stop"
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('SQLite', 'SQLServer', 'PostgreSQL')]
+    [string]$Provider,
 
-if ($PSScriptRoot) {
-    $Root = (Get-Item -Path $PSScriptRoot).Parent.FullName + "\Server"
+    [string]$DotNetPath
+)
+
+$ErrorActionPreference = 'Stop'
+
+$providerTargets = Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot 'MigrationProviderTargets.psd1')
+
+$providerTarget = $providerTargets[$Provider]
+if (-not $PSCmdlet.ShouldProcess("$Provider migrations", 'Remove the latest migration')) {
+    return
 }
-else {
-    $Root = (Get-Item -Path (Get-Location).Path).Parent.FullName + "\Server"
+
+if (-not (Test-Path "Env:$($providerTarget.ConnectionVariable)")) {
+    throw "Set the configured target in environment variable $($providerTarget.ConnectionVariable)."
 }
 
-Push-Location "$Root"
+if ([string]::IsNullOrWhiteSpace($DotNetPath)) {
+    $dotnetCommand = Get-Command dotnet -ErrorAction Stop
+    $DotNetPath = $dotnetCommand.Source
+}
+elseif (-not (Test-Path -LiteralPath $DotNetPath -PathType Leaf)) {
+    throw "The .NET executable was not found at '$DotNetPath'."
+}
 
-dotnet ef migrations remove --context "SqliteDbContext"
-dotnet ef migrations remove --context "SqlServerDbContext"
-dotnet ef migrations remove --context "PostgreSqlDbContext"
+$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$serverProject = Join-Path $repositoryRoot 'Server/Server.csproj'
 
-Pop-Location
+Push-Location (Split-Path $serverProject -Parent)
+try {
+    $dotnetArguments = @(
+        'ef'
+        'migrations'
+        'remove'
+        '--context'
+        $providerTarget.Context
+        '--project'
+        $serverProject
+        '--startup-project'
+        $serverProject
+    )
+
+    & $DotNetPath @dotnetArguments
+    $dotnetExitCode = $LASTEXITCODE
+    if ($dotnetExitCode -ne 0) {
+        throw "dotnet ef migrations remove failed with exit code $dotnetExitCode."
+    }
+}
+finally {
+    Pop-Location
+}

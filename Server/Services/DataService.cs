@@ -94,8 +94,6 @@ public interface IDataService
 
     ScriptResult[] GetAllScriptResults(string orgId, string deviceId);
 
-    ScriptResult[] GetAllScriptResultsForUser(string orgId, string userName);
-
     RemotelyUser[] GetAllUsersForServer();
 
     Task<RemotelyUser[]> GetAllUsersInOrganization(string orgId);
@@ -113,13 +111,6 @@ public interface IDataService
     Task<Result<Device>> GetDevice(string orgId, string deviceId);
 
     int GetDeviceCount();
-
-    int GetDeviceCount(RemotelyUser user);
-
-    Task<Result<DeviceGroup>> GetDeviceGroup(
-        string deviceGroupId,
-        bool includeDevices = false,
-        bool includeUsers = false);
 
     DeviceGroup[] GetDeviceGroups(string username);
 
@@ -166,13 +157,9 @@ public interface IDataService
 
     int GetTotalDevices();
 
-    Task<Result<RemotelyUser>> GetUserById(string userId);
-
     Task<Result<RemotelyUser>> GetUserByName(
         string userName, 
         Action<IQueryable<RemotelyUser>>? queryBuilder = null);
-
-    Task<Result<RemotelyUserOptions>> GetUserOptions(string userName);
 
     Task<Result> JoinViaInvitation(string userName, string inviteId);
 
@@ -188,15 +175,11 @@ public interface IDataService
 
     Task SetAllDevicesNotOnline();
 
-    Task SetDisplayName(RemotelyUser user, string displayName);
-
     Task SetIsDefaultOrganization(string orgId, bool isDefault);
 
     Task SetIsServerAdmin(string targetUserId, bool isServerAdmin, string callerUserId);
 
     void SetServerVerificationToken(string deviceId, string verificationToken);
-
-    Task<bool> TempPasswordSignIn(string email, string password);
 
     Task UpdateBrandingInfo(
         string organizationId,
@@ -597,7 +580,7 @@ public class DataService : IDataService
     {
         var fileContents = new byte[file.Length];
         using var stream = file.OpenReadStream();
-        await stream.ReadAsync(fileContents.AsMemory(0, (int)file.Length));
+        await stream.ReadExactlyAsync(fileContents.AsMemory());
 
         return await AddSharedFileImpl(file.Name, fileContents, file.ContentType, organizationId);
     }
@@ -1208,17 +1191,6 @@ public class DataService : IDataService
             .ToArray();
     }
 
-    public ScriptResult[] GetAllScriptResultsForUser(string orgId, string userName)
-    {
-        using var dbContext = _appDbFactory.GetContext();
-
-        return dbContext.ScriptResults
-            .AsNoTracking()
-            .Where(x => x.OrganizationID == orgId && x.SenderUserName == userName)
-            .OrderByDescending(x => x.TimeStamp)
-            .ToArray();
-    }
-
     public RemotelyUser[] GetAllUsersForServer()
     {
         using var dbContext = _appDbFactory.GetContext();
@@ -1361,54 +1333,6 @@ public class DataService : IDataService
         using var dbContext = _appDbFactory.GetContext();
 
         return dbContext.Devices.Count();
-    }
-
-    public int GetDeviceCount(RemotelyUser user)
-    {
-        using var dbContext = _appDbFactory.GetContext();
-
-        if (user.IsAdministrator)
-        {
-            return GetDeviceCount();
-        }
-
-        return dbContext.Users
-            .AsNoTracking()
-            .Include(x => x.DeviceGroups)
-            .ThenInclude(x => x.Devices)
-            .Where(x => x.Id == user.Id)
-            .SelectMany(x => x.DeviceGroups)
-            .SelectMany(x => x.Devices)
-            .Count();
-    }
-
-    public async Task<Result<DeviceGroup>> GetDeviceGroup(
-        string deviceGroupId,
-        bool includeDevices = false,
-        bool includeUsers = false)
-    {
-        using var dbContext = _appDbFactory.GetContext();
-
-        var query = dbContext.DeviceGroups
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (includeDevices)
-        {
-            query = query.Include(x => x.Devices);
-        }
-        if (includeUsers)
-        {
-            query = query.Include(x => x.Users);
-        }
-
-        var group = await query.FirstOrDefaultAsync(x => x.ID == deviceGroupId);
-
-        if (group is null)
-        {
-            return Result.Fail<DeviceGroup>("Device group not found.");
-        }
-        return Result.Ok(group);
     }
 
     public DeviceGroup[] GetDeviceGroups(string username)
@@ -1799,25 +1723,6 @@ public class DataService : IDataService
         return dbContext.Devices.Count();
     }
 
-    public async Task<Result<RemotelyUser>> GetUserById(string userId)
-    {
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            return Result.Fail<RemotelyUser>("User ID cannot be empty.");
-        }
-        using var dbContext = _appDbFactory.GetContext();
-
-        var user = await dbContext.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == userId);
-
-        if (user is null)
-        {
-            return Result.Fail<RemotelyUser>("User not found.");
-        }
-        return Result.Ok(user);
-    }
-
     public async Task<Result<RemotelyUser>> GetUserByName(
         string userName,
         Action<IQueryable<RemotelyUser>>? queryBuilder = null)
@@ -1840,21 +1745,6 @@ public class DataService : IDataService
             return Result.Fail<RemotelyUser>("User not found.");
         }
         return Result.Ok(user);
-    }
-
-    public async Task<Result<RemotelyUserOptions>> GetUserOptions(string userName)
-    {
-        using var dbContext = _appDbFactory.GetContext();
-
-        var user = await dbContext.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.UserName == userName);
-
-        if (user is null)
-        {
-            return Result.Fail<RemotelyUserOptions>("User not found.");
-        }
-        return Result.Ok(user.UserOptions ?? new());
     }
 
     public async Task<Result> JoinViaInvitation(string userName, string inviteId)
@@ -2038,16 +1928,6 @@ public class DataService : IDataService
         await dbContext.SaveChangesAsync();
     }
 
-    public async Task SetDisplayName(RemotelyUser user, string displayName)
-    {
-        using var dbContext = _appDbFactory.GetContext();
-
-        dbContext.Attach(user);
-        user.UserOptions ??= new();
-        user.UserOptions.DisplayName = displayName;
-        await dbContext.SaveChangesAsync();
-    }
-
     public async Task SetIsDefaultOrganization(string orgID, bool isDefault)
     {
         using var dbContext = _appDbFactory.GetContext();
@@ -2104,34 +1984,6 @@ public class DataService : IDataService
             device.ServerVerificationToken = verificationToken;
             dbContext.SaveChanges();
         }
-    }
-
-    public async Task<bool> TempPasswordSignIn(string email, string password)
-    {
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            return false;
-        }
-
-        var userResult = await GetUserByName(email);
-
-        if (!userResult.IsSuccess)
-        {
-            return false;
-        }
-
-        var user = userResult.Value;
-
-        using var dbContext = _appDbFactory.GetContext();
-
-        if (user.TempPassword != password)
-        {
-            return false;
-        }
-
-        user.TempPassword = string.Empty;
-        await dbContext.SaveChangesAsync();
-        return true;
     }
 
     public async Task UpdateBrandingInfo(
