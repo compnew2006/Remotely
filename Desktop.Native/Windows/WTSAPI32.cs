@@ -64,9 +64,6 @@ public static class WTSAPI32
     [DllImport("Wtsapi32.dll")]
     public static extern bool WTSQuerySessionInformation(nint hServer, uint sessionId, WTS_INFO_CLASS wtsInfoClass, out nint ppBuffer, out uint pBytesReturned);
 
-    [DllImport("wtsapi32.dll", SetLastError = true)]
-    static extern nint WTSOpenServer(string pServerName);
-
     [StructLayout(LayoutKind.Sequential)]
     public struct WTS_SESSION_INFO
     {

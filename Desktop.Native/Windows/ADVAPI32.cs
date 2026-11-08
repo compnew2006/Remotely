@@ -326,9 +326,6 @@ public static class ADVAPI32
     [DllImport("advapi32.dll", SetLastError = true)]
     public static extern bool AllocateLocallyUniqueId(out nint pLuid);
 
-    [DllImport("advapi32.dll", CharSet = CharSet.Auto, SetLastError = false)]
-    public static extern SECUR32.WinErrors LsaNtStatusToWinError(SECUR32.WinStatusCodes status);
-
     [DllImport("advapi32.dll", SetLastError = true)]
     public static extern bool GetTokenInformation(
         nint TokenHandle,
@@ -348,7 +345,5 @@ public static class ADVAPI32
         TOKEN_TYPE TokenType,
         out nint phNewToken);
 
-    [DllImport("advapi32.dll", SetLastError = false)]
-    public static extern uint LsaNtStatusToWinError(uint status);
     #endregion
 }

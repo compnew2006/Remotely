@@ -811,15 +811,6 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
     [DllImport("kernel32.dll")]
     private static extern uint GetCurrentThreadId();
 
-    [DllImport("kernel32.dll")]
-    private static extern uint SetThreadLocale(uint localeId);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr LoadKeyboardLayout(uint localeId, uint dwFlags);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetKeyboardLayoutList(int n, IntPtr[] layouts);
-
     [DllImport("user32.dll")]
     private static extern IntPtr GetKeyboardLayout(uint threadId = 0);
 
@@ -852,9 +843,6 @@ internal sealed class KeyboardLoggerWin : IKeyboardLogger
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetKeyboardState(byte[] lpKeyState);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int ToUnicodeEx(

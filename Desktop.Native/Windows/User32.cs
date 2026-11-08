@@ -1158,10 +1158,6 @@ public static class User32
     [DllImport("user32.dll")]
     public static extern bool GetIconInfo(nint hIcon, out ICONINFO piconinfo);
 
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-    static extern nint LoadImage(nint hinst, string lpszName, uint uType,
-                                    int cxDesired, int cyDesired, uint fuLoad);
-
     public delegate bool EnumDesktopsDelegate(string desktop, nint lParam);
 
     [DllImport("user32.dll", SetLastError = true)]

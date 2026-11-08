@@ -52,9 +52,5 @@ public static class GDI32
 
     #region DLL Imports
 
-    [DllImport("gdi32.dll", EntryPoint = "BitBlt", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool BitBlt([In] nint hdc, int nXDest, int nYDest, int nWidth, int nHeight, [In] nint hdcSrc, int nXSrc, int nYSrc, TernaryRasterOperations dwRop);
-
     #endregion
 }
