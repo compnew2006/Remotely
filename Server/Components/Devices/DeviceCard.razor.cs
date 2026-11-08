@@ -17,7 +17,7 @@ using System.Text.Json;
 
 namespace Remotely.Server.Components.Devices;
 
-public partial class DeviceCard : AuthComponentBase
+public partial class DeviceCard : AuthComponentBase, IDisposable
 {
     private readonly ConcurrentDictionary<string, double> _fileUploadProgressLookup = new();
     private ElementReference _card;
@@ -25,6 +25,11 @@ public partial class DeviceCard : AuthComponentBase
     private Theme _theme;
     private DeviceCardState _state;
     private DeviceGroup[] _deviceGroups = Array.Empty<DeviceGroup>();
+
+    private CancellationTokenSource? _previewCts;
+    private string? _previewFileName;
+    private int _previewRefreshSeconds = 15;
+    private DateTimeOffset? _previewTimestamp;
 
     [Parameter]
     public Device Device { get; set; } = null!;
@@ -74,6 +79,9 @@ public partial class DeviceCard : AuthComponentBase
     [Inject]
     private IUpgradeService UpgradeService { get; init; } = null!;
 
+    [Inject]
+    private IScreenshotService ScreenshotService { get; init; } = null!;
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -91,6 +99,95 @@ public partial class DeviceCard : AuthComponentBase
             HandleDeviceStateChanged);
     }
 
+    public new void Dispose()
+    {
+        StopPreviewLoop();
+        base.Dispose();
+    }
+
+    /// <summary>
+    /// The address of the newest screenshot (newest fetch result) of this
+    /// device, or null when no screenshot is available.
+    /// </summary>
+    private string? PreviewImageUrl =>
+        _previewFileName is null
+            ? null
+            : $"api/screenshots/{Device.ID}/{_previewFileName}?t={_previewTimestamp?.ToUnixTimeMilliseconds() ?? DateTimeOffset.Now.ToUnixTimeMilliseconds()}";
+
+    private async Task RefreshPreviewOnce()
+    {
+        var result = await CircuitConnection.CaptureScreenshotNow(Device.ID);
+        if (!result.IsSuccess)
+        {
+            // Offline, paused by pause windows, and so on. The tile shows
+            // the last screenshot that arrived, if any.
+            return;
+        }
+
+        var screenshots = ScreenshotService.GetScreenshots(Device.ID, 1);
+        var latest = screenshots.FirstOrDefault();
+
+        if (latest is not null)
+        {
+            _previewFileName = latest.FileName;
+            _previewTimestamp = latest.TimeStamp;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshPreviewNow()
+    {
+        await RefreshPreviewOnce();
+    }
+
+    private void StartPreviewLoop()
+    {
+        StopPreviewLoop();
+
+        _previewCts = new CancellationTokenSource();
+        _ = PreviewLoop(_previewCts.Token);
+    }
+
+    private async Task PreviewLoop(CancellationToken cancellationToken)
+    {
+        // Loading the settings on every restart keeps the interval in sync
+        // with the server configuration dialog.
+        var settings = await DataService.GetSettings();
+
+        if (!settings.EnableScreenshotPreviews)
+        {
+            _previewCts?.Dispose();
+            _previewCts = null;
+            return;
+        }
+
+        _previewRefreshSeconds = Math.Clamp(settings.ScreenshotPreviewRefreshSeconds, 5, 300);
+
+        await RefreshPreviewOnce();
+
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_previewRefreshSeconds));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshPreviewOnce();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The card was collapsed or unmounted.
+        }
+    }
+
+    private void StopPreviewLoop()
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = null;
+    }
+
     private async Task HandleDeviceCardStateChanged(object subscriber, DeviceCardStateChangedMessage message)
     {
         if (message.DeviceId == Device.ID)
@@ -100,6 +197,16 @@ public partial class DeviceCard : AuthComponentBase
                 return;
             }
             _state = message.State;
+
+            if (_state == DeviceCardState.Expanded)
+            {
+                StartPreviewLoop();
+            }
+            else
+            {
+                StopPreviewLoop();
+            }
+
             await InvokeAsync(StateHasChanged);
         }
         else
@@ -109,6 +216,7 @@ public partial class DeviceCard : AuthComponentBase
                 return;
             }
             _state = DeviceCardState.Normal;
+            StopPreviewLoop();
             await InvokeAsync(StateHasChanged);
             return;
         }

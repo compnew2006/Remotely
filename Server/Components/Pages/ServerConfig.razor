@@ -188,6 +188,34 @@
                 <ValidationMessage For="() => Input.MaxConcurrentUpdates" />
             </div>
             <div class="form-group">
+                <label>Enable Device Screen Previews</label>
+                <br />
+                <InputCheckbox @bind-Value="Input.EnableScreenshotPreviews" autocomplete="off" />
+                <br />
+                <ValidationMessage For="() => Input.EnableScreenshotPreviews" />
+            </div>
+            <div class="form-group">
+                <label class="control-label">Device Screen Preview Refresh (seconds)</label>
+                <br />
+                <InputNumber @bind-Value="Input.ScreenshotPreviewRefreshSeconds" class="form-control" autocomplete="off" />
+                <br />
+                <ValidationMessage For="() => Input.ScreenshotPreviewRefreshSeconds" />
+            </div>
+            <div class="form-group">
+                <label>Enable Device Screen Previews</label>
+                <br />
+                <InputCheckbox @bind-Value="Input.EnableScreenshotPreviews" autocomplete="off" />
+                <br />
+                <ValidationMessage For="() => Input.EnableScreenshotPreviews" />
+            </div>
+            <div class="form-group">
+                <label class="control-label">Screenshot Preview Refresh (seconds)</label>
+                <br />
+                <InputNumber @bind-Value="Input.ScreenshotPreviewRefreshSeconds" class="form-control" autocomplete="off" />
+                <br />
+                <ValidationMessage For="() => Input.ScreenshotPreviewRefreshSeconds" />
+            </div>
+            <div class="form-group">
                 <label class="control-label">Message of the Day</label>
                 <br />
                 <InputText @bind-Value="Input.MessageOfTheDay" class="form-control" autocomplete="off" />

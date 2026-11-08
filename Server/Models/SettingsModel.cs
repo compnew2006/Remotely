@@ -11,6 +11,8 @@ public class SettingsModel
     public double DataRetentionInDays { get; set; } = 90;
     public string DbProvider { get; set; } = "SQLite";
     public bool EnableRemoteControlRecording { get; set; }
+    public bool EnableScreenshotPreviews { get; set; } = true;
+    public int ScreenshotPreviewRefreshSeconds { get; set; } = 15;
     public bool EnableWindowsEventLog { get; set; }
     public bool EnforceAttendedAccess { get; set; }
     public bool ForceClientHttps { get; set; }

@@ -217,6 +217,39 @@
                 @if (IsExpanded)
                 {
                     <div class="font-weight-bold text-info mt-2">
+                        <label>Screen Preview</label>
+                    </div>
+                    <div class="mt-2">
+                        <div class="preview-tile">
+                            @if (PreviewImageUrl is not null)
+                            {
+                                <img src="@PreviewImageUrl" alt="Screen preview" class="preview-img" />
+                            }
+                            else
+                            {
+                                <div class="preview-placeholder">
+                                    <i class="oi oi-image"></i><br />
+                                    <span class="small text-muted">No preview yet.</span>
+                                </div>
+                            }
+                            <button type="button"
+                                    class="preview-refresh"
+                                    title="Refresh preview now"
+                                    aria-label="Refresh preview now"
+                                    @onclick="RefreshPreviewNow"
+                                    @onclick:stopPropagation>
+                                <i class="oi oi-reload"></i>
+                            </button>
+                        </div>
+                        @if (_previewTimestamp is not null)
+                        {
+                            <div class="small text-muted mt-1">
+                                Updated @_previewTimestamp.Value.ToLocalTime().ToString("HH:mm:ss") · every @_previewRefreshSeconds s
+                            </div>
+                        }
+                    </div>
+
+                    <div class="font-weight-bold text-info mt-2">
                         Device ID
                     </div>
                     <div>

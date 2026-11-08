@@ -1083,6 +1083,66 @@ kbd {
     font-size: 13px;
 }
 
+/* Live screen preview thumbnail inside an expanded card. */
+.preview-tile {
+    position: relative;
+    max-width: 320px;
+    aspect-ratio: 16 / 9;
+    background-color: var(--rm-surface-sunken);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    overflow: hidden;
+}
+
+.preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.preview-placeholder {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    color: var(--rm-ink-faint);
+}
+
+.preview-placeholder .oi {
+    font-size: 1.5rem;
+}
+
+.preview-refresh {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--rm-border);
+    background-color: var(--rm-surface-raised);
+    color: var(--rm-ink);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.preview-refresh:hover {
+    background-color: var(--rm-accent-soft, var(--rm-surface-raised));
+    border-color: var(--rm-accent-line);
+}
+
+.preview-refresh:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 /* Terminal + chat read from tokens, not Bootstrap secondary/dark */
 .terminal-body,
 .chat-card,
