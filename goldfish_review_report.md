@@ -2,6 +2,16 @@
 
 **Target:** `docs/designs/webhook-delivery.md` (`full file`)
 
+**Status:** resolved
+
+## Resolution Summary
+
+- Applied the proposed fixes for Issues 1–7, 9–22, and 24 (22 suggestions): secret protection and rotation, atomic outbox boundaries, claim/retry behavior, pinned SSRF transport, v1 event scope and payloads, wire contract/examples, authorization, operations, tests, and calibrated language.
+- Issue 8 remains **CONTEST**: retained the implementation-plan section required by the drafting workflow, but framed it as a proposed file map rather than a frozen implementation contract.
+- Issue 23 remains **DECLINE** per the nit-handling guidance. The separate `Risks & Limits` content was added under Issue 11; cosmetic template/title changes were not made.
+- Some proposed wording was resolved with a more precise alternative: retry arithmetic is seven gaps for eight total attempts; metrics avoid endpoint labels; producer authorization is rechecked against current access rather than a persisted permission snapshot.
+- Verification: `git diff --check` passed after the final document edits. No feature code, build, or tests were run; the webhook feature remains unimplemented.
+
 ## Prioritized Findings & AI Suggestions
 
 ### Issue 1 [`egm-design`] - Severity: Blocker
