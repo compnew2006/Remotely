@@ -29,6 +29,7 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
 
     private CancellationTokenSource? _previewCts;
     private string? _previewFileName;
+    private bool _previewAutoEnabled = true;
     private int _previewRefreshSeconds = 15;
     private DateTimeOffset? _previewTimestamp;
 
@@ -162,9 +163,33 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
         await RefreshPreviewOnce();
     }
 
+    private void OnPreviewAutoChanged(ChangeEventArgs args)
+    {
+        if (args.Value is not bool enabled)
+        {
+            return;
+        }
+
+        _previewAutoEnabled = enabled;
+
+        if (enabled)
+        {
+            StartPreviewLoop();
+        }
+        else
+        {
+            StopPreviewLoop();
+        }
+    }
+
     private void StartPreviewLoop()
     {
         StopPreviewLoop();
+
+        if (!_previewAutoEnabled)
+        {
+            return;
+        }
 
         _previewCts = new CancellationTokenSource();
         _ = PreviewLoop(_previewCts.Token);
