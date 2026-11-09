@@ -1,7 +1,41 @@
-.item-list-border {
-    border: 1px solid var(--rm-border);
-    padding: .5em;
-    height: 300px;
+.script-schedules,
+.script-schedule-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.script-schedule-pickers .script-panel {
+    min-width: 0;
+}
+
+.script-schedule-list .rm-table-wrap {
+    min-width: 0;
+}
+
+.script-schedule-list tbody tr {
+    cursor: pointer;
+}
+
+.script-schedule-select {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--rm-accent-strong);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.script-schedule-select:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.script-schedule-select:focus-visible {
     border-radius: var(--rm-radius-control);
-    overflow-y: auto;
+    outline: 2px solid var(--rm-accent-line);
+    outline-offset: 3px;
 }

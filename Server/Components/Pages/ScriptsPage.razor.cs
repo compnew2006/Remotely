@@ -23,8 +23,33 @@ public partial class ScriptsPage : AuthComponentBase
         get => _showOnlyMyScripts;
         set
         {
+            if (_showOnlyMyScripts == value)
+            {
+                return;
+            }
+
             _showOnlyMyScripts = value;
             _treeNodes.Clear();
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// The scripts the current filter exposes, used by the page header and the
+    /// picker headers. Mirrors the filter applied in <see cref="RefreshTreeNodes"/>.
+    /// </summary>
+    public int VisibleScriptCount
+    {
+        get
+        {
+            if (User is null)
+            {
+                return 0;
+            }
+
+            return _allScripts.Count(script =>
+                script.CreatorId == User.Id ||
+                (!ShowOnlyMyScripts && script.IsPublic));
         }
     }
 
@@ -62,6 +87,7 @@ public partial class ScriptsPage : AuthComponentBase
         _treeNodes.Clear();
 
         _allScripts = await DataService.GetSavedScriptsWithoutContent(User.Id, User.OrganizationID);
+        StateHasChanged();
     }
 
     protected override async Task OnInitializedAsync()

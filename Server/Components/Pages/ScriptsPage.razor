@@ -2,29 +2,40 @@
 @attribute [Authorize]
 @inherits AuthComponentBase
 
-<CascadingValue Value="this">
-    <TabControl InitialActiveTab="@(ActiveTab ?? "saved-scripts")">
-        <TabHeaders>
-            <TabHeader Name="saved-scripts" NavigationUri="/scripts/saved-scripts">
-                Saved Scripts
-            </TabHeader>
-            <TabHeader Name="run-script" NavigationUri="/scripts/run-script">
-                Run Script
-            </TabHeader>
-            <TabHeader Name="script-schedules" NavigationUri="/scripts/script-schedules">
-                Script Schedules
-            </TabHeader>
-        </TabHeaders>
-        <TabContents>
-            <TabContent Name="saved-scripts">
-                <SavedScripts />
-            </TabContent>
-            <TabContent Name="run-script">
-                <RunScript />
-            </TabContent>
-            <TabContent Name="script-schedules">
-                <ScriptSchedules />
-            </TabContent>
-        </TabContents>
-    </TabControl>
-</CascadingValue>
+<div class="scripts-page">
+    <header class="scripts-head">
+        <h3 class="rm-page-title">Scripts</h3>
+        <p class="scripts-meta">
+            <span class="scripts-meta-item">@VisibleScriptCount saved</span>
+            <span class="scripts-meta-sep" aria-hidden="true">&middot;</span>
+            <span class="scripts-meta-item">Save, run, and schedule across the fleet</span>
+        </p>
+    </header>
+
+    <CascadingValue Value="this">
+        <TabControl InitialActiveTab="@(ActiveTab ?? "saved-scripts")">
+            <TabHeaders>
+                <TabHeader Name="saved-scripts" NavigationUri="/scripts/saved-scripts">
+                    Saved Scripts
+                </TabHeader>
+                <TabHeader Name="run-script" NavigationUri="/scripts/run-script">
+                    Run Script
+                </TabHeader>
+                <TabHeader Name="script-schedules" NavigationUri="/scripts/script-schedules">
+                    Script Schedules
+                </TabHeader>
+            </TabHeaders>
+            <TabContents>
+                <TabContent Name="saved-scripts">
+                    <SavedScripts />
+                </TabContent>
+                <TabContent Name="run-script">
+                    <RunScript />
+                </TabContent>
+                <TabContent Name="script-schedules">
+                    <ScriptSchedules />
+                </TabContent>
+            </TabContents>
+        </TabControl>
+    </CascadingValue>
+</div>

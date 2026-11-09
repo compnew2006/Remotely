@@ -1,0 +1,50 @@
+/*
+ * Scripts workspace header. The tabs underneath carry the page's own
+ * navigation; this block only introduces the surface and its library size.
+ */
+
+.scripts-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px 0 0;
+}
+
+.scripts-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.scripts-head .rm-page-title {
+    margin-bottom: 0;
+}
+
+.scripts-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--rm-ink-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.scripts-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.scripts-meta-sep {
+    color: var(--rm-ink-faint);
+}
+
+@media (max-width: 640px) {
+    .scripts-page {
+        padding-top: 16px;
+    }
+}

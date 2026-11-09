@@ -1,31 +1,43 @@
-.outer-grid {
+/*
+ * Saved scripts: the editor is the page, the library is a fixed rail beside
+ * it. The rail stacks under the editor when the width cannot hold both.
+ */
+
+.script-workbench {
     display: grid;
-    grid-template-columns: 1fr auto;
-    grid-column-gap: 2.5em;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
+    align-items: start;
 }
 
-.left-outer-grid {
-    display: grid;
-    grid-template-rows: auto 1fr;
+.script-workbench-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
 }
 
-.scripts-tree-view {
-    border-radius: var(--rm-radius-control);
-    padding: .5em;
-
+.script-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
 }
 
-.tree-view-wrapper-grid {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    overflow-y: auto;
+.script-library {
+    min-width: 0;
 }
 
+.script-library .script-tree {
+    flex: 1 1 auto;
+}
 
-@media (max-width: 641px) {
-    .controls-section {
-        display: grid;
+@media (max-width: 1180px) {
+    .script-workbench {
         grid-template-columns: 1fr;
     }
 
+    .script-library .script-tree {
+        max-height: 280px;
+    }
 }

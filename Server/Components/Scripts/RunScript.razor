@@ -1,59 +1,118 @@
 ﻿@inherits AuthComponentBase
 @attribute [Authorize]
 
-<div class="main-grid mt-3 auto-height">
-    <div style="grid-column: span 3">
-        <button class="btn btn-primary align-middle me-4" @onclick="ExecuteScript">Run</button>
-        <input type="checkbox" class="me-1 align-middle" @bind="_runOnNextConnect" />
-        <span class="align-middle">If offline, run immediately when next connected</span>
-    </div>
-    <div class="column-wrapper h-100 pb-3">
-        <div>
-            <h5>Saved Scripts</h5>
-            <div>
-                <input type="checkbox" @bind="ParentPage.ShowOnlyMyScripts" />
-                <span class="align-top">Show only mine</span>
+<div class="script-run">
+    <section class="script-panel script-run-bar">
+        <div class="script-run-copy">
+            <h4 class="script-panel-title">Run a script</h4>
+            <p class="script-hint">Pick a saved script, then choose the device groups or devices to run it on.</p>
+        </div>
+
+        <div class="script-run-actions">
+            <div class="script-check">
+                <input id="runOnNextConnect" class="form-check-input" type="checkbox" @bind="_runOnNextConnect" />
+                <label class="form-check-label" for="runOnNextConnect">If offline, run when next connected</label>
             </div>
+            <button class="btn btn-primary" @onclick="ExecuteScript">Run</button>
         </div>
-        <TreeView DataSource="ParentPage.TreeNodes"
-                  ItemTypeSelector="x => x.ItemType"
-                  ItemHeaderSelector="x => x.Name"
-                  ItemSelected="ScriptSelected"
-                  ChildItemSelector="x => x.ChildItems"
-                  ItemIconCssSelector="ParentPage.GetItemIconCss"
-                  KeySelector="x => x.Id"
-                  WrapperStyle="border: 1px solid gray; padding: .5em; height: 100%; border-radius: 5px;"
-                  T="ScriptTreeNode" />
-    </div>
-    <div class="column-wrapper h-100 pb-3">
-        <h5>Device Groups</h5>
-        <div class="item-list-border h-100">
-            @foreach (var deviceGroup in _deviceGroups)
-            {
-                <div @key="@deviceGroup.ID">
-                    <input class="me-1" type="checkbox" 
-                           checked="@(_selectedDeviceGroups.Contains(deviceGroup.ID))"
-                           @onchange="ev => DeviceGroupSelectedChanged(ev, deviceGroup)" />
+    </section>
 
-                    <span class="align-top">@deviceGroup.Name</span>
-                </div>
-            }
-        </div>
-    </div>
+    <div class="script-picker-grid">
+        <section class="script-panel script-picker" aria-label="Saved scripts">
+            <div class="script-panel-head">
+                <h4 class="script-panel-title">Saved scripts</h4>
+                <span class="script-count" title="Scripts in this view">@ParentPage.VisibleScriptCount</span>
+            </div>
 
-    <div class="column-wrapper h-100 pb-3">
-        <h5>Devices</h5>
-        <div class="item-list-border h-100">
-            @foreach (var device in _devices)
-            {
-                <div @key="@device.ID">
-                    <input class="me-1" type="checkbox"
-                           checked="@(_selectedDeviceGroups.Contains(device.ID))"
-                           @onchange="ev => DeviceSelectedChanged(ev, device)" />
+            <div class="script-check">
+                <input id="runShowOnlyMine" class="form-check-input" type="checkbox" @bind="ParentPage.ShowOnlyMyScripts" />
+                <label class="form-check-label" for="runShowOnlyMine">Show only mine</label>
+            </div>
 
-                    <span class="align-top">@device.DeviceName</span>
-                </div>
-            }
-        </div>
+            <div class="script-tree">
+                @if (ParentPage.VisibleScriptCount == 0)
+                {
+                    <div class="script-empty">
+                        <i class="oi oi-script" aria-hidden="true"></i>
+                        <span>No saved scripts yet. Create one on the Saved Scripts tab.</span>
+                    </div>
+                }
+                else
+                {
+                    <TreeView DataSource="ParentPage.TreeNodes"
+                              ItemTypeSelector="x => x.ItemType"
+                              ItemHeaderSelector="x => x.Name"
+                              ItemSelected="ScriptSelected"
+                              ChildItemSelector="x => x.ChildItems"
+                              ItemIconCssSelector="ParentPage.GetItemIconCss"
+                              KeySelector="x => x.Id"
+                              WrapperStyle="height: 100%;"
+                              T="ScriptTreeNode" />
+                }
+            </div>
+        </section>
+
+        <section class="script-panel script-picker" aria-label="Device groups">
+            <div class="script-panel-head">
+                <h4 class="script-panel-title">Device groups</h4>
+                <span class="script-count @(_selectedDeviceGroups.Count > 0 ? "is-active" : "")">
+                    @_selectedDeviceGroups.Count / @_deviceGroups.Length
+                </span>
+            </div>
+
+            <div class="script-picker-list">
+                @if (_deviceGroups.Length == 0)
+                {
+                    <div class="script-empty">
+                        <span>No device groups.</span>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var deviceGroup in _deviceGroups)
+                    {
+                        <label class="script-option" @key="@deviceGroup.ID">
+                            <input type="checkbox"
+                                   checked="@(_selectedDeviceGroups.Contains(deviceGroup.ID))"
+                                   @onchange="ev => DeviceGroupSelectedChanged(ev, deviceGroup)" />
+                            <span>@deviceGroup.Name</span>
+                        </label>
+                    }
+                }
+            </div>
+        </section>
+
+        <section class="script-panel script-picker" aria-label="Devices">
+            <div class="script-panel-head">
+                <h4 class="script-panel-title">Devices</h4>
+                <span class="script-count @(_selectedDevices.Count > 0 ? "is-active" : "")">
+                    @_selectedDevices.Count / @_devices.Length
+                </span>
+            </div>
+
+            <div class="script-picker-list">
+                @if (_devices.Length == 0)
+                {
+                    <div class="script-empty">
+                        <span>No devices.</span>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var device in _devices)
+                    {
+                        <label class="script-option" @key="@device.ID">
+                            <input type="checkbox"
+                                   checked="@(_selectedDevices.Contains(device.ID))"
+                                   @onchange="ev => DeviceSelectedChanged(ev, device)" />
+                            <span class="script-status @(device.IsOnline ? "is-online" : "is-offline")">
+                                @(device.IsOnline ? "Online" : "Offline")
+                            </span>
+                            <span>@device.DeviceName</span>
+                        </label>
+                    }
+                }
+            </div>
+        </section>
     </div>
 </div>
