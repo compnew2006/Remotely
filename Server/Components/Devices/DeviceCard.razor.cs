@@ -316,6 +316,11 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
 
     private async Task ExpandCard(MouseEventArgs args)
     {
+        await ExpandCardCore();
+    }
+
+    private async Task ExpandCardCore()
+    {
         if (_state == DeviceCardState.Expanded)
         {
             return;
@@ -334,6 +339,48 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
     private string GetCardStateClass()
     {
         return $"{_state}".ToLower();
+    }
+
+    private string GetStatusClass() =>
+        Device.IsOnline
+            ? IsOutdated ? "is-warn" : "is-online"
+            : "is-offline";
+
+    private string GetStatusTitle() =>
+        Device.IsOnline
+            ? IsOutdated ? "Online - agent outdated" : "Online"
+            : "Offline";
+
+    private static string GetGaugeClass(double ratio) =>
+        ratio switch
+        {
+            >= 0.9 => "is-critical",
+            >= 0.8 => "is-warn",
+            _ => string.Empty
+        };
+
+    private static string GetGaugeWidth(double ratio) =>
+        $"{Math.Clamp(ratio, 0, 1) * 100:0.#}%";
+
+    private static string DisplayOrDash(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "\u2014" : value;
+
+    private string FormatLastOnline() =>
+        Device.LastOnline == default
+            ? "\u2014"
+            : Device.LastOnline.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    private async Task HandleCardKeyDown(KeyboardEventArgs args)
+    {
+        if (_state != DeviceCardState.Normal)
+        {
+            return;
+        }
+
+        if (args.Key is "Enter" or " ")
+        {
+            await ExpandCardCore();
+        }
     }
 
     private string GetProgressMessage(string key)

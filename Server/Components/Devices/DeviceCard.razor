@@ -1,57 +1,45 @@
-﻿@attribute [Authorize]
+@attribute [Authorize]
 @inherits AuthComponentBase
 
-<div @ref="_card" class="card border-secondary my-3 me-3 device-card @_theme @GetCardStateClass()"
+<div @ref="_card"
+     class="card device-card @_theme @GetCardStateClass() @(IsSelected ? "is-selected" : "")"
+     tabindex="0"
      @onclick="ExpandCard"
      @onclick:stopPropagation
+     @onkeydown="HandleCardKeyDown"
      @oncontextmenu="ContextMenuOpening"
      @oncontextmenu:preventDefault="_state == DeviceCardState.Normal"
      @oncontextmenu:stopPropagation="_state == DeviceCardState.Normal">
 
-    <div class="card-header" @onclick="HandleHeaderClick" 
+    <div class="device-card-header"
+         @onclick="HandleHeaderClick"
          @onclick:stopPropagation="_state == DeviceCardState.Expanded"
          @onclick:preventDefault="_state == DeviceCardState.Expanded">
-        <div>
-            @if (Device.IsOnline)
-            {
-                if (IsOutdated)
-                {
-                    <i class="oi oi-power-standby text-warning" title="Agent Outdated"></i>
-                }
-                else
-                {
-                    <i class="oi oi-power-standby text-success" title="Online"></i>
-                }
-            }
-            else
-            {
-                <i class="oi oi-power-standby text-danger" title="Offline"></i>
-            }
-        </div>
-        <div class="overflow-hidden ms-2">
-            <div class="d-inline-block">
-                <div>@Device.DeviceName</div>
 
-                <div class="small text-muted" style="height: 1rem">@Device.Alias</div>
-            </div>
-            
+        <span class="device-status @GetStatusClass()" title="@GetStatusTitle()">
+            <i class="oi oi-power-standby" aria-hidden="true"></i>
+        </span>
+
+        <div class="device-identity">
+            <div class="device-name">@Device.DeviceName</div>
+            <div class="device-alias">@DisplayOrDash(Device.Alias)</div>
         </div>
-        <div class="text-end">
-            @if (IsExpanded)
+
+        <div class="device-header-tools">
+            @if (Device.IsOnline && IsOutdated)
             {
-                <button class="btn btn-sm me-2" title="Open in New Tab"
-                        @onclick:stopPropagation
-                        @onclick="OpenDeviceDetails">
-                    <i class="oi oi-external-link" style="font-size: 1.3em"></i>
-                </button>
+                <span class="device-badge-warn" title="This agent is older than the server's package.">
+                    <i class="oi oi-warning" aria-hidden="true"></i>
+                    <span>Outdated</span>
+                </span>
             }
             <input type="checkbox"
-                   class="align-middle"
+                   class="device-select"
+                   aria-label="Select @Device.DeviceName"
                    checked="@IsSelected"
                    @onchange="ToggleIsSelected"
                    @onclick:stopPropagation />
         </div>
-
     </div>
 
     <div class="card-body">
@@ -63,227 +51,221 @@
                     @(GetProgressMessage(kvp.Key))
                 </div>
             }
-        } 
-        <div>
-            @if (!string.IsNullOrWhiteSpace(DeviceCapabilities.Notice))
-            {
-                <div class="alert alert-warning py-2" role="status">
-                    @DeviceCapabilities.Notice
+        }
+
+        @if (!string.IsNullOrWhiteSpace(DeviceCapabilities.Notice))
+        {
+            <div class="alert alert-warning py-2" role="status">
+                @DeviceCapabilities.Notice
+            </div>
+        }
+
+        <div class="device-summary">
+            <div class="device-summary-user">
+                <span class="device-label">User</span>
+                <span class="device-summary-value device-truncate" title="@Device.CurrentUser">@DisplayOrDash(Device.CurrentUser)</span>
+            </div>
+
+            <div class="device-gauges">
+                <div class="device-gauge @GetGaugeClass(Device.UsedStoragePercent)">
+                    <div class="device-gauge-head">
+                        <span class="device-label">Disk</span>
+                        <span class="device-gauge-value rm-num">@MathHelper.GetFormattedPercent(Device.UsedStoragePercent)</span>
+                    </div>
+                    <div class="device-meter" aria-hidden="true">
+                        <span style="width: @GetGaugeWidth(Device.UsedStoragePercent)"></span>
+                    </div>
                 </div>
-            }
-            <div class="font-weight-bold text-info">
-                <label>User</label>
-            </div>
-            <div>
-                @Device.CurrentUser
-            </div>
 
-            <div style="grid-row: span 2" class="expanded-visible"></div>
-            <div style="grid-row: span 2" class="expanded-visible">
-                <DropdownButton DropDownMenuClass="dropdown-menu-end mb-2" ButtonClass="btn-primary">
-                    <ButtonContent>
-                        <i class="oi oi-bolt"></i>
-                        <span class="ms-2">Actions</span>
-                    </ButtonContent>
-                    <ChildListItems>
-                        <li>
-                            <button class="dropdown-item" @onclick="StartChat"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.Chat))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.Chat)">
-                                <i class="oi oi-chat" title="Chat"></i>
-                                <span class="ms-2">Chat</span>
-                                @if (DeviceCapabilities.Chat != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.Chat)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="() => StartRemoteControl(false)"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.RemoteControl))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)">
-                                <i class="oi oi-laptop" title="Remote Control"></i>
-                                <span class="ms-2">Remote Control</span>
-                                @if (DeviceCapabilities.RemoteControl != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="() => StartRemoteControl(true)"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.RemoteControl))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)">
-                                <i class="oi oi-eye" title="View Only"></i>
-                                <span class="ms-2">View Only</span>
-                                @if (DeviceCapabilities.RemoteControl != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="ShowTaskManager"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.TaskManager))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.TaskManager)">
-                                <i class="oi oi-task" title="Task Manager"></i>
-                                <span class="ms-2">Task Manager</span>
-                                @if (DeviceCapabilities.TaskManager != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.TaskManager)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="ShowScreenshots"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.Screenshots))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.Screenshots)">
-                                <i class="oi oi-image" title="Screenshots"></i>
-                                <span class="ms-2">Screenshots</span>
-                                @if (DeviceCapabilities.Screenshots != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.Screenshots)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="ShowCamera"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.CameraRecording))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.CameraRecording)">
-                                <i class="oi oi-video" title="Camera"></i>
-                                <span class="ms-2">Camera</span>
-                                @if (DeviceCapabilities.CameraRecording != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.CameraRecording)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="ShowAudio"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.AudioRecording) && !IsFeatureAvailable(DeviceCapabilities.LiveAudio))"
-                                    title="@GetAudioFeatureStatusLabel(DeviceCapabilities)">
-                                <i class="oi oi-audio-spectrum" title="Audio"></i>
-                                <span class="ms-2">Audio</span>
-                                @if (DeviceCapabilities.AudioRecording != FeatureSupport.Supported ||
-                                    DeviceCapabilities.LiveAudio != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetAudioFeatureStatusLabel(DeviceCapabilities)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="ShowKeyboard"
-                                    disabled="@(!IsFeatureAvailable(DeviceCapabilities.KeyboardCapture))"
-                                    title="@GetFeatureStatusLabel(DeviceCapabilities.KeyboardCapture)">
-                                <i class="oi oi-key" title="Keyboard"></i>
-                                <span class="ms-2">Keyboard</span>
-                                @if (DeviceCapabilities.KeyboardCapture != FeatureSupport.Supported)
-                                {
-                                    <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.KeyboardCapture)</span>
-                                }
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="() => WakeDevice()">
-                                <i class="oi oi-power-standby" title="Wake Device"></i>
-                                <span class="ms-2">Wake</span>
-                            </button>
-                        </li>
-                        <li>
-                            <FileInputButton ClassNames="dropdown-item btn btn-primary"
-                                             OnChanged="OnFileInputChanged">
-                                <ButtonContent>
-                                    <i class="oi oi-data-transfer-upload" title="Upload File"></i>
-                                    <span class="ms-2">Upload File</span>
-                                </ButtonContent>
-                            </FileInputButton>
-                        </li>
-                        <li>
-                            <button class="dropdown-item" @onclick="UpdateAgent">
-                                <i class="oi oi-reload" title="Update Agent"></i>
-                                <span class="ms-2">Update Agent</span>
-                            </button>
-                        </li>
-                        <li>
-                            <button class="dropdown-item bg-danger" @onclick="UninstallAgent">
-                                <i class="oi oi-delete" title="Uninstall"></i>
-                                <span class="ms-2">Uninstall</span>
-                            </button>
-                        </li>
-                    </ChildListItems>
-                </DropdownButton>
-            </div>
-
-            <div class="font-weight-bold text-info">
-                <label>Platform</label>
-            </div>
-            <div>
-                @Device.Platform
-            </div>
-
-            <div class="font-weight-bold text-info">
-                <label>Disk</label>
-                <button class="btn btn-link p-0 m-0 expanded-visible"
-                        style="font-size: 50%"
-                        @onclick="ShowAllDisks" 
-                        @onclick:stopPropagation>
-                    (View All)
-                </button>
-            </div>
-            <div>
-                @(MathHelper.GetFormattedPercent(Device.UsedStoragePercent))
-            </div>
-
-            <div class="font-weight-bold text-info expanded-visible">
-                Total Storage
-            </div>
-            <div class="expanded-visible">
-                @(Device.TotalStorage) GB
-            </div>
-
-
-            <div class="font-weight-bold text-info">
-                <label>Memory</label>
-            </div>
-            <div>
-                @(MathHelper.GetFormattedPercent(Device.UsedMemoryPercent))
-            </div>
-
-            <div class="font-weight-bold text-info expanded-visible">
-                Total Memory
-            </div>
-            <div class="expanded-visible">
-                @(Device.TotalMemory) GB
-            </div>
-
-            @if (IsExpanded)
-            {
-                <div class="font-weight-bold text-info">
-                    <label>CPU</label>
+                <div class="device-gauge @GetGaugeClass(Device.UsedMemoryPercent)">
+                    <div class="device-gauge-head">
+                        <span class="device-label">Memory</span>
+                        <span class="device-gauge-value rm-num">@MathHelper.GetFormattedPercent(Device.UsedMemoryPercent)</span>
+                    </div>
+                    <div class="device-meter" aria-hidden="true">
+                        <span style="width: @GetGaugeWidth(Device.UsedMemoryPercent)"></span>
+                    </div>
                 </div>
-                <div>
-                    @MathHelper.GetFormattedPercent(Device.CpuUtilization)
-                </div>
-            }
+            </div>
 
+            <div class="device-summary-meta">
+                <span class="device-label">Platform</span>
+                <span class="device-summary-value">@DisplayOrDash(Device.Platform)</span>
+            </div>
         </div>
-        <div>
-            <div class="mt-2" style="grid-column: span 4">
-                @if (IsExpanded)
-                {
-                    <div class="font-weight-bold text-info mt-2 d-flex align-items-center">
-                        <label>Screen Preview</label>
-                        <div class="form-check ms-auto">
+
+        @if (IsExpanded)
+        {
+            <div class="device-expand-toolbar">
+                <div class="device-expand-id">
+                    <span class="device-label">Device ID</span>
+                    <span class="device-mono device-truncate" title="@Device.ID">@Device.ID</span>
+                </div>
+
+                <div class="device-expand-tools">
+                    <button type="button"
+                            class="btn btn-sm btn-secondary"
+                            title="Open in New Tab"
+                            @onclick="OpenDeviceDetails"
+                            @onclick:stopPropagation>
+                        <i class="oi oi-external-link" aria-hidden="true"></i>
+                        <span class="ms-2">Open in new tab</span>
+                    </button>
+
+                    <div class="device-actions" @onclick:stopPropagation>
+                        <DropdownButton DropDownMenuClass="dropdown-menu-end" ButtonClass="btn-primary">
+                            <ButtonContent>
+                                <i class="oi oi-bolt" aria-hidden="true"></i>
+                                <span class="ms-2">Actions</span>
+                            </ButtonContent>
+                            <ChildListItems>
+                                <li>
+                                    <button class="dropdown-item" @onclick="StartChat"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.Chat))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.Chat)">
+                                        <i class="oi oi-chat" title="Chat"></i>
+                                        <span class="ms-2">Chat</span>
+                                        @if (DeviceCapabilities.Chat != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.Chat)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="() => StartRemoteControl(false)"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.RemoteControl))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)">
+                                        <i class="oi oi-laptop" title="Remote Control"></i>
+                                        <span class="ms-2">Remote Control</span>
+                                        @if (DeviceCapabilities.RemoteControl != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="() => StartRemoteControl(true)"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.RemoteControl))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)">
+                                        <i class="oi oi-eye" title="View Only"></i>
+                                        <span class="ms-2">View Only</span>
+                                        @if (DeviceCapabilities.RemoteControl != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.RemoteControl)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="ShowTaskManager"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.TaskManager))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.TaskManager)">
+                                        <i class="oi oi-task" title="Task Manager"></i>
+                                        <span class="ms-2">Task Manager</span>
+                                        @if (DeviceCapabilities.TaskManager != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.TaskManager)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="ShowScreenshots"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.Screenshots))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.Screenshots)">
+                                        <i class="oi oi-image" title="Screenshots"></i>
+                                        <span class="ms-2">Screenshots</span>
+                                        @if (DeviceCapabilities.Screenshots != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.Screenshots)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="ShowCamera"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.CameraRecording))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.CameraRecording)">
+                                        <i class="oi oi-video" title="Camera"></i>
+                                        <span class="ms-2">Camera</span>
+                                        @if (DeviceCapabilities.CameraRecording != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.CameraRecording)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="ShowAudio"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.AudioRecording) && !IsFeatureAvailable(DeviceCapabilities.LiveAudio))"
+                                            title="@GetAudioFeatureStatusLabel(DeviceCapabilities)">
+                                        <i class="oi oi-audio-spectrum" title="Audio"></i>
+                                        <span class="ms-2">Audio</span>
+                                        @if (DeviceCapabilities.AudioRecording != FeatureSupport.Supported ||
+                                            DeviceCapabilities.LiveAudio != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetAudioFeatureStatusLabel(DeviceCapabilities)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="ShowKeyboard"
+                                            disabled="@(!IsFeatureAvailable(DeviceCapabilities.KeyboardCapture))"
+                                            title="@GetFeatureStatusLabel(DeviceCapabilities.KeyboardCapture)">
+                                        <i class="oi oi-key" title="Keyboard"></i>
+                                        <span class="ms-2">Keyboard</span>
+                                        @if (DeviceCapabilities.KeyboardCapture != FeatureSupport.Supported)
+                                        {
+                                            <span class="ms-2 small text-muted">@GetFeatureStatusLabel(DeviceCapabilities.KeyboardCapture)</span>
+                                        }
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="() => WakeDevice()">
+                                        <i class="oi oi-power-standby" title="Wake Device"></i>
+                                        <span class="ms-2">Wake</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <FileInputButton ClassNames="dropdown-item btn btn-primary"
+                                                     OnChanged="OnFileInputChanged">
+                                        <ButtonContent>
+                                            <i class="oi oi-data-transfer-upload" title="Upload File"></i>
+                                            <span class="ms-2">Upload File</span>
+                                        </ButtonContent>
+                                    </FileInputButton>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" @onclick="UpdateAgent">
+                                        <i class="oi oi-reload" title="Update Agent"></i>
+                                        <span class="ms-2">Update Agent</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item bg-danger" @onclick="UninstallAgent">
+                                        <i class="oi oi-delete" title="Uninstall"></i>
+                                        <span class="ms-2">Uninstall</span>
+                                    </button>
+                                </li>
+                            </ChildListItems>
+                        </DropdownButton>
+                    </div>
+                </div>
+            </div>
+
+            <div class="device-expand-grid">
+                <section class="device-panel device-preview-panel" aria-label="Screen preview">
+                    <div class="device-panel-head">
+                        <h4 class="device-panel-title">Screen Preview</h4>
+                        <div class="form-check device-preview-auto">
                             <input type="checkbox"
                                    class="form-check-input"
                                    id="previewAuto-@Device.ID"
                                    checked="@_previewAutoEnabled"
-                                   @onchange="(ChangeEventArgs e) => OnPreviewAutoChanged(e)" />
+                                   @onchange="(ChangeEventArgs e) => OnPreviewAutoChanged(e)"
+                                   @onclick:stopPropagation />
                             <label class="form-check-label" for="previewAuto-@Device.ID">Auto-refresh</label>
                         </div>
                     </div>
-                    <div class="mt-2">
-                        <div class="preview-tile">
+
+                    <div class="device-preview-tile-wrap">
+                        <div class="preview-tile device-preview-tile">
                             @if (PreviewImageUrl is not null)
                             {
                                 <img src="@PreviewImageUrl" alt="Screen preview" class="preview-img" />
@@ -291,7 +273,7 @@
                             else
                             {
                                 <div class="preview-placeholder">
-                                    <i class="oi oi-image"></i><br />
+                                    <i class="oi oi-image" aria-hidden="true"></i>
                                     <span class="small text-muted">No preview yet.</span>
                                 </div>
                             }
@@ -306,103 +288,108 @@
                         </div>
                         @if (_previewTimestamp is not null)
                         {
-                            <div class="small text-muted mt-1">
-                                Updated @_previewTimestamp.Value.ToLocalTime().ToString("HH:mm:ss") · every @_previewRefreshSeconds s
+                            <div class="device-preview-caption">
+                                Updated @_previewTimestamp.Value.ToLocalTime().ToString("HH:mm:ss") &middot; every @_previewRefreshSeconds s
                             </div>
                         }
                     </div>
+                </section>
 
-                    <div class="font-weight-bold text-info mt-2">
-                        Device ID
-                    </div>
-                    <div>
-                        <input class="form-control" readonly value="@Device.ID" />
-                    </div>
-
-                    <div class="font-weight-bold text-info mt-2">
-                        Agent Version
-                    </div>
-                    <div>
-                        <input class="form-control" readonly value="@Device.AgentVersion" />
-                    </div>
-
-                    <div class="font-weight-bold text-info mt-2">
-                        Last Online
-                    </div>
-                    <div>
-                        <input class="form-control" readonly value="@Device.LastOnline" />
-                    </div>
-
-                    <div class="font-weight-bold text-info mt-2">
-                        Public IP
-                    </div>
-                    <div>
-                        <input class="form-control" readonly value="@Device.PublicIP" />
-                    </div>
-
-                    <div class="font-weight-bold text-info mt-2">
-                        MAC Addresses
-                    </div>
-                    <div>
-                        <input 
-                            class="form-control" 
-                            readonly 
-                            value="@(string.Join(", ", Device.MacAddresses ?? Array.Empty<string>()))" />
-                    </div>
-
-                    <EditForm Model="Device" OnValidSubmit="HandleValidSubmit">
-                        <DataAnnotationsValidator />
-
-                        <div class="font-weight-bold text-info mt-2">
-                            Device Alias
-                        </div>
-                        <div>
-                            <InputText class="form-control" @bind-Value="@Device.Alias" />
-                            <ValidationMessage For="() => Device.Alias" />
+                <aside class="device-expand-side">
+                    <section class="device-panel device-facts-panel" aria-label="Device facts">
+                        <div class="device-panel-head">
+                            <h4 class="device-panel-title">Device</h4>
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0"
+                                    @onclick="ShowAllDisks"
+                                    @onclick:stopPropagation>
+                                All disks
+                            </button>
                         </div>
 
-                        <div class="font-weight-bold text-info mt-2">
-                            Device Group
-                        </div>
-                        <div>
-                            <InputSelect @bind-Value="Device.DeviceGroupID" class="form-control">
-                                <option value="">None</option>
+                        <dl class="device-facts">
+                            <div class="device-fact">
+                                <dt>Agent Version</dt>
+                                <dd class="device-mono">@DisplayOrDash(Device.AgentVersion)</dd>
+                            </div>
+                            <div class="device-fact">
+                                <dt>CPU</dt>
+                                <dd class="rm-num">@MathHelper.GetFormattedPercent(Device.CpuUtilization)</dd>
+                            </div>
+                            <div class="device-fact">
+                                <dt>Last Online</dt>
+                                <dd>@FormatLastOnline()</dd>
+                            </div>
+                            <div class="device-fact">
+                                <dt>Total Storage</dt>
+                                <dd class="rm-num">@Device.TotalStorage GB</dd>
+                            </div>
+                            <div class="device-fact">
+                                <dt>Total Memory</dt>
+                                <dd class="rm-num">@Device.TotalMemory GB</dd>
+                            </div>
+                            <div class="device-fact">
+                                <dt>Public IP</dt>
+                                <dd class="device-mono">@DisplayOrDash(Device.PublicIP)</dd>
+                            </div>
+                            <div class="device-fact device-fact-wide">
+                                <dt>MAC Addresses</dt>
+                                <dd class="device-mono">@(string.Join(", ", Device.MacAddresses ?? Array.Empty<string>()))</dd>
+                            </div>
+                        </dl>
+                    </section>
 
-                                @foreach (var group in _deviceGroups)
-                                {
-                                    <option @key="group.ID" value="@group.ID">@group.Name</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="() => Device.DeviceGroupID" />
+                    <section class="device-panel device-settings" aria-label="Device settings">
+                        <div class="device-panel-head">
+                            <h4 class="device-panel-title">Settings</h4>
                         </div>
 
-                        <div class="font-weight-bold text-info mt-2">
-                            Tags
-                        </div>
-                        <div>
-                            <InputText @bind-Value="Device.Tags" class="form-control" />
-                            <ValidationMessage For="() => Device.Tags" />
-                        </div>
+                        <EditForm Model="Device" OnValidSubmit="HandleValidSubmit">
+                            <DataAnnotationsValidator />
 
-                        <div class="font-weight-bold text-info mt-2">
-                            Notes
-                        </div>
-                        <div>
-                            <InputTextArea @bind-Value="Device.Notes" style="width:100%; height: 10em;"></InputTextArea>
-                            <ValidationMessage For="() => Device.Notes" />
-                        </div>
+                            <div class="device-edit-grid">
+                                <div class="rm-field">
+                                    <label class="device-label" for="alias-@Device.ID">Device Alias</label>
+                                    <InputText id="@($"alias-{Device.ID}")" class="form-control" @bind-Value="@Device.Alias" />
+                                    <ValidationMessage For="() => Device.Alias" />
+                                </div>
 
-                        <div>
+                                <div class="rm-field">
+                                    <label class="device-label" for="group-@Device.ID">Device Group</label>
+                                    <InputSelect id="@($"group-{Device.ID}")" @bind-Value="Device.DeviceGroupID" class="form-control">
+                                        <option value="">None</option>
+
+                                        @foreach (var group in _deviceGroups)
+                                        {
+                                            <option @key="group.ID" value="@group.ID">@group.Name</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => Device.DeviceGroupID" />
+                                </div>
+
+                                <div class="rm-field">
+                                    <label class="device-label" for="tags-@Device.ID">Tags</label>
+                                    <InputText id="@($"tags-{Device.ID}")" @bind-Value="Device.Tags" class="form-control" />
+                                    <ValidationMessage For="() => Device.Tags" />
+                                </div>
+
+                                <div class="rm-field device-edit-wide">
+                                    <label class="device-label" for="notes-@Device.ID">Notes</label>
+                                    <InputTextArea id="@($"notes-{Device.ID}")" @bind-Value="Device.Notes" class="form-control" rows="4"></InputTextArea>
+                                    <ValidationMessage For="() => Device.Notes" />
+                                </div>
+                            </div>
+
                             <ValidationSummary />
-                        </div>
 
-                        <div class="text-end mt-2">
-                            <button type="submit" class="btn btn-primary">Save</button>
-                        </div>
-                    </EditForm>
-
-                }
+                            <div class="device-edit-actions">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                            </div>
+                        </EditForm>
+                    </section>
+                </aside>
             </div>
-        </div>
+        }
     </div>
 </div>
+

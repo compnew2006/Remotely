@@ -72,6 +72,22 @@ public partial class DevicesFrame : AuthComponentBase
 
     private int TotalPages => (int)Math.Max(1, Math.Ceiling((decimal)_filteredDevices.Count / _devicesPerPage));
 
+    private int TotalDeviceCount => _allDevices.Count;
+
+    private int OnlineDeviceCount => _allDevices.Count(x => x.IsOnline);
+
+    private int OfflineDeviceCount => TotalDeviceCount - OnlineDeviceCount;
+
+    private int ShownDeviceCount => DisplayedDevices.Length;
+
+    private void ResetFilters()
+    {
+        _filter = null;
+        _selectedGroupId = _deviceGroupAll;
+        _hideOfflineDevices = false;
+        _currentPage = 1;
+    }
+
     public async Task Refresh()
     {
         _lastFilterState = string.Empty;

@@ -1,7 +1,75 @@
 ﻿/*
- * The device toolbar is one bar with two groups: filters on the left, view
- * controls on the right. Every field is a micro-label above a 38px control,
- * so the labels share one baseline and the controls share one baseline.
+ * Devices home - scan surface.
+ *
+ * Reading order: page identity and fleet health, then the control deck, then
+ * the fleet itself. Cards are equal-height tiles in an auto-fill grid; an
+ * expanded card takes the whole row and becomes an in-place control panel.
+ */
+
+.devices-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px 0 0;
+}
+
+.devices-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px 24px;
+}
+
+.devices-head-copy {
+    min-width: 0;
+}
+
+.devices-head .rm-page-title {
+    margin-bottom: 4px;
+}
+
+.devices-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: var(--rm-ink-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.devices-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.devices-meta-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--rm-ink-faint);
+}
+
+.devices-meta-dot.is-online {
+    background-color: var(--rm-status-ok);
+}
+
+.devices-meta-dot.is-offline {
+    background-color: var(--rm-status-danger);
+}
+
+.devices-meta-sep {
+    color: var(--rm-ink-faint);
+}
+
+/*
+ * The control deck: filters on the left, view controls on the right. Every
+ * field is a micro-label above a 38px control, so the labels share one
+ * baseline and the controls share one baseline.
  */
 #deviceControlsWrapper {
     display: flex;
@@ -9,9 +77,14 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px 32px;
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--rm-border);
+    margin-bottom: 20px;
+    padding: 16px;
+    background-color: var(--rm-surface-raised);
+    border: 1px solid var(--rm-border);
+    border-radius: var(--rm-radius-control);
+    box-shadow: var(--rm-shadow-sm);
+    position: relative;
+    z-index: 2;
 }
 
 .rm-toolbar-group {
@@ -87,7 +160,7 @@
 }
 
 .rm-search-input {
-    width: 200px;
+    width: 240px;
 }
 
 .rm-per-page-select {
@@ -99,21 +172,137 @@
     text-align: center;
 }
 
-/*
- * The cards carry their own margins, which pushed the grid 8px to the right
- * of the toolbar. The grid owns the spacing instead, so both share an edge.
- */
+/* The fleet: equal-height tiles, one per machine, expanded spans the row. */
 #deviceListDiv {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
     gap: 16px;
     padding: 0 0 48px;
-    overflow-y: auto;
-    overflow-x: hidden;
 }
 
 #deviceListDiv ::deep .device-card {
     margin: 0;
-    flex: 0 0 auto;
+}
+
+#deviceListDiv ::deep .device-card.expanded {
+    grid-column: 1 / -1;
+}
+
+/* ------------------------------------------------------------------ *
+ * Empty state                                                         *
+ * ------------------------------------------------------------------ */
+
+.devices-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 48px 24px;
+    border: 1px dashed var(--rm-border-strong);
+    border-radius: var(--rm-radius-control);
+    background-color: var(--rm-surface-raised);
+    text-align: center;
+}
+
+.devices-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--rm-border);
+    background-color: var(--rm-surface-sunken);
+    color: var(--rm-ink-faint);
+    font-size: 1.1rem;
+}
+
+.devices-empty-title {
+    margin: 4px 0 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+    color: var(--rm-ink);
+}
+
+.devices-empty-text {
+    max-width: 52ch;
+    margin: 0 0 8px;
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--rm-ink-muted);
+}
+
+@media (max-width: 992px) {
+    #deviceControlsWrapper {
+        justify-content: flex-start;
+        gap: 16px 24px;
+    }
+
+    .rm-toolbar-group-end {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 640px) {
+    .devices-page {
+        padding-top: 16px;
+    }
+
+    #deviceListDiv {
+        grid-template-columns: 1fr;
+    }
+
+    #deviceControlsWrapper {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .rm-toolbar-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .rm-toolbar-group-end {
+        grid-template-columns: 1fr;
+    }
+
+    .rm-field {
+        width: auto;
+    }
+
+    .rm-field-check,
+    .rm-field-actions,
+    .rm-field-search {
+        grid-column: 1 / -1;
+    }
+
+    .rm-field-check {
+        height: auto;
+        justify-content: flex-start;
+    }
+
+    .rm-field-actions {
+        flex-wrap: wrap;
+    }
+
+    .rm-field-actions .btn {
+        flex: 1 1 auto;
+    }
+
+    .rm-select-group,
+    .rm-search-input,
+    .rm-per-page-select {
+        width: 100%;
+    }
+
+    .rm-field-control {
+        width: 100%;
+    }
 }

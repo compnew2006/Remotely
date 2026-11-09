@@ -1094,10 +1094,14 @@ kbd {
     overflow: hidden;
 }
 
+/*
+ * The whole desktop is the information here, so the image is fitted inside
+ * the tile instead of cropped. The tile background carries the letterbox.
+ */
 .preview-img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 

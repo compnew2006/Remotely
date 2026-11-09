@@ -1,108 +1,152 @@
 ﻿@attribute [Authorize]
 @inherits AuthComponentBase
 
-<h3 class="rm-page-title">Devices</h3>
+<div class="devices-page">
+    <header class="devices-head">
+        <div class="devices-head-copy">
+            <h3 class="rm-page-title">Devices</h3>
+            <p class="devices-meta">
+                <span class="devices-meta-item">
+                    <span class="devices-meta-dot is-online" aria-hidden="true"></span>
+                    @OnlineDeviceCount online
+                </span>
+                <span class="devices-meta-sep" aria-hidden="true">·</span>
+                <span class="devices-meta-item">
+                    <span class="devices-meta-dot is-offline" aria-hidden="true"></span>
+                    @OfflineDeviceCount offline
+                </span>
+                <span class="devices-meta-sep" aria-hidden="true">·</span>
+                <span class="devices-meta-item">@ShownDeviceCount shown</span>
+            </p>
+        </div>
+    </header>
 
-<div @onclick="ClearSelectedCard">
-    <div id="deviceControlsWrapper">
-        <div class="rm-toolbar-group">
-            <div class="rm-field">
-                <label class="rm-label" for="deviceGroupSelect">Device Group</label>
-                <div class="rm-field-control">
-                    <select id="deviceGroupSelect" class="form-control rm-select-group" @bind="_selectedGroupId">
-                        <option value="@_deviceGroupAll">All</option>
-                        <option value="@_deviceGroupNone">None</option>
-                        @foreach (var group in _deviceGroups)
-                        {
-                            <option @key="group.ID" value="@group.ID">@group.Name</option>
-                        }
+    <div @onclick="ClearSelectedCard">
+        <div id="deviceControlsWrapper">
+            <div class="rm-toolbar-group">
+                <div class="rm-field">
+                    <label class="rm-label" for="deviceGroupSelect">Device Group</label>
+                    <div class="rm-field-control">
+                        <select id="deviceGroupSelect" class="form-control rm-select-group" @bind="_selectedGroupId">
+                            <option value="@_deviceGroupAll">All</option>
+                            <option value="@_deviceGroupNone">None</option>
+                            @foreach (var group in _deviceGroups)
+                            {
+                                <option @key="group.ID" value="@group.ID">@group.Name</option>
+                            }
+                        </select>
+                        <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                                title="Wake Devices in Group" aria-label="Wake devices in group"
+                                @onclick="WakeDevices">
+                            <span class="oi oi-power-standby"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rm-field">
+                    <label class="rm-label" for="sortSelect">Sort</label>
+                    <div class="rm-field-control">
+                        <select id="sortSelect" class="form-control rm-select-group" @bind="_selectedSortProperty">
+                            <option value=""></option>
+                            @foreach (var prop in _sortableProperties)
+                            {
+                                <option @key="prop.Name" value="@prop.Name">@GetDisplayName(prop)</option>
+                            }
+                        </select>
+                        <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                                title="Sort Direction" aria-label="Sort direction"
+                                @onclick="ToggleSortDirection">
+                            <span class="oi @GetSortIcon()"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rm-field rm-field-check">
+                    <div class="custom-control custom-checkbox">
+                        <input id="hideOfflineDevicesCheckbox" type="checkbox" class="custom-control-input align-middle" @bind="_hideOfflineDevices" />
+                        <label class="custom-control-label align-middle" for="hideOfflineDevicesCheckbox">Hide offline devices</label>
+                    </div>
+                </div>
+
+                <div class="rm-field rm-field-actions">
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="SelectAllCards">Select All</button>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="UpdateSelectedAgents" title="Update the agent on every selected device">Update Selected</button>
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="HandleRefreshClicked">Refresh</button>
+                </div>
+            </div>
+
+            <div class="rm-toolbar-group rm-toolbar-group-end">
+                <div class="rm-field rm-field-search">
+                    <label class="rm-label" for="deviceSearchInput">Search</label>
+                    <input id="deviceSearchInput" class="form-control rm-search-input"
+                           placeholder="Search device properties"
+                           @bind="_filter" />
+                </div>
+
+                <div class="rm-field rm-field-page">
+                    <label class="rm-label" for="currentPageInput">Page</label>
+                    <div class="rm-field-control">
+                        <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                                title="Previous page" aria-label="Previous page"
+                                @onclick="PageDown">
+                            <i class="oi oi-chevron-left"></i>
+                        </button>
+                        <input id="currentPageInput" class="form-control rm-page-input" pattern="[0-9]"
+                               @bind="_currentPage" @bind:event="oninput" />
+                        <span class="rm-control-label">of @TotalPages</span>
+                        <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
+                                title="Next page" aria-label="Next page"
+                                @onclick="PageUp">
+                            <i class="oi oi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rm-field">
+                    <label class="rm-label" for="devicesPerPageSelect">Per page</label>
+                    <select id="devicesPerPageSelect" class="form-control rm-per-page-select" @bind="_devicesPerPage">
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
-                            title="Wake Devices in Group" aria-label="Wake devices in group"
-                            @onclick="WakeDevices">
-                        <span class="oi oi-power-standby"></span>
-                    </button>
                 </div>
-            </div>
-
-            <div class="rm-field">
-                <label class="rm-label" for="sortSelect">Sort</label>
-                <div class="rm-field-control">
-                    <select id="sortSelect" class="form-control rm-select-group" @bind="_selectedSortProperty">
-                        <option value=""></option>
-                        @foreach (var prop in _sortableProperties)
-                        {
-                            <option @key="prop.Name" value="@prop.Name">@GetDisplayName(prop)</option>
-                        }
-                    </select>
-                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
-                            title="Sort Direction" aria-label="Sort direction"
-                            @onclick="ToggleSortDirection">
-                        <span class="oi @GetSortIcon()"></span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="rm-field rm-field-check">
-                <div class="custom-control custom-checkbox">
-                    <input id="hideOfflineDevicesCheckbox" type="checkbox" class="custom-control-input align-middle" @bind="_hideOfflineDevices" />
-                    <label class="custom-control-label align-middle" for="hideOfflineDevicesCheckbox">Hide offline devices</label>
-                </div>
-            </div>
-
-            <div class="rm-field rm-field-actions">
-                <button type="button" class="btn btn-sm btn-secondary" @onclick="SelectAllCards">Select All</button>
-                <button type="button" class="btn btn-sm btn-primary" @onclick="HandleRefreshClicked">Refresh</button>
-                <button type="button" class="btn btn-sm btn-secondary" @onclick="UpdateSelectedAgents" title="Update the agent on every selected device">Update Selected</button>
             </div>
         </div>
 
-        <div class="rm-toolbar-group rm-toolbar-group-end">
-            <div class="rm-field">
-                <label class="rm-label" for="deviceSearchInput">Search</label>
-                <input id="deviceSearchInput" class="form-control rm-search-input"
-                       placeholder="Search device properties"
-                       @bind="_filter" />
-            </div>
-
-            <div class="rm-field">
-                <label class="rm-label" for="currentPageInput">Page</label>
-                <div class="rm-field-control">
-                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
-                            title="Previous page" aria-label="Previous page"
-                            @onclick="PageDown">
-                        <i class="oi oi-chevron-left"></i>
-                    </button>
-                    <input id="currentPageInput" class="form-control rm-page-input" pattern="[0-9]"
-                           @bind="_currentPage" @bind:event="oninput" />
-                    <span class="rm-control-label">of @TotalPages</span>
-                    <button type="button" class="btn btn-sm btn-secondary rm-icon-button"
-                            title="Next page" aria-label="Next page"
-                            @onclick="PageUp">
-                        <i class="oi oi-chevron-right"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="rm-field">
-                <label class="rm-label" for="devicesPerPageSelect">Per page</label>
-                <select id="devicesPerPageSelect" class="form-control rm-per-page-select" @bind="_devicesPerPage">
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="200">200</option>
-                </select>
-            </div>
-        </div>
-    </div>
-    <div id="deviceListDiv">
-        @foreach (var device in DisplayedDevices)
-        {
-            <CascadingValue Value="this">
-                <DeviceCard @key="device.ID" Device="device" />
-            </CascadingValue>
+        @{
+            var devices = DisplayedDevices;
         }
-    </div>
 
-    <Terminal />
+        <div id="deviceListDiv">
+            @if (devices.Length == 0)
+            {
+                <div class="devices-empty">
+                    <span class="devices-empty-icon">
+                        <i class="oi oi-monitor" aria-hidden="true"></i>
+                    </span>
+                    <h4 class="devices-empty-title">No devices match these filters</h4>
+                    <p class="devices-empty-text">
+                        @if (_hideOfflineDevices)
+                        {
+                            <text>Offline devices are hidden. </text>
+                        }
+                        Adjust the search, device group, or visibility settings to see more machines.
+                    </p>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="ResetFilters">Clear filters</button>
+                </div>
+            }
+            else
+            {
+                @foreach (var device in devices)
+                {
+                    <CascadingValue Value="this">
+                        <DeviceCard @key="device.ID" Device="device" />
+                    </CascadingValue>
+                }
+            }
+        </div>
+
+        <Terminal />
+    </div>
 </div>
