@@ -1143,6 +1143,163 @@ kbd {
     cursor: default;
 }
 
+/* ------------------------------------------------------------------ *
+ * Device details page - Operate layout: header + preview/facts grid     *
+ * ------------------------------------------------------------------ */
+.device-details {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px 0 32px;
+    color: var(--rm-ink);
+}
+
+.device-details-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px 24px;
+}
+
+.device-details-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.device-details-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--rm-ink-muted);
+    font-size: 14px;
+    line-height: 21px;
+}
+
+.device-status-dot {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: var(--rm-ink-faint);
+}
+
+.device-status-dot.is-online {
+    background-color: var(--rm-status-ok);
+}
+
+.device-status-dot.is-offline {
+    background-color: var(--rm-status-danger);
+}
+
+.device-details-actions {
+    flex: 0 0 auto;
+}
+
+.device-details-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.device-preview-panel,
+.device-facts-panel,
+.device-edit-panel {
+    min-width: 0;
+}
+
+.device-preview-auto {
+    margin-bottom: 0;
+}
+
+.device-preview-tile-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.device-preview-tile {
+    max-width: none;
+    width: 100%;
+}
+
+.device-preview-caption {
+    font-variant-numeric: tabular-nums;
+}
+
+.device-facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+    margin: 0;
+}
+
+.device-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--rm-border);
+}
+
+.device-fact dt {
+    color: var(--rm-ink-muted);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.device-fact dd {
+    margin: 0;
+    color: var(--rm-ink);
+    font-size: 14px;
+    line-height: 21px;
+    overflow-wrap: anywhere;
+}
+
+.device-fact-mono {
+    font-family: Menlo, Consolas, monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.device-edit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+}
+
+.device-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+@media (max-width: 992px) {
+    .device-details-grid {
+        grid-template-columns: 1fr;
+    }
+    .device-edit-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .device-facts {
+        grid-template-columns: 1fr;
+    }
+    .device-details {
+        padding-top: 16px;
+    }
+}
+
 /* Terminal + chat read from tokens, not Bootstrap secondary/dark */
 .terminal-body,
 .chat-card,
