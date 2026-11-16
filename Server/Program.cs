@@ -1,5 +1,6 @@
 using Remotely.Server.Extensions;
 using Bitbound.SimpleMessenger;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -33,6 +34,13 @@ var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
 var services = builder.Services;
 
+// Let the in-flight requests and the open SignalR sessions finish when the
+// server is stopped, instead of cutting them off in the middle.
+services.Configure<HostOptions>(options =>
+{
+    options.ShutdownTimeout = TimeSpan.FromSeconds(30);
+});
+
 configuration.AddEnvironmentVariables("Remotely_");
 
 // Fails the process on an unsupported provider or a malformed gateway address
@@ -52,6 +60,22 @@ services
     .AddInteractiveServerComponents();
 
 services.AddRazorPages();
+
+// The DataProtection keys have to survive a restart.  Without an explicit
+// location, ASP.NET Core writes them to a per-user folder that is ephemeral
+// inside a container, so every deployment invalidates the sessions, cookies,
+// and encrypted tokens of the running users.  The location follows the
+// existing AppData convention (the same folder the logs and the signing key
+// use), which is the persistent volume in the container image.
+var dataProtectionKeyPath = Path.Combine(
+    AppDomain.CurrentDomain.BaseDirectory,
+    "AppData",
+    "DataProtection-Keys");
+Directory.CreateDirectory(dataProtectionKeyPath);
+
+services
+    .AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
 
 services.AddCascadingAuthenticationState();
 services.AddScoped<IdentityUserAccessor>();
@@ -106,7 +130,7 @@ var allowDbAutoMigration = builder.Configuration
 
 if (allowDbAutoMigration)
 {
-    await appDb.Database.MigrateAsync();
+    await MigrateOnStartupAsync(appDb, dbProvider);
 }
 else
 {
@@ -247,7 +271,10 @@ services.AddRateLimiter(options =>
 {
     options.AddConcurrencyLimiter(RatePolicyNames.AgentUpdateDownloads, clOptions =>
     {
-        clOptions.QueueLimit = int.MaxValue;
+        // A download queue that accepts an unlimited number of waiters is an
+        // unbounded memory commitment: every queued request holds a connection
+        // and a task until a permit frees up.  Cap it and let the queue reject.
+        clOptions.QueueLimit = 500;
 
         clOptions.PermitLimit =
             settings.MaxConcurrentUpdates <= 0 ?
@@ -287,6 +314,8 @@ services.AddSingleton<IDeviceListingService, DeviceListingService>();
 services.AddSingleton<IDeviceGroupMembershipService, DeviceGroupMembershipService>();
 services.AddSingleton<IMaintenanceService, MaintenanceService>();
 services.AddSingleton<ServerMetrics>();
+services.AddSingleton<IInstanceLeaseService, InstanceLeaseService>();
+services.AddHostedService<InstanceLeaseHostedService>();
 services.AddScoped<ApiAuthorizationFilter>();
 services.AddScoped<LocalOnlyFilter>();
 services.AddScoped<ExpiringTokenFilter>();
@@ -423,6 +452,32 @@ using (var scope = app.Services.CreateScope())
 }
 
 await app.RunAsync();
+
+// Applies the pending migrations and states the reason when the database
+// cannot be prepared.  The provider exception alone does not tell the
+// operator what to fix (a missing directory, a missing volume, a wrong
+// connection string).  The connection string itself is never written to the
+// log, because it can hold a password.
+async Task MigrateOnStartupAsync(AppDb dbContext, string provider)
+{
+    try
+    {
+        await dbContext.Database.MigrateAsync();
+    }
+    catch (Exception)
+    {
+        var location = provider == "sqlite"
+            ? $" The SQLite file is expected at '{builder.Configuration.GetConnectionString("SQLite")}'."
+            : string.Empty;
+
+        Console.Error.WriteLine(
+            $"The {provider} database could not be prepared at startup.{location}  " +
+            "Check that the database exists, that the connection string is " +
+            "correct, and that the data directory exists and is writable.");
+
+        throw;
+    }
+}
 
 void ConfigureStaticFiles()
 {

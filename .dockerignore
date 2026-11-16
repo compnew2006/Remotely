@@ -1,0 +1,8 @@
+# The image only copies the published server output.  Excluding everything
+# else keeps the build context from carrying the repository's bin and obj
+# folders (hundreds of megabytes) to the daemon.
+**
+!Server
+!Server/bin
+!Server/bin/publish
+!Server/bin/publish/**

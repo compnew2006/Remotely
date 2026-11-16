@@ -304,3 +304,18 @@ Server.Installer/Properties/launchSettings.json
 EGM.md
 **/EGM.md
 
+
+# The signed client package manifests are written by the server at runtime,
+# next to the packages they describe.  They depend on the build of the
+# packages, so they are not part of the repository.
+/Server/wwwroot/Content/*.manifest.json
+/Server/wwwroot/Content/*.manifest.sig
+
+# The migration scripts in Utilities/tools/ are kept with the repository, so
+# the refactoring stays repeatable.  Their byte cache is not.
+Utilities/tools/__pycache__/
+
+# The helpers that split and apply a commit by hunks belong to one session
+# and are not part of the migration.
+Utilities/tools/split-hunks.py
+Utilities/tools/apply-hunks.py

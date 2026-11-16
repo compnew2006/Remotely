@@ -1,4 +1,4 @@
-#requires -Version 5.1
+#requires -Version 7
 <#
 .SYNOPSIS
   Signs a Remotely update package and produces the manifest + signature (G2 / AD-13).

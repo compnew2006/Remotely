@@ -80,6 +80,8 @@ On installations that still use the standalone binary, run `docker-compose up -d
 
 Open `http://<server>:5000` and click **Register** to create the first account. That account is both the server administrator and the organization administrator, and an organization is created for it automatically. Registration closes after the first account; raise `MaxOrganizationCount` or set it to `-1` to allow more.
 
+> **Running the server from a checkout?** See [RUNNING.md](RUNNING.md) for the exact build and run commands, the ports, the database setup, and the failure modes that look like something else.
+
 ### Option 2: Build this fork
 
 Use this path when you need the fork additions. You need the .NET 10 SDK, Node.js LTS, and Git. The full solution, including the Windows desktop client, builds on Windows; the server builds on Linux and macOS.

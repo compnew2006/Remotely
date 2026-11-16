@@ -69,3 +69,188 @@ jobs:
 
       - name: Test shared
         run: dotnet test Tests/Shared.Tests/Shared.Tests.csproj -c Release --no-restore
+
+      - name: Compute the version stamp
+        id: version
+        shell: bash
+        run: echo "stamp=$(date -u +%Y.%m.%d.%H%M)" >> "$GITHUB_OUTPUT"
+
+      # The desktop client is version locked: replacing a file that was built
+      # without the same version stamp fails at runtime with a missing
+      # assembly version.  The stamp has to be part of the build, not of a
+      # later manual step.
+      - name: Publish the agent (win-x64, self-contained)
+        run: >-
+          dotnet publish Agent/Agent.csproj -c Release -r win-x64 --self-contained
+          -o Agent/bin/publish/win-x64
+          /p:Version=${{ steps.version.outputs.stamp }}
+          /p:FileVersion=${{ steps.version.outputs.stamp }}
+
+      - name: Upload the agent package
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-win-x64-${{ steps.version.outputs.stamp }}
+          path: Agent/bin/publish/win-x64
+          retention-days: 14
+
+  migrations:
+    name: Migrations on disposable databases
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: Remotely
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: 'Remotely!Passw0rd'
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "bash -c '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"Remotely!Passw0rd\" -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"Remotely!Passw0rd\" -Q \"SELECT 1\"'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install the EF tool
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.0.33
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Restore
+        run: dotnet restore Server/Server.csproj
+
+      - name: Apply the PostgreSQL migrations
+        env:
+          Remotely_ConnectionStrings__PostgreSQL: "Host=localhost;Port=5432;Database=Remotely;Username=postgres;Password=postgres"
+        run: |
+          for attempt in $(seq 1 20); do
+            if dotnet ef database update --context PostgreSqlDbContext \
+              --project Server/Server.csproj --startup-project Server/Server.csproj; then
+              echo "PostgreSQL migrations applied."
+              exit 0
+            fi
+            echo "PostgreSQL is not ready yet (attempt $attempt)."
+            sleep 10
+          done
+          exit 1
+
+      - name: Apply the SQL Server migrations
+        env:
+          Remotely_ConnectionStrings__SQLServer: "Server=localhost,1433;Database=Remotely;User Id=sa;Password=Remotely!Passw0rd;TrustServerCertificate=True"
+        run: |
+          for attempt in $(seq 1 20); do
+            if dotnet ef database update --context SqlServerDbContext \
+              --project Server/Server.csproj --startup-project Server/Server.csproj; then
+              echo "SQL Server migrations applied."
+              exit 0
+            fi
+            echo "SQL Server is not ready yet (attempt $attempt)."
+            sleep 10
+          done
+          exit 1
+
+      - name: Verify that no migration is left pending
+        env:
+          Remotely_ConnectionStrings__PostgreSQL: "Host=localhost;Port=5432;Database=Remotely;Username=postgres;Password=postgres"
+          Remotely_ConnectionStrings__SQLServer: "Server=localhost,1433;Database=Remotely;User Id=sa;Password=Remotely!Passw0rd;TrustServerCertificate=True"
+        run: |
+          for context in PostgreSqlDbContext SqlServerDbContext; do
+            pending=$(dotnet ef migrations list --context "$context" \
+              --project Server/Server.csproj --startup-project Server/Server.csproj \
+              --no-build | grep -c Pending || true)
+            if [ "$pending" != "0" ]; then
+              echo "$context still has $pending pending migration(s)."
+              exit 1
+            fi
+            echo "$context has no pending migrations."
+          done
+
+  container:
+    name: Container smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Compute the version stamp
+        id: version
+        shell: bash
+        run: echo "stamp=$(date -u +%Y.%m.%d.%H%M)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the server
+        run: >-
+          dotnet publish Server/Server.csproj -c Release -r linux-x64 --self-contained false
+          -o Server/bin/publish
+          /p:Version=${{ steps.version.outputs.stamp }}
+          /p:FileVersion=${{ steps.version.outputs.stamp }}
+
+      - name: Upload the server publish output
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-publish-linux-x64
+          path: Server/bin/publish
+          retention-days: 14
+
+      - name: Build the image
+        run: docker build -f Server/Dockerfile -t remotely-smoke:${{ github.sha }} .
+
+      - name: Start the container
+        run: |
+          docker run -d --name remotely-smoke \
+            -e ASPNETCORE_HTTP_PORTS=5000 \
+            -e Remotely_ApplicationOptions__DbProvider=SQLite \
+            -e "Remotely_ConnectionStrings__SQLite=Data Source=/app/AppData/Remotely.db" \
+            remotely-smoke:${{ github.sha }}
+
+      - name: Wait for the healthcheck
+        run: |
+          # The probe is restricted to local callers, so it has to run inside
+          # the container - the same way the image's own HEALTHCHECK does.
+          for attempt in $(seq 1 60); do
+            if docker exec remotely-smoke curl -fsS "http://localhost:5000/api/healthcheck" > /dev/null; then
+              echo "The container reported a healthy server."
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs remotely-smoke
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs remotely-smoke || true
+
+      - name: Remove the container
+        if: always()
+        run: docker rm -f remotely-smoke || true
