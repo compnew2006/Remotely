@@ -2,7 +2,7 @@
 @inherits AuthComponentBase
 
 @inject NavigationManager NavManager
-@inject IDataService DataService
+@inject ISettingsService settingsService
 @inject SignInManager<RemotelyUser> SignInManager
 
 @if (!string.IsNullOrWhiteSpace(_settings?.MessageOfTheDay))
@@ -21,7 +21,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _settings = await DataService.GetSettings();
+        _settings = await settingsService.GetSettings();
         await base.OnInitializedAsync();
 
         var isAuthenticated = await AuthService.IsAuthenticated();

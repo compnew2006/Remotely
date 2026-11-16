@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Remotely.Server.Auth;
 using Remotely.Server.Extensions;
 using Remotely.Server.Services;
@@ -14,7 +14,8 @@ namespace Remotely.Server.API;
 [ApiController]
 public class ClientDownloadsController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IOrganizationService _organizationService;
+    private readonly ISettingsService _settingsService;
     private readonly IEmbeddedServerDataProvider _embeddedDataSearcher;
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private readonly IWebHostEnvironment _hostEnv;
@@ -24,13 +25,15 @@ public class ClientDownloadsController : ControllerBase
     public ClientDownloadsController(
         IWebHostEnvironment hostEnv,
         IEmbeddedServerDataProvider embeddedDataSearcher,
-        IDataService dataService,
+        IOrganizationService organizationService,
+        ISettingsService settingsService,
         ILogger<ClientDownloadsController> logger,
         ApiAuthorizationFilter apiAuthorizationFilter)
     {
         _hostEnv = hostEnv;
         _embeddedDataSearcher = embeddedDataSearcher;
-        _dataService = dataService;
+        _organizationService = organizationService;
+        _settingsService = settingsService;
         _logger = logger;
         _apiAuthorizationFilter = apiAuthorizationFilter;
     }
@@ -131,7 +134,7 @@ public class ClientDownloadsController : ControllerBase
         var hostIndex = fileContents.IndexOf("HostName=");
         var orgIndex = fileContents.IndexOf("Organization=");
 
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         var effectiveScheme = settings.ForceClientHttps ? "https" : Request.Scheme;
 
         fileContents[hostIndex] = $"HostName=\"{effectiveScheme}://{Request.Host}\"";
@@ -143,7 +146,7 @@ public class ClientDownloadsController : ControllerBase
     private async Task<IActionResult> GetDesktopFile(string relativeFilePath, string? organizationId = null)
     {
         await LogRequest(nameof(GetDesktopFile));
-        var defaultOrg = await _dataService.GetDefaultOrganization();
+        var defaultOrg = await _organizationService.GetDefaultOrganization();
 
         // The default org will be used if unspecified, so might as well save the
         // space in the file name.
@@ -153,7 +156,7 @@ public class ClientDownloadsController : ControllerBase
             organizationId = null;
         }
 
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         var effectiveScheme = settings.ForceClientHttps ? "https" : Request.Scheme;
         var serverUrl = $"{effectiveScheme}://{Request.Host}";
 
@@ -164,7 +167,7 @@ public class ClientDownloadsController : ControllerBase
 
     private async Task<IActionResult> GetInstallFile(string organizationId, string platformID)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         await LogRequest(nameof(GetInstallFile));
 
         if (!await _fileLock.WaitAsync(TimeSpan.FromSeconds(15)))
@@ -239,7 +242,7 @@ public class ClientDownloadsController : ControllerBase
 
     private async Task LogRequest(string methodName)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         if (settings.UseHttpLogging)
         {
             var ip = Request.HttpContext.Connection.RemoteIpAddress;

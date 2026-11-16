@@ -33,7 +33,13 @@ public partial class ServerConfig : AuthComponentBase
     public required ICircuitManager CircuitManager { get; init; }
 
     [Inject]
-    public required IDataService DataService { get; init; }
+    public required IDeviceListingService deviceListingService { get; init; }
+    [Inject]
+    public required IDeviceService deviceService { get; init; }
+    [Inject]
+    public required ISettingsService settingsService { get; init; }
+    [Inject]
+    public required IUserService userService { get; init; }
 
     [Inject]
     public required IEmailSenderEx EmailSender { get; init; }
@@ -56,10 +62,9 @@ public partial class ServerConfig : AuthComponentBase
     [Inject]
     public required IUpgradeService UpgradeService { get; init; }
 
-
     private SettingsModel Input { get; set; } = new();
     private IEnumerable<string> OutdatedDevices => GetOutdatedDevices();
-    private int TotalDevices => DataService.GetTotalDevices();
+    private int TotalDevices => deviceService.GetTotalDevices();
 
     private IEnumerable<RemotelyUser> UserList
     {
@@ -87,9 +92,9 @@ public partial class ServerConfig : AuthComponentBase
             return;
         }
 
-        Input = await DataService.GetSettings();
+        Input = await settingsService.GetSettings();
 
-        _userList.AddRange(DataService.GetAllUsersForServer().OrderBy(x => x.UserName));
+        _userList.AddRange(userService.GetAllUsersForServer().OrderBy(x => x.UserName));
     }
 
     private void AddBannedDevice()
@@ -209,7 +214,7 @@ public partial class ServerConfig : AuthComponentBase
     private async Task Save()
     {
         
-        await DataService.SaveSettings(Input);
+        await settingsService.SaveSettings(Input);
 
         ToastService.ShowToast("Configuration saved.");
     }
@@ -218,7 +223,7 @@ public partial class ServerConfig : AuthComponentBase
     {
         EnsureUserSet();
 
-        await DataService.SaveSettings(Input);
+        await settingsService.SaveSettings(Input);
 
         if (string.IsNullOrWhiteSpace(User.Email))
         {
@@ -248,7 +253,7 @@ public partial class ServerConfig : AuthComponentBase
 
         EnsureUserSet();
 
-        DataService.SetIsServerAdmin(user.Id, isAdmin, User.Id);
+        userService.SetIsServerAdmin(user.Id, isAdmin, User.Id);
         ToastService.ShowToast("Server admins updated.");
     }
 
@@ -256,7 +261,7 @@ public partial class ServerConfig : AuthComponentBase
     {
         if (OutdatedDevices.Any())
         {
-            var outdatedDeviceNames = DataService
+            var outdatedDeviceNames = deviceListingService
                 .GetDevices(OutdatedDevices)
                 .Select(x => $"{x.DeviceName}");
 

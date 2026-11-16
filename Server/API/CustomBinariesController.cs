@@ -9,7 +9,8 @@ namespace Remotely.Server.API;
 [Route("api/custom-binaries")]
 [ApiController]
 public class CustomBinariesController(
-    IDataService _dataService,
+    IOrganizationService _organizationService,
+    ISettingsService _settingsService,
     IWebHostEnvironment _hostingEnvironment,
     IEmbeddedServerDataProvider _embeddedData) : ControllerBase
 {
@@ -37,7 +38,7 @@ public class CustomBinariesController(
 
     private async Task<EmbeddedServerData> GetEmbeddedData(string? organizationId)
     {
-        var defaultOrg = await _dataService.GetDefaultOrganization();
+        var defaultOrg = await _organizationService.GetDefaultOrganization();
 
         // The default org will be used if unspecified, so might as well save the
         // space in the file name.
@@ -47,7 +48,7 @@ public class CustomBinariesController(
             organizationId = null;
         }
 
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         var effectiveScheme = settings.ForceClientHttps ? "https" : Request.Scheme;
         var serverUrl = $"{effectiveScheme}://{Request.Host}";
         return new EmbeddedServerData(new Uri(serverUrl), organizationId);

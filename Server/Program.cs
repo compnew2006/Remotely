@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Remotely.Server.Auth;
 using Remotely.Server.Components.Account;
 using Remotely.Server.Data;
@@ -31,8 +32,13 @@ var services = builder.Services;
 
 configuration.AddEnvironmentVariables("Remotely_");
 
-services.Configure<ApplicationOptions>(
-    configuration.GetSection(ApplicationOptions.SectionKey));
+// Fails the process on an unsupported provider or a malformed gateway address
+// instead of letting the value fall through to request-time behaviour.
+services
+    .AddOptions<ApplicationOptions>()
+    .Bind(configuration.GetSection(ApplicationOptions.SectionKey))
+    .ValidateOnStart();
+services.AddSingleton<IValidateOptions<ApplicationOptions>, ApplicationOptionsValidator>();
 
 var appOptions = configuration
     .GetSection(ApplicationOptions.SectionKey)
@@ -49,7 +55,7 @@ services.AddScoped<IdentityUserAccessor>();
 services.AddScoped<IdentityRedirectManager>();
 services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-var dbProvider = appOptions?.DbProvider?.ToLower();
+var dbProvider = ApplicationOptions.NormalizeDbProvider(appOptions?.DbProvider);
 
 switch (dbProvider)
 {
@@ -259,7 +265,21 @@ else
     services.AddScoped<IEmailSenderEx, EmailSenderEx>();
 }
 services.AddSingleton<IAppDbFactory, AppDbFactory>();
-services.AddTransient<IDataService, DataService>();
+services.AddSingleton<ISettingsService, SettingsService>();
+services.AddSingleton<IDeviceService, DeviceService>();
+services.AddSingleton<IApiTokenService, ApiTokenService>();
+services.AddSingleton<IAlertService, AlertService>();
+services.AddSingleton<IOrganizationService, OrganizationService>();
+services.AddSingleton<IUserService, UserService>();
+services.AddSingleton<IInviteService, InviteService>();
+services.AddSingleton<IDeviceGroupService, DeviceGroupService>();
+services.AddSingleton<ISavedScriptService, SavedScriptService>();
+services.AddSingleton<IScriptScheduleService, ScriptScheduleService>();
+services.AddSingleton<IScriptResultService, ScriptResultService>();
+services.AddSingleton<ISharedFileService, SharedFileService>();
+services.AddSingleton<IDeviceListingService, DeviceListingService>();
+services.AddSingleton<IDeviceGroupMembershipService, DeviceGroupMembershipService>();
+services.AddSingleton<IMaintenanceService, MaintenanceService>();
 services.AddScoped<ApiAuthorizationFilter>();
 services.AddScoped<LocalOnlyFilter>();
 services.AddScoped<ExpiringTokenFilter>();
@@ -299,6 +319,7 @@ services.AddSingleton<IDesktopStreamCache, DesktopStreamCache>();
 services.AddSingleton<IRemoteControlSessionCache, RemoteControlSessionCache>();
 services.AddSingleton<ISystemTime, SystemTime>();
 services.AddSingleton<IAgentHubSessionCache, AgentHubSessionCache>();
+services.AddSingleton<IApiScriptResultCache, ApiScriptResultCache>();
 services.AddHostedService<RemoteControlSessionCleaner>();
 services.AddHostedService<RemoteControlSessionReconnector>();
 
@@ -368,10 +389,11 @@ app.MapAdditionalIdentityEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {
-    var dataService = scope.ServiceProvider.GetRequiredService<IDataService>();
+    var deviceService = scope.ServiceProvider.GetRequiredService<IDeviceService>();
+    var maintenanceService = scope.ServiceProvider.GetRequiredService<IMaintenanceService>();
 
-    await dataService.SetAllDevicesNotOnline();
-    await dataService.CleanupOldRecords();
+    await deviceService.SetAllDevicesNotOnline();
+    await maintenanceService.CleanupOldRecords();
 }
 
 await app.RunAsync();

@@ -215,7 +215,10 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 {
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHubContext;
     private readonly IHubContext<DesktopHub, IDesktopHubClient> _desktopHubContext;
-    private readonly IDataService _dataService;
+    private readonly IDeviceService _deviceService;
+    private readonly IOrganizationService _organizationService;
+    private readonly ISettingsService _settingsService;
+    private readonly IUserService _userService;
     private readonly ISelectedCardsStore _cardStore;
     private readonly IAuthService _authService;
     private readonly ICircuitManager _circuitManager;
@@ -235,7 +238,10 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public CircuitConnection(
         IAuthService authService,
-        IDataService dataService,
+        IDeviceService deviceService,
+        IOrganizationService organizationService,
+        ISettingsService settingsService,
+        IUserService userService,
         ISelectedCardsStore cardStore,
         IHubContext<AgentHub, IAgentHubClient> agentHubContext,
         IHubContext<DesktopHub, IDesktopHubClient> desktopHubContext,
@@ -253,7 +259,10 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         IMessenger messenger,
         ILogger<CircuitConnection> logger)
     {
-        _dataService = dataService;
+        _deviceService = deviceService;
+        _organizationService = organizationService;
+        _settingsService = settingsService;
+        _userService = userService;
         _agentHubContext = agentHubContext;
         _desktopHubContext = desktopHubContext;
         _cardStore = cardStore;
@@ -273,7 +282,6 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         _logger = logger;
     }
 
-
     public string ConnectionId { get; } = Guid.NewGuid().ToString();
 
     public RemotelyUser User
@@ -281,7 +289,6 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         get => _user ?? throw new InvalidOperationException("User is not set.");
         internal set => _user = value;
     }
-
 
     public Task DeleteRemoteLogs(string deviceId)
     {
@@ -301,7 +308,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task ExecuteCommandOnAgent(ScriptingShell shell, string command, string[] deviceIDs)
     {
-        deviceIDs = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
+        deviceIDs = _userService.FilterDeviceIdsByUserPermission(deviceIDs, User);
         var connections = GetActiveConnectionsForUserOrg(deviceIDs);
 
         _logger.LogInformation("Command executed by {username}.  Shell: {shell}.  Command: {command}.  Devices: {deviceIds}",
@@ -381,15 +388,15 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task ReinstallAgents(string[] deviceIDs)
     {
-        deviceIDs = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
+        deviceIDs = _userService.FilterDeviceIdsByUserPermission(deviceIDs, User);
         var connections = GetActiveConnectionsForUserOrg(deviceIDs);
         await _agentHubContext.Clients.Clients(connections).ReinstallAgent();
-        _dataService.RemoveDevices(deviceIDs);
+        _deviceService.RemoveDevices(deviceIDs);
     }
 
     public async Task<int> UpdateAgents(string[] deviceIDs)
     {
-        deviceIDs = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
+        deviceIDs = _userService.FilterDeviceIdsByUserPermission(deviceIDs, User);
         var connections = GetActiveConnectionsForUserOrg(deviceIDs).ToList();
 
         _logger.LogInformation(
@@ -403,7 +410,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task<Result<RemoteControlSession>> RemoteControl(string deviceId, bool viewOnly)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
 
         if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
         {
@@ -417,10 +424,9 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail<RemoteControlSession>("Device is not online.");
         }
 
-
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
-            var device = _dataService.GetDevice(targetDevice.ID);
+            var device = _deviceService.GetDevice(targetDevice.ID);
             _logger.LogWarning(
                 "Remote control attempted by unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
                 deviceId,
@@ -479,7 +485,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
         _remoteControlSessionCache.AddOrUpdate($"{sessionId}", session);
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
 
         if (!orgResult.IsSuccess)
         {
@@ -515,7 +521,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Device is not online.");
         }
 
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             _logger.LogWarning(
                 "Monitoring attempted by unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
@@ -530,7 +536,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Service connection not found.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail(deviceResult.Reason);
@@ -565,7 +571,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             intervalMinutes,
             User.UserName);
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -590,7 +596,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> CaptureScreenshotNow(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -600,7 +606,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Device is not online.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail(deviceResult.Reason);
@@ -656,7 +662,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             deviceId,
             User.UserName);
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -679,7 +685,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StopMonitoring(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -705,12 +711,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         int retentionHours,
         string? pauseWindows = null)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        return await _dataService.UpdateScreenshotSettings(
+        return await _deviceService.UpdateScreenshotSettings(
             deviceId,
             directory,
             retentionCount,
@@ -723,12 +729,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> DeleteScreenshot(string deviceId, string fileName)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -744,12 +750,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> ClearScreenshots(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -768,7 +774,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         string deviceId,
         CameraCaptureRequest request)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             _logger.LogWarning(
                 "A camera recording was attempted by an unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
@@ -788,13 +794,13 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Service connection not found.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail(deviceResult.Reason);
         }
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -870,7 +876,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StopCameraCapture(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -913,7 +919,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("The camera recording interval must be between 1 and 30 minutes.");
         }
 
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -928,13 +934,13 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Service connection not found.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail(deviceResult.Reason);
         }
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -988,7 +994,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StopCameraMonitoring(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -1005,7 +1011,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public CameraMonitoringStatus? GetCameraMonitoringStatus(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return null;
         }
@@ -1033,12 +1039,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         int retentionHours,
         string? pauseWindows = null)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var result = await _dataService.UpdateCameraSettings(
+        var result = await _deviceService.UpdateCameraSettings(
             deviceId,
             directory,
             retentionCount,
@@ -1127,7 +1133,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public CameraDeviceInfo[] GetCameraDevices(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Array.Empty<CameraDeviceInfo>();
         }
@@ -1154,7 +1160,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public CameraAudioDeviceInfo[] GetCameraAudioDevices(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Array.Empty<CameraAudioDeviceInfo>();
         }
@@ -1180,12 +1186,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> DeleteCameraClip(string deviceId, string fileName)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1201,12 +1207,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> ClearCameraClips(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1289,7 +1295,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         int quality,
         int durationSeconds)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             _logger.LogWarning(
                 "An audio recording was attempted by an unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
@@ -1309,7 +1315,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Service connection not found.");
         }
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -1396,7 +1402,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StopAudioCapture(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -1442,7 +1448,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("The audio recording interval must be between 1 and 30 minutes.");
         }
 
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -1457,13 +1463,13 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Service connection not found.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail(deviceResult.Reason);
         }
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -1522,7 +1528,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StopAudioMonitoring(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -1539,7 +1545,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public AudioMonitoringStatus? GetAudioMonitoringStatus(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return null;
         }
@@ -1568,12 +1574,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         int retentionHours,
         string? pauseWindows = null)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var result = await _dataService.UpdateAudioSettings(
+        var result = await _deviceService.UpdateAudioSettings(
             deviceId,
             directory,
             retentionCount,
@@ -1633,7 +1639,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public AudioDeviceInfo[] GetAudioDevices(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Array.Empty<AudioDeviceInfo>();
         }
@@ -1649,12 +1655,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> DeleteAudioClip(string deviceId, string fileName)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1670,12 +1676,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> ClearAudioClips(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1695,7 +1701,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         AudioSource source,
         string microphoneId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             _logger.LogWarning(
                 "A live audio stream was attempted by an unauthorized user.  Device ID: {deviceId}.  User Name: {userName}.",
@@ -1715,7 +1721,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return Result.Fail("Service connection not found.");
         }
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -1766,7 +1772,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> StopAudioLive(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
@@ -1786,12 +1792,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public async Task<Result> SetKeyboardEnabled(string deviceId, bool enabled)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1812,7 +1818,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     /// </summary>
     public KeyboardLog[] GetKeyboardLogs(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Array.Empty<KeyboardLog>();
         }
@@ -1822,12 +1828,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task<Result> DeleteKeyboardLog(string deviceId, string logId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1840,12 +1846,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task<Result> ClearKeyboardLogs(string deviceId)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return Result.Fail("Device not found.");
@@ -1864,12 +1870,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         string? pauseWindows = null,
         bool? showPasswords = null)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return Result.Fail("Unauthorized.");
         }
 
-        var result = await _dataService.UpdateKeyboardSettings(
+        var result = await _deviceService.UpdateKeyboardSettings(
             deviceId,
             enabled,
             retentionCount,
@@ -2023,8 +2029,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     {
         if (User is not null)
         {
-            var filterDevices = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
-            _dataService.RemoveDevices(filterDevices);
+            var filterDevices = _userService.FilterDeviceIdsByUserPermission(deviceIDs, User);
+            _deviceService.RemoveDevices(filterDevices);
         }
 
         return Task.CompletedTask;
@@ -2045,7 +2051,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         else if (User is not null)
         {
             username = User.UserName;
-            deviceIds = _dataService.FilterDeviceIdsByUserPermission(deviceIds.ToArray(), User);
+            deviceIds = _userService.FilterDeviceIdsByUserPermission(deviceIds.ToArray(), User);
         }
 
         var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes));
@@ -2066,7 +2072,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task SendChat(string message, string deviceId, bool isDisconnecting = false)
     {
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             return;
         }
@@ -2084,7 +2090,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return;
         }
 
-        var orgResult = await _dataService.GetOrganizationNameByUserName($"{User.UserName}");
+        var orgResult = await _organizationService.GetOrganizationNameByUserName($"{User.UserName}");
         if (!orgResult.IsSuccess)
         {
             _toastService.ShowToast2("Organization not found.", Enums.ToastType.Warning);
@@ -2107,7 +2113,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return false;
         }
 
-        if (!_dataService.DoesUserHaveAccessToDevice(deviceId, User))
+        if (!_userService.DoesUserHaveAccessToDevice(deviceId, User))
         {
             _logger.LogWarning("User {username} does not have access to device ID {deviceId} and attempted file upload.",
                 User.UserName,
@@ -2143,15 +2149,15 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
     public async Task UninstallAgents(string[] deviceIDs)
     {
-        deviceIDs = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
+        deviceIDs = _userService.FilterDeviceIdsByUserPermission(deviceIDs, User);
         var connections = GetActiveConnectionsForUserOrg(deviceIDs);
         await _agentHubContext.Clients.Clients(connections).UninstallAgent();
-        _dataService.RemoveDevices(deviceIDs);
+        _deviceService.RemoveDevices(deviceIDs);
     }
 
     public async Task UpdateTags(string deviceID, string tags)
     {
-        if (_dataService.DoesUserHaveAccessToDevice(deviceID, User))
+        if (_userService.DoesUserHaveAccessToDevice(deviceID, User))
         {
             if (tags.Length > 200)
             {
@@ -2164,7 +2170,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
                 return;
             }
 
-            await _dataService.UpdateTags(deviceID, tags);
+            await _deviceService.UpdateTags(deviceID, tags);
 
             var successMessage = new DisplayNotificationMessage(
                 "Device updated successfully.",
@@ -2179,7 +2185,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     {
         try
         {
-            if (!_dataService.DoesUserHaveAccessToDevice(device.ID, User.Id))
+            if (!_userService.DoesUserHaveAccessToDevice(device.ID, User.Id))
             {
                 return Result.Fail("Unauthorized.");
             }
@@ -2207,7 +2213,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         try
         {
             var deviceIds = devices.Select(x => x.ID).ToArray();
-            var filteredIds = _dataService.FilterDeviceIdsByUserPermission(deviceIds, User);
+            var filteredIds = _userService.FilterDeviceIdsByUserPermission(deviceIds, User);
             var filteredDevices = devices.Where(x => filteredIds.Contains(x.ID)).ToArray();
 
             var availableDevices = _agentSessionCache
@@ -2266,12 +2272,11 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         }
 
         if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var device) ||
-            !_dataService.DoesUserHaveAccessToDevice(device.ID, User) ||
+            !_userService.DoesUserHaveAccessToDevice(device.ID, User) ||
             !_agentSessionCache.TryGetConnectionId(device.ID, out var connectionId))
         {
             return (false, string.Empty);
         }
-
 
         return (true, connectionId);
     }
@@ -2297,7 +2302,6 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             }
         }
     }
-
 
     private async Task SendWakeCommand(Device deviceToWake, IEnumerable<Device> peerDevices)
     {

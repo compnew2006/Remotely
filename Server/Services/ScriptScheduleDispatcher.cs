@@ -12,17 +12,23 @@ public interface IScriptScheduleDispatcher
 
 public class ScriptScheduleDispatcher : IScriptScheduleDispatcher
 {
-    private readonly IDataService _dataService;
+    private readonly IDeviceListingService _deviceListingService;
+    private readonly IScriptResultService _scriptResultService;
+    private readonly IScriptScheduleService _scriptScheduleService;
     private readonly IAgentHubSessionCache _serviceSessionCache;
     private readonly ICircuitConnection _circuitConnection;
     private readonly ILogger<ScriptScheduleDispatcher> _logger;
 
-    public ScriptScheduleDispatcher(IDataService dataService,
+    public ScriptScheduleDispatcher(IDeviceListingService deviceListingService,
+    IScriptResultService scriptResultService,
+    IScriptScheduleService scriptScheduleService,
         IAgentHubSessionCache serviceSessionCache,
         ICircuitConnection circuitConnection,
         ILogger<ScriptScheduleDispatcher> logger)
     {
-        _dataService = dataService;
+        _deviceListingService = deviceListingService;
+        _scriptResultService = scriptResultService;
+        _scriptScheduleService = scriptScheduleService;
         _serviceSessionCache = serviceSessionCache;
         _circuitConnection = circuitConnection;
         _logger = logger;
@@ -34,7 +40,7 @@ public class ScriptScheduleDispatcher : IScriptScheduleDispatcher
         {
             _logger.LogDebug("Script Schedule Dispatcher started.");
 
-            var schedules = await _dataService.GetScriptSchedulesDue();
+            var schedules = await _scriptScheduleService.GetScriptSchedulesDue();
 
             if (schedules?.Any() != true)
             {
@@ -83,21 +89,21 @@ public class ScriptScheduleDispatcher : IScriptScheduleDispatcher
 
                     if (schedule.RunOnNextConnect)
                     {
-                        scriptRun.Devices = _dataService.GetDevices(deviceIds);
+                        scriptRun.Devices = _deviceListingService.GetDevices(deviceIds);
                     }
                     else
                     {
-                        scriptRun.Devices = _dataService.GetDevices(onlineDevices);
+                        scriptRun.Devices = _deviceListingService.GetDevices(onlineDevices);
                     }
 
-                    await _dataService.AddScriptRun(scriptRun);
+                    await _scriptResultService.AddScriptRun(scriptRun);
 
                     await _circuitConnection.RunScript(onlineDevices, schedule.SavedScriptId, scriptRun.Id, ScriptInputType.ScheduledScript, true);
 
                     _logger.LogDebug("Created script run for schedule {scheduleName}.", schedule.Name);
 
                     schedule.LastRun = Time.Now;
-                    await _dataService.AddOrUpdateScriptSchedule(schedule);
+                    await _scriptScheduleService.AddOrUpdateScriptSchedule(schedule);
 
                 }
                 catch (Exception ex)
@@ -147,7 +153,6 @@ public class ScriptScheduleDispatcher : IScriptScheduleDispatcher
 
         return true;
     }
-
 
     private void CatchUpNextRun(ScriptSchedule schedule, TimeSpan interval)
     {

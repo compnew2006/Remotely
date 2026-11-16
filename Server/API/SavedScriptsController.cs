@@ -9,18 +9,18 @@ namespace Remotely.Server.API;
 [ApiController]
 public class SavedScriptsController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly ISavedScriptService _savedScriptService;
 
-    public SavedScriptsController(IDataService dataService)
+    public SavedScriptsController(ISavedScriptService savedScriptService)
     {
-        _dataService = dataService;
+        _savedScriptService = savedScriptService;
     }
 
     [ServiceFilter(typeof(ExpiringTokenFilter))]
     [HttpGet("{scriptId}")]
     public async Task<ActionResult<SavedScript>> GetScript(Guid scriptId)
     {
-        var result =  await _dataService.GetSavedScript(scriptId);
+        var result =  await _savedScriptService.GetSavedScript(scriptId);
         if (!result.IsSuccess)
         {
             return NotFound();

@@ -9,22 +9,21 @@ namespace Remotely.Server.API;
 [ApiController]
 public class BrandingController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IOrganizationService _organizationService;
     private readonly ILogger<BrandingController> _logger;
 
     public BrandingController(
-        IDataService dataService,
+        IOrganizationService organizationService,
         ILogger<BrandingController> logger)
     {
-        _dataService = dataService;
+        _organizationService = organizationService;
         _logger = logger;
     }
-
 
     [HttpGet("{organizationId}")]
     public async Task<ActionResult<BrandingInfo>> Get(string organizationId)
     {
-        var result = await _dataService.GetBrandingInfo(organizationId);
+        var result = await _organizationService.GetBrandingInfo(organizationId);
         _logger.LogResult(result);
         if (!result.IsSuccess)
         {
@@ -36,7 +35,7 @@ public class BrandingController : ControllerBase
     [HttpGet]
     public async Task<BrandingInfo> GetDefault()
     {
-        var orgResult = await _dataService.GetDefaultOrganization();
+        var orgResult = await _organizationService.GetDefaultOrganization();
         _logger.LogResult(orgResult);
 
         if (!orgResult.IsSuccess)
@@ -44,7 +43,7 @@ public class BrandingController : ControllerBase
             return new();
         }
 
-        var brandingResult = await _dataService.GetBrandingInfo(orgResult.Value.ID);
+        var brandingResult = await _organizationService.GetBrandingInfo(orgResult.Value.ID);
         _logger.LogResult(brandingResult);
 
         if (!orgResult.IsSuccess || 

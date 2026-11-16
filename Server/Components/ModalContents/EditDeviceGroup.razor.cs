@@ -17,11 +17,10 @@ public partial class EditDeviceGroup : AuthComponentBase
     public required RemotelyUser EditUser { get; set; }
 
     [Inject]
-    private IDataService DataService { get; init; } = null!;
+    private IDeviceGroupMembershipService deviceGroupMembershipService { get; init; } = null!;
 
     [Inject]
     private IToastService ToastService { get; init; } = null!;
-
 
     private bool DoesGroupContainUser(DeviceGroup group)
     {
@@ -34,7 +33,7 @@ public partial class EditDeviceGroup : AuthComponentBase
             args.Value is bool boolValue &&
             boolValue)
         {
-            if (!DataService.AddUserToDeviceGroup(EditUser.OrganizationID, group.ID, EditUser.UserName, out var result))
+            if (!deviceGroupMembershipService.AddUserToDeviceGroup(EditUser.OrganizationID, group.ID, EditUser.UserName, out var result))
             {
                 ToastService.ShowToast(result, classString: "bg-warning");
             }
@@ -46,7 +45,7 @@ public partial class EditDeviceGroup : AuthComponentBase
         }
         else
         {
-            var result = await DataService.RemoveUserFromDeviceGroup(EditUser.OrganizationID, group.ID, EditUser.Id);
+            var result = await deviceGroupMembershipService.RemoveUserFromDeviceGroup(EditUser.OrganizationID, group.ID, EditUser.Id);
             if (!result)
             {
                 ToastService.ShowToast("Failed to remove from group.", classString: "bg-warning");

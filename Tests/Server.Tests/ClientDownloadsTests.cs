@@ -25,7 +25,7 @@ public class ClientDownloadsTests
         using var tempRoot = new TempWebRoot();
         tempRoot.CreateFile("Content", "Win-x64", "Remotely_Desktop.exe", "portable-exe");
 
-        var (controller, dataService) = CreateController(tempRoot.Root);
+        var (controller, organizationService, settingsService) = CreateController(tempRoot.Root);
         controller.ControllerContext.HttpContext.Request.Headers.Accept = "text/html,application/xhtml+xml";
 
         var result = await controller.GetDesktop("WindowsDesktop-x64", "org-id");
@@ -33,7 +33,8 @@ public class ClientDownloadsTests
         Assert.IsInstanceOfType(result, typeof(RedirectResult));
         var redirect = (RedirectResult)result!;
         Assert.AreEqual("/Content/Win-x64/Remotely_Desktop.exe", redirect.Url);
-        dataService.VerifyNoOtherCalls();
+        organizationService.VerifyNoOtherCalls();
+        settingsService.VerifyNoOtherCalls();
     }
 
     [TestMethod]
@@ -43,16 +44,20 @@ public class ClientDownloadsTests
         using var tempRoot = new TempWebRoot();
         tempRoot.CreateFile("Content", "Win-x64", "Remotely_Desktop.exe", "portable-exe");
 
-        var (controller, dataService) = CreateController(tempRoot.Root);
+        var (controller, organizationService, settingsService) = CreateController(tempRoot.Root);
         controller.ControllerContext.HttpContext.Request.Headers.Accept = "application/json";
 
         var result = await controller.GetDesktop("WindowsDesktop-x64", "org-id");
 
         Assert.IsInstanceOfType(result, typeof(UnauthorizedResult));
-        dataService.VerifyNoOtherCalls();
+        organizationService.VerifyNoOtherCalls();
+        settingsService.VerifyNoOtherCalls();
     }
 
-    private static (ClientDownloadsController Controller, Mock<IDataService> DataService) CreateController(string webRootPath)
+    private static (
+        ClientDownloadsController Controller,
+        Mock<IOrganizationService> OrganizationService,
+        Mock<ISettingsService> SettingsService) CreateController(string webRootPath)
     {
         var hostEnv = new Mock<IWebHostEnvironment>(MockBehavior.Strict);
         hostEnv
@@ -60,15 +65,20 @@ public class ClientDownloadsTests
             .Returns(webRootPath);
 
         var embeddedServerDataProvider = new Mock<IEmbeddedServerDataProvider>(MockBehavior.Strict);
-        var dataService = new Mock<IDataService>(MockBehavior.Strict);
+        var organizationService = new Mock<IOrganizationService>(MockBehavior.Strict);
+        var settingsService = new Mock<ISettingsService>(MockBehavior.Strict);
         var controllerLogger = new Mock<ILogger<ClientDownloadsController>>();
         var filterLogger = new Mock<ILogger<ApiAuthorizationFilter>>();
-        var apiAuthorizationFilter = new ApiAuthorizationFilter(dataService.Object, filterLogger.Object);
+        var apiAuthorizationFilter = new ApiAuthorizationFilter(
+            new Mock<IApiTokenService>(MockBehavior.Strict).Object,
+            new Mock<IUserService>(MockBehavior.Strict).Object,
+            filterLogger.Object);
 
         var controller = new ClientDownloadsController(
             hostEnv.Object,
             embeddedServerDataProvider.Object,
-            dataService.Object,
+            organizationService.Object,
+            settingsService.Object,
             controllerLogger.Object,
             apiAuthorizationFilter)
         {
@@ -81,7 +91,7 @@ public class ClientDownloadsTests
             }
         };
 
-        return (controller, dataService);
+        return (controller, organizationService, settingsService);
     }
 
     private sealed class TempWebRoot : IDisposable

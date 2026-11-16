@@ -13,16 +13,19 @@ namespace Remotely.Server.API;
 [Route("api/[controller]")]
 public class ScreenshotsController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IDeviceService _deviceService;
+    private readonly IUserService _userService;
     private readonly ILogger<ScreenshotsController> _logger;
     private readonly IScreenshotService _screenshotService;
 
     public ScreenshotsController(
-        IDataService dataService,
+        IDeviceService deviceService,
+        IUserService userService,
         IScreenshotService screenshotService,
         ILogger<ScreenshotsController> logger)
     {
-        _dataService = dataService;
+        _deviceService = deviceService;
+        _userService = userService;
         _screenshotService = screenshotService;
         _logger = logger;
     }
@@ -129,7 +132,7 @@ public class ScreenshotsController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _dataService.UpdateScreenshotSettings(
+        var result = await _deviceService.UpdateScreenshotSettings(
             deviceId,
             directory,
             retentionCount,
@@ -150,7 +153,7 @@ public class ScreenshotsController : ControllerBase
             return null;
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return null;
@@ -168,13 +171,13 @@ public class ScreenshotsController : ControllerBase
                 return false;
             }
 
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
             if (!userResult.IsSuccess)
             {
                 return false;
             }
 
-            return _dataService.DoesUserHaveAccessToDevice(deviceId, userResult.Value);
+            return _userService.DoesUserHaveAccessToDevice(deviceId, userResult.Value);
         }
         catch (Exception ex)
         {

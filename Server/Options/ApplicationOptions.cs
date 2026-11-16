@@ -3,7 +3,22 @@
 public class ApplicationOptions
 {
     public const string SectionKey = "ApplicationOptions";
-    public string DbProvider { get; set; } = "SQLite";
+    public const string DefaultDbProvider = "SQLite";
+
+    public string DbProvider { get; set; } = DefaultDbProvider;
+
+    /// <summary>
+    /// Normalizes a configured provider name to the lower-case form the
+    /// provider switches compare against.  A missing or blank value falls back
+    /// to <see cref="DefaultDbProvider"/>, so reading the raw configuration and
+    /// binding the options produce the same provider.
+    /// </summary>
+    public static string NormalizeDbProvider(string? provider)
+    {
+        return string.IsNullOrWhiteSpace(provider)
+            ? DefaultDbProvider.ToLowerInvariant()
+            : provider.Trim().ToLowerInvariant();
+    }
 
     /// <summary>
     /// When false, the server refuses to start if pending database migrations

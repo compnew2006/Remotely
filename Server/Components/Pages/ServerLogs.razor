@@ -3,7 +3,6 @@
 @attribute [Authorize(Policy = PolicyNames.ServerAdminRequired)]
 @inherits AuthComponentBase
 
-@inject IDataService DataService
 @inject IToastService ToastService
 @inject IJsInterop JsInterop
 @inject ILogsManager LogsManager
@@ -18,8 +17,8 @@
             </div>
             <div class="rm-field-actions">
                 <button class="btn btn-outline-danger" type="button" @onclick="ClearAllLogs">Delete Logs</button>
-                <button class="btn rm-btn-ghost" onclick="window.open('/API/ServerLogs/Download', '_blank')">Download Logs</button>
-                <button class="btn rm-btn-ghost" onclick="window.open('/API/ScriptResults', '_blank')">Download Script History</button>
+                <button class="btn rm-btn-ghost" @onclick="DownloadLogs">Download Logs</button>
+                <button class="btn rm-btn-ghost" @onclick="DownloadScriptHistory">Download Script History</button>
             </div>
         </div>
     </header>
@@ -132,6 +131,16 @@
     }
 
 
+
+    private void DownloadLogs()
+    {
+        JsInterop.OpenWindow("/API/ServerLogs/Download", "_blank");
+    }
+
+    private void DownloadScriptHistory()
+    {
+        JsInterop.OpenWindow("/API/ScriptResults", "_blank");
+    }
 
     private async Task ClearAllLogs()
     {

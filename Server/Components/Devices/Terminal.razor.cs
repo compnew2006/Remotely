@@ -32,7 +32,13 @@ public partial class Terminal : AuthComponentBase, IDisposable
     private ICircuitConnection CircuitConnection { get; init; } = null!;
 
     [Inject]
-    private IDataService DataService { get; init; } = null!;
+    private IDeviceListingService deviceListingService { get; init; } = null!;
+    [Inject]
+    private IDeviceService deviceService { get; init; } = null!;
+    [Inject]
+    private ISavedScriptService savedScriptService { get; init; } = null!;
+    [Inject]
+    private IScriptResultService scriptResultService { get; init; } = null!;
 
     private string InputText
     {
@@ -69,10 +75,10 @@ public partial class Terminal : AuthComponentBase, IDisposable
                 RunOnNextConnect = false,
                 Initiator = User.UserName,
                 InputType = ScriptInputType.OneTimeScript,
-                Devices = DataService.GetDevices(CardStore.SelectedDevices)
+                Devices = deviceListingService.GetDevices(CardStore.SelectedDevices)
             };
 
-            await DataService.AddScriptRun(scriptRun);
+            await scriptResultService.AddScriptRun(scriptRun);
 
             await CircuitConnection.RunScript(CardStore.SelectedDevices, script.Id, scriptRun.Id, ScriptInputType.OneTimeScript, false);
 
@@ -83,7 +89,6 @@ public partial class Terminal : AuthComponentBase, IDisposable
     private ITerminalStore TerminalStore { get; init; } = null!;
     [Inject]
     private IToastService ToastService { get; init; } = null!;
-
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
@@ -135,7 +140,7 @@ public partial class Terminal : AuthComponentBase, IDisposable
             return;
         }
 
-        var deviceResult = await DataService.GetDevice(deviceId);
+        var deviceResult = await deviceService.GetDevice(deviceId);
 
         if (!deviceResult.IsSuccess)
         {
@@ -181,7 +186,6 @@ public partial class Terminal : AuthComponentBase, IDisposable
         {
             _lastCompletionInput = null;
         }
-
 
         if (ev.Key.Equals("ArrowUp", StringComparison.OrdinalIgnoreCase))
         {
@@ -273,7 +277,7 @@ public partial class Terminal : AuthComponentBase, IDisposable
     {
         EnsureUserSet();
 
-        var quickScripts = await DataService.GetQuickScripts(User.Id);
+        var quickScripts = await savedScriptService.GetQuickScripts(User.Id);
         if (quickScripts.Count == 0)
         {
             ToastService.ShowToast("No quick scripts saved.", classString: "bg-warning");
@@ -285,7 +289,6 @@ public partial class Terminal : AuthComponentBase, IDisposable
             ToastService.ShowToast("You must select at least one device.", classString: "bg-warning");
             return;
         }
-
 
         void showModal(RenderTreeBuilder builder)
         {

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Remotely.Server.Auth;
 using Remotely.Server.Services;
 
@@ -14,17 +14,17 @@ namespace Remotely.Server.API;
 [ServiceFilter(typeof(LocalOnlyFilter))]
 public class HealthCheckController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IOrganizationService _organizationService;
 
-    public HealthCheckController(IDataService dataService)
+    public HealthCheckController(IOrganizationService organizationService)
     {
-        _dataService = dataService;
+        _organizationService = organizationService;
     }
 
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-         _ = await _dataService.GetOrganizationCountAsync();
+         _ = await _organizationService.GetOrganizationCountAsync();
         return NoContent();
     }
 }

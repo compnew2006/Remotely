@@ -25,7 +25,13 @@ public partial class ManageOrganization : AuthComponentBase
     private string _selectedDeviceGroupId = string.Empty;
 
     [Inject]
-    private IDataService DataService { get; set; } = null!;
+    private IDeviceGroupService deviceGroupService { get; set; } = null!;
+    [Inject]
+    private IInviteService inviteService { get; set; } = null!;
+    [Inject]
+    private IOrganizationService organizationService { get; set; } = null!;
+    [Inject]
+    private IUserService userService { get; set; } = null!;
 
     [Inject]
     private IEmailSenderEx EmailSender { get; set; } = null!;
@@ -43,7 +49,6 @@ public partial class ManageOrganization : AuthComponentBase
     private IToastService ToastService { get; set; } = null!;
     [Inject]
     private UserManager<RemotelyUser> UserManager { get; set; } = null!;
-
 
     protected override async Task OnInitializedAsync()
     {
@@ -73,7 +78,7 @@ public partial class ManageOrganization : AuthComponentBase
             Name = _newDeviceGroupName
         };
 
-        var result = await DataService.AddDeviceGroup(User.OrganizationID, deviceGroup);
+        var result = await deviceGroupService.AddDeviceGroup(User.OrganizationID, deviceGroup);
         if (!result.IsSuccess)
         {
             ToastService.ShowToast(result.Reason, classString: "bg-danger");
@@ -104,7 +109,7 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        DataService.SetIsDefaultOrganization(_organization.ID, isDefault);
+        organizationService.SetIsDefaultOrganization(_organization.ID, isDefault);
         ToastService.ShowToast("Default organization set.");
     }
 
@@ -123,7 +128,7 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        await DataService.DeleteInvite(User.OrganizationID, invite.ID);
+        await inviteService.DeleteInvite(User.OrganizationID, invite.ID);
         _invites.RemoveAll(x => x.ID == invite.ID);
         ToastService.ShowToast("Invitation deleted.");
     }
@@ -148,7 +153,7 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        await DataService.DeleteDeviceGroup(User.OrganizationID, _selectedDeviceGroupId);
+        await deviceGroupService.DeleteDeviceGroup(User.OrganizationID, _selectedDeviceGroupId);
         _deviceGroups.RemoveAll(x => x.ID == _selectedDeviceGroupId);
         _selectedDeviceGroupId = string.Empty;
     }
@@ -174,7 +179,7 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        await DataService.DeleteUser(User.OrganizationID, user.Id);
+        await userService.DeleteUser(User.OrganizationID, user.Id);
         _orgUsers.RemoveAll(x => x.Id == user.Id);
         ToastService.ShowToast("User deleted.");
     }
@@ -183,7 +188,7 @@ public partial class ManageOrganization : AuthComponentBase
     {
         void editDeviceGroupsModal(RenderTreeBuilder builder)
         {
-            var deviceGroups = DataService.GetDeviceGroupsForOrganization(user.OrganizationID);
+            var deviceGroups = deviceGroupService.GetDeviceGroupsForOrganization(user.OrganizationID);
 
             builder.OpenComponent<EditDeviceGroup>(0);
             builder.AddAttribute(1, EditDeviceGroup.EditUserPropName, user);
@@ -239,7 +244,7 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        DataService.UpdateOrganizationName(_organization.ID, newName);
+        organizationService.UpdateOrganizationName(_organization.ID, newName);
         _organization.OrganizationName = newName;
         ToastService.ShowToast("Organization name changed.");
     }
@@ -248,7 +253,7 @@ public partial class ManageOrganization : AuthComponentBase
     {
         EnsureUserSet();
 
-        var orgResult = await DataService.GetOrganizationByUserName(UserName);
+        var orgResult = await organizationService.GetOrganizationByUserName(UserName);
         if (!orgResult.IsSuccess)
         {
             ToastService.ShowToast2(orgResult.Reason, Enums.ToastType.Warning);
@@ -260,9 +265,9 @@ public partial class ManageOrganization : AuthComponentBase
         _invites.Clear();
         _deviceGroups.Clear();
 
-        _invites.AddRange(DataService.GetAllInviteLinks(User.OrganizationID).OrderBy(x => x.InvitedUser));
-        _deviceGroups.AddRange(DataService.GetDeviceGroups(UserName).OrderBy(x => x.Name));
-        var orgUsers = await DataService.GetAllUsersInOrganization(User.OrganizationID);
+        _invites.AddRange(inviteService.GetAllInviteLinks(User.OrganizationID).OrderBy(x => x.InvitedUser));
+        _deviceGroups.AddRange(deviceGroupService.GetDeviceGroups(UserName).OrderBy(x => x.Name));
+        var orgUsers = await userService.GetAllUsersInOrganization(User.OrganizationID);
         _orgUsers.AddRange(orgUsers.OrderBy(x => x.UserName));
     }
     private async Task ResetPassword(RemotelyUser user)
@@ -295,12 +300,12 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        if (!DataService.DoesUserExist(_inviteEmail))
+        if (!userService.DoesUserExist(_inviteEmail))
         {
-            var result = await DataService.CreateUser(_inviteEmail, _inviteAsAdmin, User.OrganizationID);
+            var result = await userService.CreateUser(_inviteEmail, _inviteAsAdmin, User.OrganizationID);
             if (result.IsSuccess)
             {
-                var userResult = await DataService.GetUserByName(_inviteEmail);
+                var userResult = await userService.GetUserByName(_inviteEmail);
                 if (!userResult.IsSuccess)
                 {
                     ToastService.ShowToast2(userResult.Reason, Enums.ToastType.Warning);
@@ -332,7 +337,7 @@ public partial class ManageOrganization : AuthComponentBase
                 InvitedUser = _inviteEmail,
                 IsAdmin = _inviteAsAdmin
             };
-            var newInvite = await DataService.AddInvite(User.OrganizationID, invite);
+            var newInvite = await inviteService.AddInvite(User.OrganizationID, invite);
 
             if (!newInvite.IsSuccess)
             {
@@ -379,7 +384,7 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
-        await DataService.ChangeUserIsAdmin(User.OrganizationID, orgUser.Id, isAdmin);
+        await userService.ChangeUserIsAdmin(User.OrganizationID, orgUser.Id, isAdmin);
         ToastService.ShowToast("Administrator value set.");
     }
 

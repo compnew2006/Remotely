@@ -9,16 +9,19 @@ namespace Remotely.Server.Auth;
 
 public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFilter
 {
-    private readonly IDataService _dataService;
+    private readonly IApiTokenService _apiTokenService;
+    private readonly IUserService _userService;
     private readonly IExpiringTokenService _expiringTokenService;
     private readonly ILogger<ExpiringTokenFilter> _logger;
 
     public ExpiringTokenFilter(
         IExpiringTokenService expiringTokenService,
-        IDataService dataService,
+        IApiTokenService apiTokenService,
+        IUserService userService,
         ILogger<ExpiringTokenFilter> logger)
     {
-        _dataService = dataService;
+        _apiTokenService = apiTokenService;
+        _userService = userService;
         _expiringTokenService = expiringTokenService;
         _logger = logger;
     }
@@ -45,7 +48,7 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
 
         if (http.User.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{http.User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{http.User.Identity.Name}");
             if (!userResult.IsSuccess)
             {
                 http.Response.StatusCode = (int)HttpStatusCode.Forbidden;
@@ -70,7 +73,7 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
             var keyId = headerComponents[0].Trim();
             var secret = headerComponents[1].Trim();
 
-            var isValid = await _dataService.ValidateApiKey(
+            var isValid = await _apiTokenService.ValidateApiKey(
                        keyId,
                        secret,
                        http.Request.Path,
@@ -78,7 +81,7 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
 
             if (isValid)
             {
-                var keyResult = await _dataService.GetApiKey(keyId);
+                var keyResult = await _apiTokenService.GetApiKey(keyId);
 
                 if (keyResult.IsSuccess)
                 {

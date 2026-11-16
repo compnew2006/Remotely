@@ -63,8 +63,8 @@ public class DataCleanupService : BackgroundService, IDisposable
     private async Task RemoveExpiredDbRecords()
     {
         using var scope = _scopeFactory.CreateScope();
-        var dataService = scope.ServiceProvider.GetRequiredService<IDataService>();
-        await dataService.CleanupOldRecords();
+        var maintenanceService = scope.ServiceProvider.GetRequiredService<IMaintenanceService>();
+        await maintenanceService.CleanupOldRecords();
     }
 
     private async Task RemoveExpiredMedia()
@@ -92,8 +92,8 @@ public class DataCleanupService : BackgroundService, IDisposable
     private async Task RemoveExpiredRecordings()
     {
         using var scope = _scopeFactory.CreateScope();
-        var dataService = scope.ServiceProvider.GetRequiredService<IDataService>();
-        var settings = await dataService.GetSettings();
+        var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+        var settings = await settingsService.GetSettings();
 
         if (!Directory.Exists(SessionRecordingSink.RecordingsDirectory))
         {

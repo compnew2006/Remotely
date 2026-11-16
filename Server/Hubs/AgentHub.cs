@@ -15,7 +15,10 @@ namespace Remotely.Server.Hubs;
 
 public class AgentHub : Hub<IAgentHubClient>
 {
-    private readonly IDataService _dataService;
+    private readonly IDeviceService _deviceService;
+    private readonly IScriptResultService _scriptResultService;
+    private readonly ISettingsService _settingsService;
+    private readonly IUserService _userService;
     private readonly ICircuitManager _circuitManager;
     private readonly IExpiringTokenService _expiringTokenService;
     private readonly ILogger<AgentHub> _logger;
@@ -25,9 +28,13 @@ public class AgentHub : Hub<IAgentHubClient>
     private readonly IHubContext<ViewerHub> _viewerHubContext;
     private readonly IKeyboardCaptureManager _keyboardCaptureManager;
     private readonly IUpdateSigningService _updateSigningService;
+    private readonly IApiScriptResultCache _apiScriptResultCache;
 
     public AgentHub(
-        IDataService dataService,
+        IDeviceService deviceService,
+        IScriptResultService scriptResultService,
+        ISettingsService settingsService,
+        IUserService userService,
         IAgentHubSessionCache serviceSessionCache,
         IHubContext<ViewerHub> viewerHubContext,
         ICircuitManager circuitManager,
@@ -35,10 +42,14 @@ public class AgentHub : Hub<IAgentHubClient>
         IRemoteControlSessionCache remoteControlSessionCache,
         IKeyboardCaptureManager keyboardCaptureManager,
         IUpdateSigningService updateSigningService,
+        IApiScriptResultCache apiScriptResultCache,
         IMessenger messenger,
         ILogger<AgentHub> logger)
     {
-        _dataService = dataService;
+        _deviceService = deviceService;
+        _scriptResultService = scriptResultService;
+        _settingsService = settingsService;
+        _userService = userService;
         _serviceSessionCache = serviceSessionCache;
         _viewerHubContext = viewerHubContext;
         _circuitManager = circuitManager;
@@ -46,12 +57,10 @@ public class AgentHub : Hub<IAgentHubClient>
         _remoteControlSessions = remoteControlSessionCache;
         _keyboardCaptureManager = keyboardCaptureManager;
         _updateSigningService = updateSigningService;
+        _apiScriptResultCache = apiScriptResultCache;
         _messenger = messenger;
         _logger = logger;
     }
-
-    // TODO: Replace with new invoke capability in .NET 7 in ScriptingController.
-    public static IMemoryCache ApiScriptResults { get; } = new MemoryCache(new MemoryCacheOptions());
 
     private Device? Device
     {
@@ -156,7 +165,7 @@ public class AgentHub : Hub<IAgentHubClient>
         }
 
         var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes));
-        var scriptRuns = await _dataService.GetPendingScriptRuns(Device.ID);
+        var scriptRuns = await _scriptResultService.GetPendingScriptRuns(Device.ID);
 
         foreach (var run in scriptRuns)
         {
@@ -196,7 +205,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
             using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(device.ID);
 
-            var result = await _dataService.AddOrUpdateDevice(device);
+            var result = await _deviceService.AddOrUpdateDevice(device);
             if (!result.IsSuccess)
             {
                 // Organization wasn't found.
@@ -209,7 +218,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
             var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
 
-            var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, Device.ID);
+            var filteredUserIDs = _userService.FilterUsersByDevicePermission(userIDs, Device.ID);
 
             var connections = _circuitManager.Connections
                 .Where(x => x.User.OrganizationID == Device.OrganizationID &&
@@ -270,7 +279,7 @@ public class AgentHub : Hub<IAgentHubClient>
                 return;
             }
 
-            var result = await _dataService.AddOrUpdateDevice(device);
+            var result = await _deviceService.AddOrUpdateDevice(device);
 
             if (!result.IsSuccess)
             {
@@ -283,7 +292,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
             var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
 
-            var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, Device.ID);
+            var filteredUserIDs = _userService.FilterUsersByDevicePermission(userIDs, Device.ID);
 
             var connections = _circuitManager.Connections
                 .Where(x => x.User.OrganizationID == Device.OrganizationID &&
@@ -319,7 +328,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public async Task<string> GetServerUrl()
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         return settings.ServerUrl;
     }
 
@@ -348,13 +357,13 @@ public class AgentHub : Hub<IAgentHubClient>
 
                 if (_serviceSessionCache.TryRemoveByConnectionId(Context.ConnectionId, out var disconnectedDevice))
                 {
-                    _dataService.DeviceDisconnected(disconnectedDevice.ID);
+                    _deviceService.DeviceDisconnected(disconnectedDevice.ID);
 
                     disconnectedDevice.IsOnline = false;
 
                     var userIDs = _circuitManager.Connections.Select(x => x.User.Id);
 
-                    var filteredUserIDs = _dataService.FilterUsersByDevicePermission(userIDs, disconnectedDevice.ID);
+                    var filteredUserIDs = _userService.FilterUsersByDevicePermission(userIDs, disconnectedDevice.ID);
 
                     var connections = _circuitManager.Connections
                         .Where(x => x.User.OrganizationID == disconnectedDevice.OrganizationID &&
@@ -388,7 +397,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public async Task ScriptResult(string scriptResultId)
     {
-        var result = await _dataService.GetScriptResult(scriptResultId);
+        var result = await _scriptResultService.GetScriptResult(scriptResultId);
         if (!result.IsSuccess)
         {
             return;
@@ -400,7 +409,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public void ScriptResultViaApi(string commandID, string requestID)
     {
-        ApiScriptResults.Set(requestID, commandID, DateTimeOffset.Now.AddHours(1));
+        _apiScriptResultCache.Set(requestID, commandID);
     }
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)
@@ -421,7 +430,7 @@ public class AgentHub : Hub<IAgentHubClient>
             return;
         }
         Device.ServerVerificationToken = verificationToken;
-        _dataService.SetServerVerificationToken(Device.ID, verificationToken);
+        _deviceService.SetServerVerificationToken(Device.ID, verificationToken);
     }
 
     public Task TransferCompleted(string transferId, string requesterId)
@@ -432,7 +441,7 @@ public class AgentHub : Hub<IAgentHubClient>
 
     private async Task<bool> CheckForDeviceBan(params string[] deviceIdNameOrIPs)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         foreach (var device in deviceIdNameOrIPs)
         {
             if (string.IsNullOrWhiteSpace(device))

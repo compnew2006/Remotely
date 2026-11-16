@@ -36,7 +36,13 @@ public partial class ScriptSchedules : AuthComponentBase
     private ScriptsPage ParentPage { get; set; } = null!;
 
     [Inject]
-    private IDataService DataService { get; set; } = null!;
+    private IDeviceGroupService deviceGroupService { get; set; } = null!;
+    [Inject]
+    private IDeviceListingService deviceListingService { get; set; } = null!;
+    [Inject]
+    private ISavedScriptService savedScriptService { get; set; } = null!;
+    [Inject]
+    private IScriptScheduleService scriptScheduleService { get; set; } = null!;
 
     [Inject]
 
@@ -76,8 +82,8 @@ public partial class ScriptSchedules : AuthComponentBase
 
         EnsureUserSet();
 
-        _deviceGroups = DataService.GetDeviceGroups(UserName);
-        _devices = DataService
+        _deviceGroups = deviceGroupService.GetDeviceGroups(UserName);
+        _devices = deviceListingService
             .GetDevicesForUser(UserName)
             .OrderBy(x => x.DeviceName)
             .ToArray();
@@ -113,7 +119,7 @@ public partial class ScriptSchedules : AuthComponentBase
             var result = await JsInterop.Confirm($"Are you sure you want to delete the schedule {_selectedSchedule.Name}?");
             if (result)
             {
-                await DataService.DeleteScriptSchedule(_selectedSchedule.Id);
+                await scriptScheduleService.DeleteScriptSchedule(_selectedSchedule.Id);
                 ToastService.ShowToast("Schedule deleted.");
                 _alertMessage = "Schedule deleted.";
                 CreateNew();
@@ -201,7 +207,7 @@ public partial class ScriptSchedules : AuthComponentBase
         _selectedSchedule.Devices = _devices.Where(x => _selectedDevices.Contains(x.ID)).ToList();
         _selectedSchedule.DeviceGroups = _deviceGroups.Where(x => _selectedDeviceGroups.Contains(x.ID)).ToList();
 
-        await DataService.AddOrUpdateScriptSchedule(_selectedSchedule);
+        await scriptScheduleService.AddOrUpdateScriptSchedule(_selectedSchedule);
         CreateNew();
         await RefreshSchedules();
         ToastService.ShowToast("Schedule saved.");
@@ -213,7 +219,7 @@ public partial class ScriptSchedules : AuthComponentBase
         _schedules.Clear();
         if (User is not null)
         {
-            _schedules.AddRange(await DataService.GetScriptSchedules(User.OrganizationID));
+            _schedules.AddRange(await scriptScheduleService.GetScriptSchedules(User.OrganizationID));
         }
     }
 
@@ -241,7 +247,7 @@ public partial class ScriptSchedules : AuthComponentBase
             _selectedDeviceGroups.AddRange(schedule.DeviceGroups.Select(x => x.ID));
         }
 
-        var result = await DataService.GetSavedScript(_selectedSchedule.SavedScriptId);
+        var result = await savedScriptService.GetSavedScript(_selectedSchedule.SavedScriptId);
         if (result.IsSuccess)
         {
             _selectedScript = result.Value;
@@ -254,7 +260,7 @@ public partial class ScriptSchedules : AuthComponentBase
 
         if (viewModel.Script is not null)
         {
-            var result = await DataService.GetSavedScript(User.Id, viewModel.Script.Id);
+            var result = await savedScriptService.GetSavedScript(User.Id, viewModel.Script.Id);
             if (result.IsSuccess)
             {
                 _selectedScript = result.Value;

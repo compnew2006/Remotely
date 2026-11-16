@@ -47,8 +47,17 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
     private ICircuitConnection CircuitConnection { get; set; } = null!;
 
     [Inject]
-    private IDataService DataService { get; set; } = null!;
-
+    private IDeviceGroupService deviceGroupService { get; set; } = null!;
+    [Inject]
+    private IDeviceService deviceService { get; set; } = null!;
+    [Inject]
+    private IScriptResultService scriptResultService { get; set; } = null!;
+    [Inject]
+    private ISettingsService settingsService { get; set; } = null!;
+    [Inject]
+    private ISharedFileService sharedFileService { get; set; } = null!;
+    [Inject]
+    private IUserService userService { get; set; } = null!;
 
     [Inject]
     private IJsInterop JsInterop { get; set; } = null!;
@@ -112,11 +121,11 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
 
         if (!string.IsNullOrWhiteSpace(DeviceId))
         {
-            var deviceResult = await DataService.GetDevice(DeviceId);
+            var deviceResult = await deviceService.GetDevice(DeviceId);
             if (deviceResult.IsSuccess)
             {
                 _device = deviceResult.Value;
-                _userHasAccess = DataService.DoesUserHaveAccessToDevice(_device.ID, User);
+                _userHasAccess = userService.DoesUserHaveAccessToDevice(_device.ID, User);
             }
             else
             {
@@ -124,7 +133,7 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
             }
         }
 
-        _deviceGroups = DataService.GetDeviceGroups(UserName);
+        _deviceGroups = deviceGroupService.GetDeviceGroups(UserName);
         await Register<ReceiveLogsMessage, string>(
             CircuitConnection.ConnectionId,
             HandleReceiveLogsMessage);
@@ -220,7 +229,7 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
     {
         // Loading the settings on every restart keeps the interval in sync
         // with the server configuration dialog.
-        var settings = await DataService.GetSettings();
+        var settings = await settingsService.GetSettings();
 
         if (!settings.EnableScreenshotPreviews)
         {
@@ -317,7 +326,7 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
 
         if (User.IsAdministrator)
         {
-            var results = DataService
+            var results = scriptResultService
                 .GetAllScriptResults(User.OrganizationID, _device.ID)
                 .OrderByDescending(x => x.TimeStamp);
 
@@ -328,7 +337,7 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
         }
         else
         {
-            var results = DataService
+            var results = scriptResultService
                 .GetAllCommandResultsForUser(User.OrganizationID, UserName, _device.ID)
                 .OrderByDescending(x => x.TimeStamp);
 
@@ -367,7 +376,7 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
             return Task.CompletedTask;
         }
 
-        DataService.UpdateDevice(
+        deviceService.UpdateDevice(
             _device.ID,
             _device.Tags,
             _device.Alias,
@@ -449,7 +458,7 @@ public partial class DeviceDetails : AuthComponentBase, IDisposable
                 return;
             }
 
-            var fileId = await DataService.AddSharedFile(args.File, User.OrganizationID, OnFileInputProgress);
+            var fileId = await sharedFileService.AddSharedFile(args.File, User.OrganizationID, OnFileInputProgress);
             var transferId = Guid.NewGuid().ToString();
             var result = await CircuitConnection.TransferFileFromBrowserToAgent(_device.ID, transferId, [fileId]);
 

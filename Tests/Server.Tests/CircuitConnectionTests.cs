@@ -19,7 +19,12 @@ public class CircuitConnectionTests
 {
 #nullable disable
     private TestData _testData;
-    private IDataService _dataService;
+    private IDeviceGroupMembershipService _deviceGroupMembershipService = null!;
+    private IDeviceGroupService _deviceGroupService = null!;
+    private IDeviceService _deviceService = null!;
+    private IOrganizationService _organizationService = null!;
+    private ISettingsService _settingsService = null!;
+    private IUserService _userService = null!;
     private Mock<IAuthService> _authService;
     private Mock<ISelectedCardsStore> _clientAppState;
     private HubContextFixture<AgentHub, IAgentHubClient> _agentHubContextFixture;
@@ -46,7 +51,12 @@ public class CircuitConnectionTests
         _testData = new TestData();
         await _testData.Init();
 
-        _dataService = IoCActivator.ServiceProvider.GetRequiredService<IDataService>();
+        _deviceGroupMembershipService = IoCActivator.ServiceProvider.GetRequiredService<IDeviceGroupMembershipService>();
+        _deviceGroupService = IoCActivator.ServiceProvider.GetRequiredService<IDeviceGroupService>();
+        _deviceService = IoCActivator.ServiceProvider.GetRequiredService<IDeviceService>();
+        _organizationService = IoCActivator.ServiceProvider.GetRequiredService<IOrganizationService>();
+        _settingsService = IoCActivator.ServiceProvider.GetRequiredService<ISettingsService>();
+        _userService = IoCActivator.ServiceProvider.GetRequiredService<IUserService>();
         _authService = new Mock<IAuthService>();
         _clientAppState = new Mock<ISelectedCardsStore>();
         _agentHubContextFixture = new HubContextFixture<AgentHub, IAgentHubClient>();
@@ -61,7 +71,10 @@ public class CircuitConnectionTests
 
         _circuitConnection = new CircuitConnection(
             _authService.Object,
-            _dataService,
+            _deviceService,
+            _organizationService,
+            _settingsService,
+            _userService,
             _clientAppState.Object,
             _agentHubContextFixture.HubContextMock.Object,
             _desktopHubContextFixture.HubContextMock.Object,
@@ -97,18 +110,18 @@ public class CircuitConnectionTests
         _testData.Org2Device1.PublicIP = "142.251.33.110";
 
 
-        var updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
+        var updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
 
-        var addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
+        var addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
         var wakeResult = await _circuitConnection.WakeDevice(_testData.Org1Device1);
@@ -134,20 +147,20 @@ public class CircuitConnectionTests
         _testData.Org2Device1.PublicIP = "142.251.33.110";
 
         // Offline device in the same group as user.
-        var addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
+        var addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
-        var addToGroupResult = _dataService.AddUserToDeviceGroup(
+        var addToGroupResult = _deviceGroupMembershipService.AddUserToDeviceGroup(
             _testData.Org1Id,
             _testData.Org1Group1.ID,
             $"{_testData.Org1User1.UserName}",
             out _);
 
-        var updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
+        var updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
 
         _agentSessionCache
@@ -199,23 +212,23 @@ public class CircuitConnectionTests
         _testData.Org1Device1.PublicIP = "142.251.33.110";
         _testData.Org1Device1.MacAddresses = new[] { macAddress };
 
-        var addToGroupResult = _dataService.AddUserToDeviceGroup(
+        var addToGroupResult = _deviceGroupMembershipService.AddUserToDeviceGroup(
             _testData.Org1Id,
             _testData.Org1Group1.ID,
             $"{_testData.Org1User1.UserName}",
             out _);
 
-        var updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
+        var updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
 
         // Offline device.
-        var addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
+        var addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
         // Online device in the same group and org.  Should relay wake command.
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
         // Online device in a different org.  Should not receive wake command.
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
 
@@ -274,30 +287,30 @@ public class CircuitConnectionTests
         // Device in another org that shouldn't receive the command.
         _testData.Org2Device1.DeviceGroupID = _testData.Org2Group1.ID;
 
-        var addToGroupResult = _dataService.AddUserToDeviceGroup(
+        var addToGroupResult = _deviceGroupMembershipService.AddUserToDeviceGroup(
             _testData.Org1Id,
             _testData.Org1Group1.ID,
             $"{_testData.Org1User1.UserName}",
             out _);
 
-        var updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
+        var updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
 
 
         // Offline device.
-        var addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
+        var addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
         // Online device in a different group.  Should not recieve wake command.
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group2.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group2.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
         // Online device in a different org.  Should not recieve wake command.
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
         _agentSessionCache
@@ -339,20 +352,20 @@ public class CircuitConnectionTests
         _testData.Org2Device1.PublicIP = "142.251.33.110";
 
         // Offline device in the same group as user.
-        var addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
+        var addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
-        var addToGroupResult = _dataService.AddUserToDeviceGroup(
+        var addToGroupResult = _deviceGroupMembershipService.AddUserToDeviceGroup(
             _testData.Org1Id,
             _testData.Org1Group1.ID,
             $"{_testData.Org1User1.UserName}",
             out _);
 
-        var updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
+        var updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
 
         _agentSessionCache
@@ -409,27 +422,27 @@ public class CircuitConnectionTests
         // Device in another org that shouldn't receive the command.
         _testData.Org2Device1.DeviceGroupID = _testData.Org2Group1.ID;
 
-        var addToGroupResult = _dataService.AddUserToDeviceGroup(
+        var addToGroupResult = _deviceGroupMembershipService.AddUserToDeviceGroup(
             _testData.Org1Id,
             _testData.Org1Group1.ID,
             $"{_testData.Org1User1.UserName}",
             out _);
 
-        var updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
+        var updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org1Device2.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
-        updateResult = await _dataService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
+        updateResult = await _deviceService.AddOrUpdateDevice(_testData.Org2Device1.ToDto());
         Assert.IsTrue(updateResult.IsSuccess);
 
         // Offline device.
-        var addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
+        var addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device1.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
         // Online device in the same group and org.  Should relay wake command.
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org1Device2.ID, _testData.Org1Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
         // Online device in a different org.  Should not receive wake command.
-        addGroupResult = await _dataService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
+        addGroupResult = await _deviceGroupService.AddDeviceToGroup(_testData.Org2Device1.ID, _testData.Org2Group1.ID);
         Assert.IsTrue(addGroupResult.IsSuccess);
 
         _agentSessionCache

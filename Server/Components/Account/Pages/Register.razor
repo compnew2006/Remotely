@@ -15,7 +15,8 @@
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
-@inject IDataService DataService
+@inject IOrganizationService organizationService
+@inject ISettingsService settingsService
 @inject IWebHostEnvironment HostEnv
 
 <PageTitle>Register</PageTitle>
@@ -129,7 +130,7 @@ else
 
     private RemotelyUser CreateUser()
     {
-        var organizationCount = DataService.GetOrganizationCount();
+        var organizationCount = organizationService.GetOrganizationCount();
         var user = new RemotelyUser
             {
                 UserName = Input.Email,
@@ -164,8 +165,8 @@ else
 
     private async Task<bool> IsRegistrationEnabled()
     {
-        var organizationCount = DataService.GetOrganizationCount();
-        var settings = await DataService.GetSettings();
+        var organizationCount = organizationService.GetOrganizationCount();
+        var settings = await settingsService.GetSettings();
         return settings.MaxOrganizationCount < 0 || organizationCount < settings.MaxOrganizationCount;
     }
 

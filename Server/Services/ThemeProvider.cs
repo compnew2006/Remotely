@@ -10,17 +10,17 @@ public interface IThemeProvider
 public class ThemeProvider : IThemeProvider
 {
     private readonly IAuthService _authService;
-    private readonly IDataService _dataService;
+    private readonly ISettingsService _settingsService;
 
-    public ThemeProvider(IAuthService authService, IDataService dataService)
+    public ThemeProvider(IAuthService authService, ISettingsService settingsService)
     {
         _authService = authService;
-        _dataService = dataService;
+        _settingsService = settingsService;
     }
 
     public async Task<Theme> GetEffectiveTheme()
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         if (await _authService.IsAuthenticated())
         {
             var userResult = await _authService.GetUser();

@@ -7,11 +7,11 @@ namespace Remotely.Server.Auth;
 
 public class ServerAdminRequirementHandler : AuthorizationHandler<ServerAdminRequirement>
 {
-    private readonly IDataService _dataService;
+    private readonly IUserService _userService;
 
-    public ServerAdminRequirementHandler(IDataService dataService)
+    public ServerAdminRequirementHandler(IUserService userService)
     {
-        _dataService = dataService;
+        _userService = userService;
     }
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ServerAdminRequirement requirement)
@@ -23,7 +23,7 @@ public class ServerAdminRequirementHandler : AuthorizationHandler<ServerAdminReq
             return;
         }
 
-        var userResult = await _dataService.GetUserByName(context.User.Identity.Name);
+        var userResult = await _userService.GetUserByName(context.User.Identity.Name);
 
         if (!userResult.IsSuccess ||
             !userResult.Value.IsServerAdmin)

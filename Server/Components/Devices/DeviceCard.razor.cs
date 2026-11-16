@@ -39,7 +39,6 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
     [CascadingParameter]
     public DevicesFrame ParentFrame { get; init; } = null!;
 
-
     [Inject]
     public required ISelectedCardsStore SelectedCards { get; init; }
 
@@ -50,7 +49,15 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
     public required ICircuitConnection CircuitConnection { get; init; }
 
     [Inject]
-    public required IDataService DataService { get; init; }
+    public required IDeviceGroupService deviceGroupService { get; init; }
+    [Inject]
+    public required IDeviceService deviceService { get; init; }
+    [Inject]
+    public required ISettingsService settingsService { get; init; }
+    [Inject]
+    public required ISharedFileService sharedFileService { get; init; }
+    [Inject]
+    public required IUserService userService { get; init; }
 
     [Inject]
     public required IChatSessionStore ChatCache { get; init; }
@@ -110,7 +117,7 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
         EnsureUserSet();
         _theme = await ThemeProvider.GetEffectiveTheme();
         _currentVersion = UpgradeService.GetCurrentVersion();
-        _deviceGroups = DataService.GetDeviceGroups(UserName);
+        _deviceGroups = deviceGroupService.GetDeviceGroups(UserName);
 
         await Register<DeviceCardStateChangedMessage, string>(
             CircuitConnection.ConnectionId,
@@ -199,7 +206,7 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
     {
         // Loading the settings on every restart keeps the interval in sync
         // with the server configuration dialog.
-        var settings = await DataService.GetSettings();
+        var settings = await settingsService.GetSettings();
 
         if (!settings.EnableScreenshotPreviews)
         {
@@ -335,7 +342,6 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
         await CircuitConnection.TriggerHeartbeat(Device.ID);
     }
 
-
     private string GetCardStateClass()
     {
         return $"{_state}".ToLower();
@@ -403,13 +409,13 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
     private async Task HandleValidSubmit()
     {
         EnsureUserSet();
-        if (!DataService.DoesUserHaveAccessToDevice(Device.ID, User))
+        if (!userService.DoesUserHaveAccessToDevice(Device.ID, User))
         {
             ToastService.ShowToast("Unauthorized.", classString: "bg-warning");
             return;
         }
        
-        await DataService.UpdateDevice(Device.ID,
+        await deviceService.UpdateDevice(Device.ID,
               Device.Tags,
               Device.Alias,
               Device.DeviceGroupID,
@@ -435,7 +441,7 @@ public partial class DeviceCard : AuthComponentBase, IDisposable
                 return;
             }
             
-            var fileId = await DataService.AddSharedFile(args.File, User.OrganizationID, OnFileInputProgress);
+            var fileId = await sharedFileService.AddSharedFile(args.File, User.OrganizationID, OnFileInputProgress);
             var transferId = Guid.NewGuid().ToString();
             var result = await CircuitConnection.TransferFileFromBrowserToAgent(Device.ID, transferId, [fileId]);
 

@@ -7,15 +7,16 @@ namespace Remotely.Server.Auth;
 
 public class TwoFactorRequiredHandler(
     IHttpContextAccessor _contextAccessor,
-    IDataService _dataService) : AuthorizationHandler<TwoFactorRequiredRequirement>
+    ISettingsService _settingsService,
+    IUserService _userService) : AuthorizationHandler<TwoFactorRequiredRequirement>
 {
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, TwoFactorRequiredRequirement requirement)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         if (context.User?.Identity is { } identity &&
             IsTwoFactorRequired(identity, settings))
         {
-            var userResult = await _dataService.GetUserByName(identity.Name!);
+            var userResult = await _userService.GetUserByName(identity.Name!);
 
             if (!userResult.IsSuccess ||
                 !userResult.Value.TwoFactorEnabled)

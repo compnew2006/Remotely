@@ -18,18 +18,30 @@ namespace Remotely.Server.API;
 [ApiController]
 public class OrganizationManagementController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IDeviceGroupMembershipService _deviceGroupMembershipService;
+    private readonly IDeviceGroupService _deviceGroupService;
+    private readonly IInviteService _inviteService;
+    private readonly IOrganizationService _organizationService;
+    private readonly IUserService _userService;
     private readonly IEmailSenderEx _emailSender;
     private readonly ILogger<OrganizationManagementController> _logger;
     private readonly UserManager<RemotelyUser> _userManager;
 
     public OrganizationManagementController(
         UserManager<RemotelyUser> userManager,
-        IDataService dataService,
+        IDeviceGroupMembershipService deviceGroupMembershipService,
+        IDeviceGroupService deviceGroupService,
+        IInviteService inviteService,
+        IOrganizationService organizationService,
+        IUserService userService,
         IEmailSenderEx emailSender,
         ILogger<OrganizationManagementController> logger)
     {
-        _dataService = dataService;
+        _deviceGroupMembershipService = deviceGroupMembershipService;
+        _deviceGroupService = deviceGroupService;
+        _inviteService = inviteService;
+        _organizationService = organizationService;
+        _userService = userService;
         _userManager = userManager;
         _emailSender = emailSender;
         _logger = logger;
@@ -46,14 +58,14 @@ public class OrganizationManagementController : ControllerBase
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
             if (userResult.IsSuccess && userResult.Value.Id == userId)
             {
                 return BadRequest("You can't remove administrator rights from yourself.");
             }
         }
 
-        await _dataService.ChangeUserIsAdmin(orgId, userId, isAdmin);
+        await _userService.ChangeUserIsAdmin(orgId, userId, isAdmin);
         return NoContent();
     }
 
@@ -66,7 +78,7 @@ public class OrganizationManagementController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _dataService.DeleteInvite(orgId, inviteID);
+        var result = await _inviteService.DeleteInvite(orgId, inviteID);
         _logger.LogResult(result);
 
         if (!result.IsSuccess)
@@ -88,15 +100,14 @@ public class OrganizationManagementController : ControllerBase
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
             if (userResult.IsSuccess && userResult.Value.Id == userId)
             {
                 return BadRequest("You can't delete yourself here.  You must go to the Personal Data page to delete your own account.");
             }
         }
 
-
-        var result = await _dataService.DeleteUser(orgId, userId);
+        var result = await _userService.DeleteUser(orgId, userId);
         _logger.LogResult(result);
         if (!result.IsSuccess)
         {
@@ -115,7 +126,7 @@ public class OrganizationManagementController : ControllerBase
             return Unauthorized();
         }
 
-        return Ok(_dataService.GetDeviceGroupsForOrganization(orgId));
+        return Ok(_deviceGroupService.GetDeviceGroupsForOrganization(orgId));
     }
 
     [HttpDelete("DeviceGroup")]
@@ -127,7 +138,7 @@ public class OrganizationManagementController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _dataService.DeleteDeviceGroup(orgId, deviceGroupId.Trim());
+        var result = await _deviceGroupService.DeleteDeviceGroup(orgId, deviceGroupId.Trim());
         _logger.LogResult(result);
         if (!result.IsSuccess)
         {
@@ -150,7 +161,7 @@ public class OrganizationManagementController : ControllerBase
             return BadRequest();
         }
 
-        var result = await _dataService.AddDeviceGroup(orgId, deviceGroup);
+        var result = await _deviceGroupService.AddDeviceGroup(orgId, deviceGroup);
         if (!result.IsSuccess)
         {
             return BadRequest(result.Reason);
@@ -172,7 +183,7 @@ public class OrganizationManagementController : ControllerBase
             return BadRequest();
         }
 
-        if (!await _dataService.RemoveUserFromDeviceGroup(orgId, groupID, userID))
+        if (!await _deviceGroupMembershipService.RemoveUserFromDeviceGroup(orgId, groupID, userID))
         {
             return BadRequest("Failed to remove user from group.");
         }
@@ -193,7 +204,7 @@ public class OrganizationManagementController : ControllerBase
             return BadRequest();
         }
 
-        var result = _dataService.AddUserToDeviceGroup(orgId, groupID, userID, out var resultMessage);
+        var result = _deviceGroupMembershipService.AddUserToDeviceGroup(orgId, groupID, userID, out var resultMessage);
         if (!result)
         {
             return BadRequest(resultMessage);
@@ -249,7 +260,7 @@ public class OrganizationManagementController : ControllerBase
             return BadRequest();
         }
 
-        var result = await _dataService.UpdateOrganizationName(orgId, organizationName.Trim());
+        var result = await _organizationService.UpdateOrganizationName(orgId, organizationName.Trim());
         _logger.LogResult(result);
         if (!result.IsSuccess)
         {
@@ -267,7 +278,7 @@ public class OrganizationManagementController : ControllerBase
             return Unauthorized();
         }
 
-        await _dataService.SetIsDefaultOrganization(orgId, isDefault);
+        await _organizationService.SetIsDefaultOrganization(orgId, isDefault);
         return NoContent();
     }
 
@@ -285,10 +296,9 @@ public class OrganizationManagementController : ControllerBase
             return BadRequest();
         }
 
-
-        if (!_dataService.DoesUserExist(invite.InvitedUser))
+        if (!_userService.DoesUserExist(invite.InvitedUser))
         {
-            var result = await _dataService.CreateUser(invite.InvitedUser, invite.IsAdmin, orgId);
+            var result = await _userService.CreateUser(invite.InvitedUser, invite.IsAdmin, orgId);
             if (!result.IsSuccess)
             {
                 return BadRequest("There was an issue creating the new account.");
@@ -307,7 +317,7 @@ public class OrganizationManagementController : ControllerBase
         }
         else
         {
-            var newInvite = await _dataService.AddInvite(orgId, invite);
+            var newInvite = await _inviteService.AddInvite(orgId, invite);
 
             if (!newInvite.IsSuccess)
             {

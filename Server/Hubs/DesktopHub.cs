@@ -18,7 +18,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
     private readonly ICameraService _cameraService;
     private readonly IAudioService _audioService;
     private readonly IKeyboardLogService _keyboardLogService;
-    private readonly IDataService _dataService;
+    private readonly IDeviceService _deviceService;
     private readonly ILogger<DesktopHub> _logger;
     private readonly IMessenger _messenger;
     private readonly IRemoteControlSessionCache _sessionCache;
@@ -37,7 +37,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         IAudioService audioService,
         ICameraDevicesStore cameraDevicesStore,
         IKeyboardLogService keyboardLogService,
-        IDataService dataService,
+        IDeviceService deviceService,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IHubContext<ViewerHub, IViewerHubClient> viewerHub,
         IMessenger messenger,
@@ -51,7 +51,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         _audioService = audioService;
         _cameraDevicesStore = cameraDevicesStore;
         _keyboardLogService = keyboardLogService;
-        _dataService = dataService;
+        _deviceService = deviceService;
         _viewerHub = viewerHub;
         _agentHub = agentHub;
         _messenger = messenger;
@@ -441,7 +441,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
         try
         {
-            var deviceResult = await _dataService.GetDevice(deviceId);
+            var deviceResult = await _deviceService.GetDevice(deviceId);
             return deviceResult.IsSuccess && deviceResult.Value.KeyboardShowPasswords;
         }
         catch (Exception ex)
@@ -463,7 +463,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
         try
         {
-            var deviceResult = await _dataService.GetDevice(deviceId);
+            var deviceResult = await _deviceService.GetDevice(deviceId);
             return deviceResult.IsSuccess && deviceResult.Value.KeyboardEnabled;
         }
         catch (Exception ex)
@@ -533,7 +533,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
         SessionInfo.LastActivity = DateTimeOffset.Now;
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return;
@@ -637,7 +637,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         {
             // The first chunk starts a new upload, so anything that was left
             // over from an earlier attempt is discarded.
-            var deviceResult = await _dataService.GetDevice(deviceId);
+            var deviceResult = await _deviceService.GetDevice(deviceId);
             if (!deviceResult.IsSuccess ||
                 _cameraService.BeginUpload(deviceResult.Value, clipId) is null)
             {
@@ -663,7 +663,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
             return;
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             _cameraService.AbortUpload(clipId);
@@ -798,7 +798,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         {
             // The first chunk starts a new upload, so anything that was left
             // over from an earlier attempt is discarded.
-            var deviceResult = await _dataService.GetDevice(deviceId);
+            var deviceResult = await _deviceService.GetDevice(deviceId);
             if (!deviceResult.IsSuccess ||
                 _audioService.BeginUpload(deviceResult.Value, clipId) is null)
             {
@@ -824,7 +824,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
             return;
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             _audioService.AbortUpload(clipId);
@@ -907,7 +907,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
             return;
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return;

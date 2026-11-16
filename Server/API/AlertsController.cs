@@ -13,18 +13,18 @@ namespace Remotely.Server.API;
 [ServiceFilter(typeof(ApiAuthorizationFilter))]
 public class AlertsController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IAlertService _alertService;
     private readonly IEmailSenderEx _emailSender;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AlertsController> _logger;
 
     public AlertsController(
-        IDataService dataService, 
+        IAlertService alertService, 
         IEmailSenderEx emailSender, 
         IHttpClientFactory httpClientFactory,
         ILogger<AlertsController> logger)
     {
-        _dataService = dataService;
+        _alertService = alertService;
         _emailSender = emailSender;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
@@ -44,7 +44,7 @@ public class AlertsController : ControllerBase
         {
             try
             {
-                await _dataService.AddAlert(alertOptions.AlertDeviceID, orgId, alertOptions.AlertMessage);
+                await _alertService.AddAlert(alertOptions.AlertDeviceID, orgId, alertOptions.AlertMessage);
             }
             catch (Exception ex)
             {
@@ -132,7 +132,7 @@ public class AlertsController : ControllerBase
             return Unauthorized();
         }
 
-        var alertResult = await _dataService.GetAlert(alertID);
+        var alertResult = await _alertService.GetAlert(alertID);
         _logger.LogResult(alertResult);
         if (!alertResult.IsSuccess)
         {
@@ -144,7 +144,7 @@ public class AlertsController : ControllerBase
             return Unauthorized();
         }
 
-        await _dataService.DeleteAlert(alertResult.Value);
+        await _alertService.DeleteAlert(alertResult.Value);
         return Ok();
     }
 
@@ -158,11 +158,13 @@ public class AlertsController : ControllerBase
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            await _dataService.DeleteAllAlerts(orgId.ToString(), User?.Identity?.Name);
+            // The alerts of this user only.  A name that does not resolve
+            // removes nothing; it never widens to the organization.
+            await _alertService.DeleteAllAlertsForUser(orgId.ToString(), User.Identity.Name);
         }
         else
         {
-            await _dataService.DeleteAllAlerts(orgId.ToString());
+            await _alertService.DeleteAllAlerts(orgId.ToString());
         }
 
         return Ok();

@@ -5,7 +5,7 @@ using Remotely.Server.Services;
 namespace Remotely.Server.Filters;
 
 internal class ViewerAuthorizationFilter(
-    IDataService _dataService,
+    ISettingsService _settingsService,
     IOtpProvider _otpProvider):  IAsyncAuthorizationFilter
 {
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
@@ -20,7 +20,7 @@ internal class ViewerAuthorizationFilter(
 
     private async Task<bool> IsAuthorized(AuthorizationFilterContext context)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         if (!settings.RemoteControlRequiresAuthentication)
         {
             return true;

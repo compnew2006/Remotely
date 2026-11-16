@@ -16,7 +16,8 @@ public class ViewerHub : Hub<IViewerHubClient>
 {
     private readonly IHubContext<DesktopHub, IDesktopHubClient> _desktopHub;
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHub;
-    private readonly IDataService _dataService;
+    private readonly ISettingsService _settingsService;
+    private readonly IUserService _userService;
     private readonly ISessionRecordingSink _sessionRecordingSink;
     private readonly IRemoteControlSessionCache _desktopSessionCache;
     private readonly ILogger<ViewerHub> _logger;
@@ -28,14 +29,16 @@ public class ViewerHub : Hub<IViewerHubClient>
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IHubContext<DesktopHub, IDesktopHubClient> desktopHub,
         ISessionRecordingSink sessionRecordingSink,
-        IDataService dataService,
+        ISettingsService settingsService,
+        IUserService userService,
         ILogger<ViewerHub> logger)
     {
         _desktopSessionCache = desktopSessionCache;
         _streamCache = streamCache;
         _desktopHub = desktopHub;
         _agentHub = agentHub;
-        _dataService = dataService;
+        _settingsService = settingsService;
+        _userService = userService;
         _sessionRecordingSink = sessionRecordingSink;
         _logger = logger;
     }
@@ -194,7 +197,7 @@ public class ViewerHub : Hub<IViewerHubClient>
 
     public async Task<RemoteControlViewerOptions> GetViewerOptions()
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
 
         // SPEC-001 / FR-002, FR-007 (OD-11 audit B-2): the viewer UI receives
         // THIS viewer's effective access mode — the session's server-owned mode
@@ -372,7 +375,7 @@ public class ViewerHub : Hub<IViewerHubClient>
 
         // FR-015: re-evaluate the device-group basis at this server evaluation
         // point; withdrawal is immediate for this viewer (fail-closed).
-        var userResult = await _dataService.GetUserByName($"{Context.User.Identity.Name}");
+        var userResult = await _userService.GetUserByName($"{Context.User.Identity.Name}");
         if (!userResult.IsSuccess)
         {
             _logger.LogWarning(
@@ -386,7 +389,7 @@ public class ViewerHub : Hub<IViewerHubClient>
             return false;
         }
 
-        if (!_dataService.DoesUserHaveAccessToDevice(SessionInfo.DeviceId, userResult.Value))
+        if (!_userService.DoesUserHaveAccessToDevice(SessionInfo.DeviceId, userResult.Value))
         {
             _logger.LogWarning(
                 "Privilege decision: WITHDRAWN.  " +

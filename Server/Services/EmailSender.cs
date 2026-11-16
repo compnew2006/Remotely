@@ -31,14 +31,14 @@ public class EmailSender : IEmailSender
 
 public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
 {
-    private readonly IDataService _dataService;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<EmailSenderEx> _logger;
 
     public EmailSenderEx(
-        IDataService dataService,
+        ISettingsService settingsService,
         ILogger<EmailSenderEx> logger)
     {
-        _dataService = dataService;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -61,7 +61,7 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
     {
         try
         {
-            var settings = await _dataService.GetSettings();
+            var settings = await _settingsService.GetSettings();
 
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(settings.SmtpDisplayName, settings.SmtpEmail));
@@ -106,7 +106,7 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
 
     public async Task<bool> SendEmailAsync(string email, string subject, string htmlMessage, string? organizationID = null)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         return await SendEmailAsync(email, settings.SmtpEmail, subject, htmlMessage, organizationID);
     }
 

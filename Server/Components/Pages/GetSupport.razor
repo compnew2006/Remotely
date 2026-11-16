@@ -1,7 +1,9 @@
 ﻿@page "/get-support/{deviceId?}"
 @using System.ComponentModel.DataAnnotations
 
-@inject IDataService DataService
+@inject IAlertService alertService
+@inject IDeviceService deviceService
+@inject IUserService userService
 @inject IEmailSenderEx EmailSender
 
 
@@ -87,7 +89,7 @@ else
             return;
         }
 
-        var deviceResult = await DataService.GetDevice(DeviceId);
+        var deviceResult = await deviceService.GetDevice(DeviceId);
         if (!deviceResult.IsSuccess)
         {
             _alertClass = "alert-danger";
@@ -107,9 +109,9 @@ else
         };
 
         var alertMessage = string.Join("  ", alertParts);
-        await DataService.AddAlert(DeviceId, orgId, alertMessage);
+        await alertService.AddAlert(DeviceId, orgId, alertMessage);
 
-        var orgUsers = await DataService.GetAllUsersInOrganization(orgId);
+        var orgUsers = await userService.GetAllUsersInOrganization(orgId);
         var emailMessage = string.Join("<br />", alertParts);
         foreach (var user in orgUsers)
         {

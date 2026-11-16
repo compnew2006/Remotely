@@ -25,7 +25,15 @@ public partial class RunScript : AuthComponentBase
     private SavedScript? _selectedScript;
 
     [Inject]
-    private IDataService DataService { get; init; } = null!;
+    private IDeviceGroupService deviceGroupService { get; init; } = null!;
+    [Inject]
+    private IDeviceListingService deviceListingService { get; init; } = null!;
+    [Inject]
+    private ISavedScriptService savedScriptService { get; init; } = null!;
+    [Inject]
+    private IScriptResultService scriptResultService { get; init; } = null!;
+    [Inject]
+    private IUserService userService { get; init; } = null!;
 
     [Inject]
     private IJsInterop JsInterop { get; init; } = null!;
@@ -55,8 +63,8 @@ public partial class RunScript : AuthComponentBase
     {
         await base.OnInitializedAsync();
         EnsureUserSet();
-        _deviceGroups = DataService.GetDeviceGroups(UserName);
-        _devices = DataService
+        _deviceGroups = deviceGroupService.GetDeviceGroups(UserName);
+        _devices = deviceListingService
             .GetDevicesForUser(UserName)
             .OrderBy(x => x.DeviceName)
             .ToArray();
@@ -122,7 +130,7 @@ public partial class RunScript : AuthComponentBase
             .Distinct()
             .ToArray();
 
-        var filteredDevices = DataService.FilterDeviceIdsByUserPermission(deviceIds.ToArray(), User);
+        var filteredDevices = userService.FilterDeviceIdsByUserPermission(deviceIds.ToArray(), User);
 
         var onlineDevices = ServiceSessionCache.FilterDevicesByOnlineStatus(filteredDevices, true);
 
@@ -138,14 +146,14 @@ public partial class RunScript : AuthComponentBase
 
         if (_runOnNextConnect)
         {
-            scriptRun.Devices = DataService.GetDevices(filteredDevices);
+            scriptRun.Devices = deviceListingService.GetDevices(filteredDevices);
         }
         else
         {
-            scriptRun.Devices = DataService.GetDevices(onlineDevices);
+            scriptRun.Devices = deviceListingService.GetDevices(onlineDevices);
         }
 
-        await DataService.AddScriptRun(scriptRun);
+        await scriptResultService.AddScriptRun(scriptRun);
 
         ToastService.ShowToast($"Created script run for {scriptRun.Devices.Count} devices.");
 
@@ -160,7 +168,7 @@ public partial class RunScript : AuthComponentBase
 
         if (viewModel.Script is not null)
         {
-            var scriptResult = await DataService.GetSavedScript(User.Id, viewModel.Script.Id);
+            var scriptResult = await savedScriptService.GetSavedScript(User.Id, viewModel.Script.Id);
             if (scriptResult.IsSuccess)
             {
                 _selectedScript = scriptResult.Value;

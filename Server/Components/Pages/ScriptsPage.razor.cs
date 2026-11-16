@@ -69,7 +69,7 @@ public partial class ScriptsPage : AuthComponentBase
     }
 
     [Inject]
-    private IDataService DataService { get; init; } = null!;
+    private ISavedScriptService savedScriptService { get; init; } = null!;
 
     public string GetItemIconCss(ScriptTreeNode viewModel)
     {
@@ -86,7 +86,7 @@ public partial class ScriptsPage : AuthComponentBase
 
         _treeNodes.Clear();
 
-        _allScripts = await DataService.GetSavedScriptsWithoutContent(User.Id, User.OrganizationID);
+        _allScripts = await savedScriptService.GetSavedScriptsWithoutContent(User.Id, User.OrganizationID);
         StateHasChanged();
     }
 
@@ -95,7 +95,6 @@ public partial class ScriptsPage : AuthComponentBase
         await base.OnInitializedAsync();
         await RefreshScripts();
     }
-
 
     private void CreateTreeNode(SavedScript script)
     {

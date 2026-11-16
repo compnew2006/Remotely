@@ -1,7 +1,8 @@
 ﻿@page "/invite/{inviteId?}"
-@inject IDataService DataService
+@inject IInviteService inviteService
 @inject AuthenticationStateProvider AuthProvider
 @inject IToastService Toasts
+@inject NavigationManager NavigationManager
 
 <div class="rm-page rm-page-narrow">
     <header class="rm-page-header">
@@ -27,7 +28,7 @@
                 <p class="mb-0">Are you sure you want to leave your current organization and join this one?</p>
             </div>
             <div class="rm-form-actions" style="justify-content:flex-start;">
-                <button type="button" class="btn rm-btn-ghost" onclick="location.assign(location.origin)">Cancel</button>
+                <button type="button" class="btn rm-btn-ghost" @onclick="Cancel">Cancel</button>
                 <button type="button" class="btn btn-danger" @onclick="Confirm">Confirm</button>
             </div>
         }
@@ -39,6 +40,11 @@
 
     [Parameter]
     public string? InviteId { get; init; }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/");
+    }
 
     private async Task Confirm()
     {
@@ -55,7 +61,7 @@
             return;
         }
 
-        var result = await DataService.JoinViaInvitation($"{identity.Name}", InviteId);
+        var result = await inviteService.JoinViaInvitation($"{identity.Name}", InviteId);
         if (!result.IsSuccess)
         {
             Toasts.ShowToast2(result.Reason, ToastType.Error);

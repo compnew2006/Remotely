@@ -57,7 +57,11 @@ public partial class DevicesFrame : AuthComponentBase
         }
     }
     [Inject]
-    private IDataService DataService { get; init; } = null!;
+    private IDeviceGroupService deviceGroupService { get; init; } = null!;
+    [Inject]
+    private IDeviceListingService deviceListingService { get; init; } = null!;
+    [Inject]
+    private IDeviceService deviceService { get; init; } = null!;
 
     private Device[] DisplayedDevices => GetDisplayedDevices();
 
@@ -115,7 +119,7 @@ public partial class DevicesFrame : AuthComponentBase
 
         _deviceGroups.Clear();
 
-        _deviceGroups.AddRange(DataService.GetDeviceGroups(UserName));
+        _deviceGroups.AddRange(deviceGroupService.GetDeviceGroups(UserName));
 
         _selectedGroupId = _deviceGroupAll;
 
@@ -130,7 +134,7 @@ public partial class DevicesFrame : AuthComponentBase
 
     private async Task AddScriptResult(ScriptResult result)
     {
-        var deviceResult = await DataService.GetDevice(result.DeviceID);
+        var deviceResult = await deviceService.GetDevice(result.DeviceID);
         if (!deviceResult.IsSuccess)
         {
             return;
@@ -319,7 +323,7 @@ public partial class DevicesFrame : AuthComponentBase
         {
             _allDevices.Clear();
 
-            var devices = DataService.GetDevicesForUser(UserName)
+            var devices = deviceListingService.GetDevicesForUser(UserName)
                 .OrderByDescending(x => x.IsOnline)
                 .ToList();
 
@@ -400,7 +404,7 @@ public partial class DevicesFrame : AuthComponentBase
     {
         EnsureUserSet();
 
-        var offlineDevices = DataService
+        var offlineDevices = deviceListingService
            .GetDevicesForUser(UserName)
            .Where(x => !x.IsOnline);
 

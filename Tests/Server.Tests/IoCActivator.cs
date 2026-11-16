@@ -40,7 +40,21 @@ public class IoCActivator
                 .AddDefaultTokenProviders();
 
         _builder.Services.AddTransient<IAppDbFactory, AppDbFactory>();
-        _builder.Services.AddTransient<IDataService, DataService>();
+        _builder.Services.AddSingleton<ISettingsService, SettingsService>();
+        _builder.Services.AddSingleton<IDeviceService, DeviceService>();
+        _builder.Services.AddSingleton<IApiTokenService, ApiTokenService>();
+        _builder.Services.AddSingleton<IAlertService, AlertService>();
+        _builder.Services.AddSingleton<IOrganizationService, OrganizationService>();
+        _builder.Services.AddSingleton<IUserService, UserService>();
+        _builder.Services.AddSingleton<IInviteService, InviteService>();
+        _builder.Services.AddSingleton<IDeviceGroupService, DeviceGroupService>();
+        _builder.Services.AddSingleton<ISavedScriptService, SavedScriptService>();
+        _builder.Services.AddSingleton<IScriptScheduleService, ScriptScheduleService>();
+        _builder.Services.AddSingleton<IScriptResultService, ScriptResultService>();
+        _builder.Services.AddSingleton<ISharedFileService, SharedFileService>();
+        _builder.Services.AddSingleton<IDeviceListingService, DeviceListingService>();
+        _builder.Services.AddSingleton<IDeviceGroupMembershipService, DeviceGroupMembershipService>();
+        _builder.Services.AddSingleton<IMaintenanceService, MaintenanceService>();
         _builder.Services.AddTransient<IEmailSenderEx, EmailSenderEx>();
 
         _webApp = _builder.Build();

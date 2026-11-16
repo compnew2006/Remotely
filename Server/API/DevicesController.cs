@@ -13,17 +13,22 @@ namespace Remotely.Server.API;
 [Route("api/[controller]")]
 public class DevicesController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IDeviceListingService _deviceListingService;
+    private readonly IDeviceService _deviceService;
+    private readonly IUserService _userService;
     private readonly ILogger<DevicesController> _logger;
 
     public DevicesController(
-        IDataService dataService,
+        IDeviceListingService deviceListingService,
+        IDeviceService deviceService,
+        IUserService userService,
         ILogger<DevicesController> logger)
     {
-        _dataService = dataService;
+        _deviceListingService = deviceListingService;
+        _deviceService = deviceService;
+        _userService = userService;
         _logger = logger;
     }
-
 
     [HttpGet]
     [ServiceFilter(typeof(ApiAuthorizationFilter))]
@@ -36,11 +41,11 @@ public class DevicesController : ControllerBase
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            return _dataService.GetDevicesForUser($"{User.Identity.Name}");
+            return _deviceListingService.GetDevicesForUser($"{User.Identity.Name}");
         }
 
         // Authorized with API key.  Return all.
-        return _dataService.GetAllDevices(orgId);
+        return _deviceListingService.GetAllDevices(orgId);
     }
 
     [ServiceFilter(typeof(ApiAuthorizationFilter))]
@@ -54,7 +59,7 @@ public class DevicesController : ControllerBase
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
             _logger.LogResult(userResult);
 
             if (!userResult.IsSuccess)
@@ -62,13 +67,13 @@ public class DevicesController : ControllerBase
                 return Unauthorized();
             }
 
-            if (!_dataService.DoesUserHaveAccessToDevice(id, userResult.Value))
+            if (!_userService.DoesUserHaveAccessToDevice(id, userResult.Value))
             {
                 return Unauthorized();
             }
         }
 
-        var deviceResult = await _dataService.GetDevice(orgId, id);
+        var deviceResult = await _deviceService.GetDevice(orgId, id);
         _logger.LogResult(deviceResult);
 
         if (!deviceResult.IsSuccess)
@@ -93,10 +98,9 @@ public class DevicesController : ControllerBase
             return BadRequest("DeviceId is required.");
         }
 
-
         if (User.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
             _logger.LogResult(userResult);
 
             if (!userResult.IsSuccess)
@@ -104,14 +108,14 @@ public class DevicesController : ControllerBase
                 return Unauthorized();
             }
 
-            if (!_dataService.DoesUserHaveAccessToDevice(deviceOptions.DeviceID, userResult.Value))
+            if (!_userService.DoesUserHaveAccessToDevice(deviceOptions.DeviceID, userResult.Value))
             {
                 return Unauthorized();
             }
 
         }
 
-        var deviceResult = await _dataService.UpdateDevice(deviceOptions, orgId);
+        var deviceResult = await _deviceService.UpdateDevice(deviceOptions, orgId);
         _logger.LogResult(deviceResult);
 
         if (!deviceResult.IsSuccess)
@@ -125,7 +129,7 @@ public class DevicesController : ControllerBase
     [ServiceFilter(typeof(ApiAuthorizationFilter))]
     public async Task<IActionResult> Create([FromBody] DeviceSetupOptions deviceOptions)
     {
-        var result = await _dataService.CreateDevice(deviceOptions);
+        var result = await _deviceService.CreateDevice(deviceOptions);
         _logger.LogResult(result);
 
         if (!result.IsSuccess)

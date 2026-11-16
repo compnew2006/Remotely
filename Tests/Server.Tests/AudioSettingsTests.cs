@@ -12,14 +12,14 @@ namespace Remotely.Server.Tests;
 public class AudioSettingsTests
 {
     private TestData _testData = null!;
-    private IDataService _dataService = null!;
+    private IDeviceService _deviceService = null!;
 
     [TestInitialize]
     public async Task Init()
     {
         _testData = new TestData();
         await _testData.Init();
-        _dataService = IoCActivator.ServiceProvider.GetRequiredService<IDataService>();
+        _deviceService = IoCActivator.ServiceProvider.GetRequiredService<IDeviceService>();
     }
 
     [TestMethod]
@@ -51,28 +51,28 @@ public class AudioSettingsTests
             new ScreenshotPauseWindow(12, 13)
         });
 
-        Assert.IsTrue((await _dataService.UpdateScreenshotSettings(
+        Assert.IsTrue((await _deviceService.UpdateScreenshotSettings(
             _testData.Org1Device1.ID,
             screenshotDirectory,
             11,
             42,
             screenshotPauseWindows)).IsSuccess);
 
-        Assert.IsTrue((await _dataService.UpdateCameraSettings(
+        Assert.IsTrue((await _deviceService.UpdateCameraSettings(
             _testData.Org1Device1.ID,
             cameraDirectory,
             123,
             48,
             cameraPauseWindows)).IsSuccess);
 
-        Assert.IsTrue((await _dataService.UpdateAudioSettings(
+        Assert.IsTrue((await _deviceService.UpdateAudioSettings(
             _testData.Org1Device1.ID,
             audioDirectory,
             321,
             72,
             audioPauseWindows)).IsSuccess);
 
-        var deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        var deviceResult = await _deviceService.GetDevice(_testData.Org1Device1.ID);
         Assert.IsTrue(deviceResult.IsSuccess);
 
         var device = deviceResult.Value!;
@@ -93,13 +93,13 @@ public class AudioSettingsTests
     [TestMethod]
     public async Task UpdateAudioSettings_ClampsRetentionToSupportedLimits()
     {
-        Assert.IsTrue((await _dataService.UpdateAudioSettings(
+        Assert.IsTrue((await _deviceService.UpdateAudioSettings(
             _testData.Org1Device1.ID,
             null,
             2501,
             9000)).IsSuccess);
 
-        var deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        var deviceResult = await _deviceService.GetDevice(_testData.Org1Device1.ID);
 
         Assert.IsTrue(deviceResult.IsSuccess);
         Assert.AreEqual(2000, deviceResult.Value!.AudioRetentionCount);
@@ -111,12 +111,12 @@ public class AudioSettingsTests
     {
         var tooLong = new string('x', 501);
 
-        var directoryResult = await _dataService.UpdateAudioSettings(
+        var directoryResult = await _deviceService.UpdateAudioSettings(
             _testData.Org1Device1.ID,
             tooLong,
             10,
             24);
-        var pauseWindowsResult = await _dataService.UpdateAudioSettings(
+        var pauseWindowsResult = await _deviceService.UpdateAudioSettings(
             _testData.Org1Device1.ID,
             null,
             10,

@@ -1,5 +1,6 @@
 ﻿@page "/"
-@inject IDataService DataService
+@inject IOrganizationService organizationService
+@inject ISettingsService settingsService
  
 <AuthorizeView>
     <NotAuthorized>
@@ -34,8 +35,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var settings = await DataService.GetSettings();
-        _isRegistrationEnabled = settings.MaxOrganizationCount < 0 || DataService.GetOrganizationCount() < settings.MaxOrganizationCount;
+        var settings = await settingsService.GetSettings();
+        _isRegistrationEnabled = settings.MaxOrganizationCount < 0 || organizationService.GetOrganizationCount() < settings.MaxOrganizationCount;
         await base.OnInitializedAsync();
     }
 }

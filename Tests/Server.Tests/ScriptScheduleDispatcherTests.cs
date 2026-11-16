@@ -17,7 +17,9 @@ namespace Remotely.Server.Tests;
 public class ScriptScheduleDispatcherTests
 {
     private ScriptSchedule _schedule1 = null!;
-    private Mock<IDataService> _dataService = null!;
+    private Mock<IScriptScheduleService> _scriptScheduleService = null!;
+    private Mock<IDeviceListingService> _deviceListingService = null!;
+    private Mock<IScriptResultService> _scriptResultService = null!;
     private Mock<ICircuitConnection> _circuitConnection = null!;
     private Mock<IAgentHubSessionCache> _serviceSessionCache = null!;
     private Mock<ILogger<ScriptScheduleDispatcher>> _logger = null!;
@@ -69,9 +71,11 @@ public class ScriptScheduleDispatcherTests
             _schedule1
         };
 
-        _dataService = new Mock<IDataService>();
-        _dataService.Setup(x => x.GetScriptSchedulesDue()).Returns(Task.FromResult(scriptSchedules));
-        _dataService.Setup(x => x.GetDevices(It.Is<IEnumerable<string>>(x =>
+        _scriptScheduleService = new Mock<IScriptScheduleService>();
+        _deviceListingService = new Mock<IDeviceListingService>();
+        _scriptResultService = new Mock<IScriptResultService>();
+        _scriptScheduleService.Setup(x => x.GetScriptSchedulesDue()).Returns(Task.FromResult(scriptSchedules));
+        _deviceListingService.Setup(x => x.GetDevices(It.Is<IEnumerable<string>>(x =>
             x.Contains(_testData.Org1Device1.ID) &&
             x.Contains(_testData.Org1Device2.ID)
         ))).Returns(new List<Device>() { _testData.Org1Device1, _testData.Org1Device2 });
@@ -79,7 +83,13 @@ public class ScriptScheduleDispatcherTests
         _circuitConnection = new Mock<ICircuitConnection>();
         _serviceSessionCache = new Mock<IAgentHubSessionCache>();
         _logger = new Mock<ILogger<ScriptScheduleDispatcher>>();
-        _dispatcher = new ScriptScheduleDispatcher(_dataService.Object, _serviceSessionCache.Object, _circuitConnection.Object, _logger.Object);
+        _dispatcher = new ScriptScheduleDispatcher(
+            _deviceListingService.Object,
+            _scriptResultService.Object,
+            _scriptScheduleService.Object,
+            _serviceSessionCache.Object,
+            _circuitConnection.Object,
+            _logger.Object);
     }
 
     [TestMethod]
@@ -87,8 +97,10 @@ public class ScriptScheduleDispatcherTests
     {
         await _dispatcher.DispatchPendingScriptRuns();
 
-        _dataService.Verify(x => x.GetScriptSchedulesDue(), Times.Once);
-        _dataService.VerifyNoOtherCalls();
+        _scriptScheduleService.Verify(x => x.GetScriptSchedulesDue(), Times.Once);
+        _scriptScheduleService.VerifyNoOtherCalls();
+        _deviceListingService.VerifyNoOtherCalls();
+        _scriptResultService.VerifyNoOtherCalls();
         _circuitConnection.VerifyNoOtherCalls();
     }
 
@@ -103,15 +115,17 @@ public class ScriptScheduleDispatcherTests
 
         Assert.IsTrue(_schedule1.LastRun.HasValue);
 
-        _dataService.Verify(x => x.GetScriptSchedulesDue(), Times.Once);
-        _dataService.Verify(x => x.AddOrUpdateScriptSchedule(_schedule1), Times.Once);
-        _dataService.Verify(x => x.GetDevices(It.Is<IEnumerable<string>>(x =>
+        _scriptScheduleService.Verify(x => x.GetScriptSchedulesDue(), Times.Once);
+        _scriptScheduleService.Verify(x => x.AddOrUpdateScriptSchedule(_schedule1), Times.Once);
+        _deviceListingService.Verify(x => x.GetDevices(It.Is<IEnumerable<string>>(x =>
             x.Contains(_schedule1.Devices.First().ID))));
-        _dataService.Verify(x => x.AddScriptRun(It.Is<ScriptRun>(x =>
+        _scriptResultService.Verify(x => x.AddScriptRun(It.Is<ScriptRun>(x =>
             x.ScheduleId == _schedule1.Id &&
             x.Devices!.Exists(d => d.ID == _testData.Org1Device1.ID) &&
             x.Devices!.Exists(d => d.ID == _testData.Org1Device2.ID))));
-        _dataService.VerifyNoOtherCalls();
+        _scriptScheduleService.VerifyNoOtherCalls();
+        _deviceListingService.VerifyNoOtherCalls();
+        _scriptResultService.VerifyNoOtherCalls();
 
         _circuitConnection.Verify(x => x.RunScript(
             It.IsAny<IEnumerable<string>>(),

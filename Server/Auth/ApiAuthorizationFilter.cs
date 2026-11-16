@@ -8,14 +8,17 @@ namespace Remotely.Server.Auth;
 
 public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
 {
-    private readonly IDataService _dataService;
+    private readonly IApiTokenService _apiTokenService;
+    private readonly IUserService _userService;
     private readonly ILogger<ApiAuthorizationFilter> _logger;
 
     public ApiAuthorizationFilter(
-        IDataService dataService,
+        IApiTokenService apiTokenService,
+        IUserService userService,
         ILogger<ApiAuthorizationFilter> logger)
     {
-        _dataService = dataService;
+        _apiTokenService = apiTokenService;
+        _userService = userService;
         _logger = logger;
     }
 
@@ -41,7 +44,7 @@ public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
 
             if (http.User.Identity?.IsAuthenticated == true)
             {
-                var userResult = await _dataService.GetUserByName($"{http.User.Identity.Name}");
+                var userResult = await _userService.GetUserByName($"{http.User.Identity.Name}");
                 if (userResult.IsSuccess && userResult.Value.IsAdministrator)
                 {
                     http.Request.Headers["OrganizationID"] = userResult.Value.OrganizationID;
@@ -60,7 +63,7 @@ public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
                 var keyId = headerComponents[0].Trim();
                 var secret = headerComponents[1].Trim();
 
-                var isValid = await _dataService.ValidateApiKey(
+                var isValid = await _apiTokenService.ValidateApiKey(
                         keyId,
                         secret,
                         http.Request.Path,
@@ -68,7 +71,7 @@ public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
 
                 if (isValid)
                 {
-                    var keyResult = await _dataService.GetApiKey(keyId);
+                    var keyResult = await _apiTokenService.GetApiKey(keyId);
 
                     if (keyResult.IsSuccess)
                     {

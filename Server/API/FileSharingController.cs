@@ -10,18 +10,18 @@ namespace Remotely.Server.API;
 [ApiController]
 public class FileSharingController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly ISharedFileService _sharedFileService;
 
-    public FileSharingController(IDataService dataService)
+    public FileSharingController(ISharedFileService sharedFileService)
     {
-        _dataService = dataService;
+        _sharedFileService = sharedFileService;
     }
 
     [HttpGet("{id}")]
     [ServiceFilter(typeof(ExpiringTokenFilter))]
     public async Task<IActionResult> Get(string id)
     {
-        var sharedFileResult = await _dataService.GetSharedFiled(id);
+        var sharedFileResult = await _sharedFileService.GetSharedFiled(id);
 
         if (!sharedFileResult.IsSuccess)
         {
@@ -52,7 +52,7 @@ public class FileSharingController : ControllerBase
 
         foreach (var file in Request.Form.Files)
         {
-            var id = await _dataService.AddSharedFile(file, orgId);
+            var id = await _sharedFileService.AddSharedFile(file, orgId);
             fileIds.Add(id);
         }
         return fileIds;

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Remotely.Server.Hubs;
@@ -21,21 +21,27 @@ public class RemoteControlController : ControllerBase
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHub;
     private readonly IRemoteControlSessionCache _remoteControlSessionCache;
     private readonly IAgentHubSessionCache _serviceSessionCache;
-    private readonly IDataService _dataService;
+    private readonly IOrganizationService _organizationService;
+    private readonly ISettingsService _settingsService;
+    private readonly IUserService _userService;
     private readonly IOtpProvider _otpProvider;
     private readonly SignInManager<RemotelyUser> _signInManager;
     private readonly ILogger<RemoteControlController> _logger;
 
     public RemoteControlController(
         SignInManager<RemotelyUser> signInManager,
-        IDataService dataService,
+        IOrganizationService organizationService,
+        ISettingsService settingsService,
+        IUserService userService,
         IRemoteControlSessionCache remoteControlSessionCache,
         IHubContext<AgentHub, IAgentHubClient> agentHub,
         IAgentHubSessionCache serviceSessionCache,
         IOtpProvider otpProvider,
         ILogger<RemoteControlController> logger)
     {
-        _dataService = dataService;
+        _organizationService = organizationService;
+        _settingsService = settingsService;
+        _userService = userService;
         _agentHub = agentHub;
         _remoteControlSessionCache = remoteControlSessionCache;
         _serviceSessionCache = serviceSessionCache;
@@ -60,7 +66,7 @@ public class RemoteControlController : ControllerBase
     [Obsolete("This method is deprecated. Use the GET method along with API keys instead.")]
     public async Task<IActionResult> Post([FromBody] RemoteControlRequest rcRequest)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         if (!settings.AllowApiLogin)
         {
             return NotFound();
@@ -73,7 +79,7 @@ public class RemoteControlController : ControllerBase
             return BadRequest("Request body is missing required values.");
         }
 
-        var userResult = await _dataService.GetUserByName(rcRequest.Email);
+        var userResult = await _userService.GetUserByName(rcRequest.Email);
         if (!userResult.IsSuccess)
         {
             return NotFound();
@@ -83,7 +89,7 @@ public class RemoteControlController : ControllerBase
 
         var result = await _signInManager.PasswordSignInAsync(rcRequest.Email, rcRequest.Password, false, true);
         if (result.Succeeded &&
-            _dataService.DoesUserHaveAccessToDevice(rcRequest.DeviceID, userResult.Value))
+            _userService.DoesUserHaveAccessToDevice(rcRequest.DeviceID, userResult.Value))
         {
             _logger.LogInformation("API login successful for {rcRequestEmail}.", rcRequest.Email);
             return await InitiateRemoteControl(rcRequest.DeviceID, orgId, null);
@@ -117,14 +123,14 @@ public class RemoteControlController : ControllerBase
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
 
             if (!userResult.IsSuccess)
             {
                 return Unauthorized();
             }
 
-            if (!_dataService.DoesUserHaveAccessToDevice(targetDevice.ID, userResult.Value))
+            if (!_userService.DoesUserHaveAccessToDevice(targetDevice.ID, userResult.Value))
             {
                 return Unauthorized();
             }
@@ -167,7 +173,7 @@ public class RemoteControlController : ControllerBase
             deviceID,
             User.Identity?.IsAuthenticated == true ? User.Identity.Name : "api-key");
 
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
 
         var session = new RemoteControlSession()
         {
@@ -191,7 +197,7 @@ public class RemoteControlController : ControllerBase
             return v;
         });
 
-        var orgNameResult = await _dataService.GetOrganizationNameById(orgId);
+        var orgNameResult = await _organizationService.GetOrganizationNameById(orgId);
 
         if (!orgNameResult.IsSuccess)
         {

@@ -16,7 +16,10 @@ namespace Remotely.Server.Tests;
 public class AgentHubTests
 {
     private TestData _testData = null!;
-    private IDataService _dataService = null!;
+    private ISettingsService _settingsService = null!;
+    private IDeviceService _deviceService = null!;
+    private IScriptResultService _scriptResultService = null!;
+    private IUserService _userService = null!;
 
     [TestMethod]
     [DoNotParallelize]
@@ -32,15 +35,19 @@ public class AgentHubTests
         var remoteControlSessions = new Mock<IRemoteControlSessionCache>();
         var keyboardCaptureManager = new Mock<IKeyboardCaptureManager>();
         var updateSigningService = new Mock<IUpdateSigningService>();
+        var apiScriptResultCache = new Mock<IApiScriptResultCache>();
         var messenger = new Mock<IMessenger>();
         var logger = new Mock<ILogger<AgentHub>>();
 
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         settings.BannedDevices = [_testData.Org1Device1.DeviceName!];
-        await _dataService.SaveSettings(settings);
+        await _settingsService.SaveSettings(settings);
 
         var hub = new AgentHub(
-            _dataService,
+            _deviceService,
+            _scriptResultService,
+            _settingsService,
+            _userService,
             serviceSessionCache.Object,
             viewerHub.Object,
             circuitManager.Object,
@@ -48,6 +55,7 @@ public class AgentHubTests
             remoteControlSessions.Object,
             keyboardCaptureManager.Object,
             updateSigningService.Object,
+            apiScriptResultCache.Object,
             messenger.Object,
             logger.Object);
 
@@ -78,16 +86,20 @@ public class AgentHubTests
         var remoteControlSessions = new Mock<IRemoteControlSessionCache>();
         var keyboardCaptureManager = new Mock<IKeyboardCaptureManager>();
         var updateSigningService = new Mock<IUpdateSigningService>();
+        var apiScriptResultCache = new Mock<IApiScriptResultCache>();
         var messenger = new Mock<IMessenger>();
         var logger = new Mock<ILogger<AgentHub>>();
 
 
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         settings.BannedDevices = [$"{_testData.Org1Device1.ID}"];
-        await _dataService.SaveSettings(settings);
+        await _settingsService.SaveSettings(settings);
 
         var hub = new AgentHub(
-            _dataService,
+            _deviceService,
+            _scriptResultService,
+            _settingsService,
+            _userService,
             serviceSessionCache.Object,
             viewerHub.Object,
             circuitManager.Object,
@@ -95,6 +107,7 @@ public class AgentHubTests
             remoteControlSessions.Object,
             keyboardCaptureManager.Object,
             updateSigningService.Object,
+            apiScriptResultCache.Object,
             messenger.Object,
             logger.Object);
 
@@ -120,6 +133,9 @@ public class AgentHubTests
     {
         _testData = new TestData();
         await _testData.Init();
-        _dataService = IoCActivator.ServiceProvider.GetRequiredService<IDataService>();
+        _settingsService = IoCActivator.ServiceProvider.GetRequiredService<ISettingsService>();
+        _deviceService = IoCActivator.ServiceProvider.GetRequiredService<IDeviceService>();
+        _scriptResultService = IoCActivator.ServiceProvider.GetRequiredService<IScriptResultService>();
+        _userService = IoCActivator.ServiceProvider.GetRequiredService<IUserService>();
     }
 }

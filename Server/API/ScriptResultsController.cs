@@ -13,16 +13,25 @@ namespace Remotely.Server.API;
 [ApiController]
 public class ScriptResultsController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly IAlertService _alertService;
+    private readonly IDeviceService _deviceService;
+    private readonly ISavedScriptService _savedScriptService;
+    private readonly IScriptResultService _scriptResultService;
     private readonly IEmailSenderEx _emailSender;
     private readonly ILogger<ScriptResultsController> _logger;
 
     public ScriptResultsController(
-        IDataService dataService, 
+        IAlertService alertService,
+        IDeviceService deviceService,
+        ISavedScriptService savedScriptService,
+        IScriptResultService scriptResultService, 
         IEmailSenderEx emailSenderEx,
         ILogger<ScriptResultsController> logger)
     {
-        _dataService = dataService;
+        _alertService = alertService;
+        _deviceService = deviceService;
+        _savedScriptService = savedScriptService;
+        _scriptResultService = scriptResultService;
         _emailSender = emailSenderEx;
         _logger = logger;
     }
@@ -36,7 +45,7 @@ public class ScriptResultsController : ControllerBase
             return Unauthorized();
         }
 
-        var commandResults = _dataService.GetAllCommandResults(orgId);
+        var commandResults = _scriptResultService.GetAllCommandResults(orgId);
         var content = System.Text.Json.JsonSerializer.Serialize(commandResults);
         return File(Encoding.UTF8.GetBytes(content), "application/octet-stream", "ScriptHistory.json");       
     }
@@ -50,17 +59,16 @@ public class ScriptResultsController : ControllerBase
             return Unauthorized();
         }
 
-        var commandResult = _dataService.GetScriptResult(scriptId, orgId);
+        var commandResult = _scriptResultService.GetScriptResult(scriptId, orgId);
         var content = System.Text.Json.JsonSerializer.Serialize(commandResult);
         return File(Encoding.UTF8.GetBytes(content), "application/octet-stream", "ScriptResults.json");
     }
-
 
     [HttpPost]
     [ServiceFilter(typeof(ExpiringTokenFilter))]
     public async Task<ActionResult<ScriptResultResponse>> Post([FromBody] ScriptResultDto result)
     {
-        var scriptResult = await _dataService.AddScriptResult(result);
+        var scriptResult = await _scriptResultService.AddScriptResult(result);
 
         if (!scriptResult.IsSuccess)
         {
@@ -72,7 +80,7 @@ public class ScriptResultsController : ControllerBase
 
         if (result.HadErrors && result.SavedScriptId.HasValue)
         {
-            var savedScriptResult = await _dataService.GetSavedScript(result.SavedScriptId.Value);
+            var savedScriptResult = await _savedScriptService.GetSavedScript(result.SavedScriptId.Value);
             if (!savedScriptResult.IsSuccess)
             {
                 return NotFound();
@@ -81,7 +89,7 @@ public class ScriptResultsController : ControllerBase
             var savedScript = savedScriptResult.Value;
             if (savedScript.GenerateAlertOnError)
             {
-                await _dataService.AddAlert(result.DeviceID,
+                await _alertService.AddAlert(result.DeviceID,
                     savedScript.OrganizationID,
                     $"Alert triggered while running script {savedScript.Name}.",
                     string.Join("\n", errorOut));
@@ -89,7 +97,7 @@ public class ScriptResultsController : ControllerBase
 
             if (savedScript.SendEmailOnError)
             {
-                var deviceResult = await _dataService.GetDevice(
+                var deviceResult = await _deviceService.GetDevice(
                     result.DeviceID, 
                     query => query.Include(x => x.DeviceGroup));
 
@@ -118,7 +126,7 @@ public class ScriptResultsController : ControllerBase
 
         if (result.ScriptRunId.HasValue)
         {
-            await _dataService.AddScriptResultToScriptRun(scriptResult.Value.ID, result.ScriptRunId.Value);
+            await _scriptResultService.AddScriptResultToScriptRun(scriptResult.Value.ID, result.ScriptRunId.Value);
         }
 
         return new ScriptResultResponse()

@@ -15,18 +15,21 @@ namespace Remotely.Server.API;
 public class AudioClipsController : ControllerBase
 {
     private readonly IAudioService _audioService;
-    private readonly IDataService _dataService;
+    private readonly IDeviceService _deviceService;
+    private readonly IUserService _userService;
     private readonly ILogger<AudioClipsController> _logger;
     private readonly IRemoteControlSessionCache _sessionCache;
 
     public AudioClipsController(
         IAudioService audioService,
-        IDataService dataService,
+        IDeviceService deviceService,
+        IUserService userService,
         IRemoteControlSessionCache sessionCache,
         ILogger<AudioClipsController> logger)
     {
         _audioService = audioService;
-        _dataService = dataService;
+        _deviceService = deviceService;
+        _userService = userService;
         _sessionCache = sessionCache;
         _logger = logger;
     }
@@ -134,7 +137,7 @@ public class AudioClipsController : ControllerBase
         // the other actions. That check needs a signed-in browser, which a
         // device upload does not have; using it here returned the 404 the
         // devices hit and sent every clip down the hub fallback.
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         var device = deviceResult.IsSuccess ? deviceResult.Value : null;
         if (device is null)
         {
@@ -192,7 +195,7 @@ public class AudioClipsController : ControllerBase
             return null;
         }
 
-        var deviceResult = await _dataService.GetDevice(deviceId);
+        var deviceResult = await _deviceService.GetDevice(deviceId);
         if (!deviceResult.IsSuccess)
         {
             return null;
@@ -210,13 +213,13 @@ public class AudioClipsController : ControllerBase
                 return false;
             }
 
-            var userResult = await _dataService.GetUserByName($"{User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{User.Identity.Name}");
             if (!userResult.IsSuccess)
             {
                 return false;
             }
 
-            return _dataService.DoesUserHaveAccessToDevice(deviceId, userResult.Value);
+            return _userService.DoesUserHaveAccessToDevice(deviceId, userResult.Value);
         }
         catch (Exception ex)
         {

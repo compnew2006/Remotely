@@ -20,21 +20,27 @@ public class ScriptingController : ControllerBase
 {
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHubContext;
 
-    private readonly IDataService _dataService;
+    private readonly IScriptResultService _scriptResultService;
+    private readonly IUserService _userService;
     private readonly IAgentHubSessionCache _serviceSessionCache;
     private readonly IExpiringTokenService _expiringTokenService;
+    private readonly IApiScriptResultCache _apiScriptResultCache;
 
     private readonly UserManager<RemotelyUser> _userManager;
 
     public ScriptingController(UserManager<RemotelyUser> userManager,
-        IDataService dataService,
+        IScriptResultService scriptResultService,
+        IUserService userService,
         IAgentHubSessionCache serviceSessionCache,
         IExpiringTokenService expiringTokenService,
+        IApiScriptResultCache apiScriptResultCache,
         IHubContext<AgentHub, IAgentHubClient> agentHub)
     {
-        _dataService = dataService;
+        _scriptResultService = scriptResultService;
+        _userService = userService;
         _serviceSessionCache = serviceSessionCache;
         _expiringTokenService = expiringTokenService;
+        _apiScriptResultCache = apiScriptResultCache;
         _userManager = userManager;
         _agentHubContext = agentHub;
     }
@@ -62,14 +68,14 @@ public class ScriptingController : ControllerBase
         if (Request.HttpContext.User.Identity?.IsAuthenticated == true)
         {
             var username = Request.HttpContext.User.Identity.Name;
-            var userResult = await _dataService.GetUserByName($"{username}");
+            var userResult = await _userService.GetUserByName($"{username}");
 
             if (!userResult.IsSuccess)
             {
                 return Unauthorized();
             }
 
-            if (!_dataService.DoesUserHaveAccessToDevice(deviceID, userResult.Value))
+            if (!_userService.DoesUserHaveAccessToDevice(deviceID, userResult.Value))
             {
                 return Unauthorized();
             }
@@ -101,15 +107,18 @@ public class ScriptingController : ControllerBase
             command,
             User?.Identity?.Name ?? "API Key");
 
-        var success = await WaitHelper.WaitForAsync(() => AgentHub.ApiScriptResults.TryGetValue(requestID, out _), TimeSpan.FromSeconds(30));
+        var success = await WaitHelper.WaitForAsync(() => _apiScriptResultCache.Contains(requestID), TimeSpan.FromSeconds(30));
         if (!success)
         {
             return NotFound();
         }
-        AgentHub.ApiScriptResults.TryGetValue(requestID, out var commandId);
-        AgentHub.ApiScriptResults.Remove(requestID);
 
-        var scriptResult = await _dataService.GetScriptResult($"{commandId}", orgId);
+        if (!_apiScriptResultCache.TryTake(requestID, out var commandId))
+        {
+            return NotFound();
+        }
+
+        var scriptResult = await _scriptResultService.GetScriptResult($"{commandId}", orgId);
         if (!scriptResult.IsSuccess)
         {
             return NotFound();

@@ -7,7 +7,7 @@ using Remotely.Server.Services;
 namespace Remotely.Server.Pages;
 
 [ServiceFilter(typeof(ViewerAuthorizationFilter))]
-public class ViewerModel(IDataService _dataService) : PageModel
+public class ViewerModel(IUserService _userService) : PageModel
 {
     public string FaviconUrl { get; } = "favicon.ico";
     public string LogoUrl { get; set; } = string.Empty;
@@ -70,7 +70,7 @@ public class ViewerModel(IDataService _dataService) : PageModel
             return string.Empty;
         }
 
-        var userResult = await _dataService.GetUserByName(User.Identity.Name);
+        var userResult = await _userService.GetUserByName(User.Identity.Name);
 
         if (!userResult.IsSuccess)
         {

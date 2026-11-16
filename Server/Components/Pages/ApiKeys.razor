@@ -4,7 +4,7 @@
 @attribute [Authorize(Policy = PolicyNames.OrganizationAdminRequired)]
 @inherits AuthComponentBase
 
-@inject IDataService DataService
+@inject IApiTokenService apiTokenService
 @inject AuthenticationStateProvider AuthProvider
 @inject IJsInterop JsInterop
 @inject IModalService ModalService
@@ -110,7 +110,7 @@
         var secret = RandomGenerator.GenerateString(48);
         var secretHash = new PasswordHasher<string>().HashPassword(string.Empty, secret);
 
-        var result = await DataService.CreateApiToken(UserName, _createKeyName, secretHash);
+        var result = await apiTokenService.CreateApiToken(UserName, _createKeyName, secretHash);
         if (!result.IsSuccess)
         {
             ToastService.ShowToast2(result.Reason, ToastType.Error);
@@ -131,7 +131,7 @@
             return;
         }
 
-        var deleteResult = await DataService.DeleteApiToken(UserName, keyId);
+        var deleteResult = await apiTokenService.DeleteApiToken(UserName, keyId);
         if (!deleteResult.IsSuccess)
         {
             ToastService.ShowToast2(deleteResult.Reason, ToastType.Error);
@@ -145,7 +145,7 @@
     {
         EnsureUserSet();
         _apiTokens.Clear();
-        _apiTokens.AddRange(DataService.GetAllApiTokens(User.Id));
+        _apiTokens.AddRange(apiTokenService.GetAllApiTokens(User.Id));
         _createKeyName = string.Empty;
         _alertMessage = string.Empty;
         _newKeySecret = string.Empty;
@@ -158,7 +158,7 @@
         var newName = await JsInterop.Prompt("New key name");
         if (!string.IsNullOrWhiteSpace(newName))
         {
-            await DataService.RenameApiToken(UserName, keyId, newName);
+            await apiTokenService.RenameApiToken(UserName, keyId, newName);
             RefreshData();
             _alertMessage = "Key renamed.";
         }

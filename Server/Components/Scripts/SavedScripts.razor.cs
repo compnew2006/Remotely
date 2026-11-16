@@ -20,7 +20,7 @@ public partial class SavedScripts : AuthComponentBase
     private string _environmentVarsShowClass = string.Empty;
 
     [Inject]
-    public IDataService DataService { get; set; } = null!;
+    public ISavedScriptService savedScriptService { get; set; } = null!;
 
     [Inject]
     public IToastService ToastService { get; set; } = null!;
@@ -88,7 +88,7 @@ public partial class SavedScripts : AuthComponentBase
             return;
         }
         
-        await DataService.AddOrUpdateSavedScript(_selectedScript, User.Id);
+        await savedScriptService.AddOrUpdateSavedScript(_selectedScript, User.Id);
         await ParentPage.RefreshScripts();
         ToastService.ShowToast("Script saved.");
         _alertMessage = "Script saved.";
@@ -115,7 +115,7 @@ public partial class SavedScripts : AuthComponentBase
             var result = await JsInterop.Confirm($"Are you sure you want to delete the script {_selectedScript.Name}?");
             if (result)
             {
-                await DataService.DeleteSavedScript(_selectedScript.Id);
+                await savedScriptService.DeleteSavedScript(_selectedScript.Id);
                 ToastService.ShowToast("Script deleted.");
                 _alertMessage = "Script deleted.";
                 await ParentPage.RefreshScripts();
@@ -138,7 +138,7 @@ public partial class SavedScripts : AuthComponentBase
         EnsureUserSet();
         if (viewModel.Script is not null)
         {
-            var result = await DataService.GetSavedScript(User.Id, viewModel.Script.Id);
+            var result = await savedScriptService.GetSavedScript(User.Id, viewModel.Script.Id);
             if (result.IsSuccess)
             {
                 _selectedScript = result.Value;

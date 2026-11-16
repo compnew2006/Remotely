@@ -13,7 +13,8 @@ namespace Remotely.Server.API;
 [Obsolete("This controller is here only for legacy purposes.  For new integrations, use API tokens.")]
 public class LoginController : ControllerBase
 {
-    private readonly IDataService _dataService;
+    private readonly ISettingsService _settingsService;
+    private readonly IUserService _userService;
     private readonly IHubContext<DesktopHub> _desktopHub;
     private readonly IRemoteControlSessionCache _remoteControlSessionCache;
     private readonly SignInManager<RemotelyUser> _signInManager;
@@ -22,14 +23,16 @@ public class LoginController : ControllerBase
 
     public LoginController(
         SignInManager<RemotelyUser> signInManager,
-        IDataService dataService,
+        ISettingsService settingsService,
+        IUserService userService,
         IHubContext<DesktopHub> casterHubContext,
         IRemoteControlSessionCache remoteControlSessionCache,
         IHubContext<ViewerHub> viewerHubContext,
         ILogger<LoginController> logger)
     {
         _signInManager = signInManager;
-        _dataService = dataService;
+        _settingsService = settingsService;
+        _userService = userService;
         _desktopHub = casterHubContext;
         _remoteControlSessionCache = remoteControlSessionCache;
         _viewerHub = viewerHubContext;
@@ -41,7 +44,7 @@ public class LoginController : ControllerBase
     {
         if (HttpContext?.User?.Identity?.IsAuthenticated == true)
         {
-            var userResult = await _dataService.GetUserByName($"{HttpContext.User.Identity.Name}");
+            var userResult = await _userService.GetUserByName($"{HttpContext.User.Identity.Name}");
 
             if (!userResult.IsSuccess)
             {
@@ -66,7 +69,7 @@ public class LoginController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] ApiLogin login)
     {
-        var settings = await _dataService.GetSettings();
+        var settings = await _settingsService.GetSettings();
         if (!settings.AllowApiLogin)
         {
             return NotFound();

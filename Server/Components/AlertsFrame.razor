@@ -1,6 +1,6 @@
 ﻿@inherits AuthComponentBase
 @attribute [Authorize]
-@inject IDataService DataService 
+@inject IAlertService alertService 
 @inject IModalService ModalService 
 
 <button id="alertsButton" class="btn btn-info" @onclick="ToggleOpen">
@@ -69,14 +69,14 @@
 
     private async Task ClearAlert(Alert alert)
     {
-        await DataService.DeleteAlert(alert);
+        await alertService.DeleteAlert(alert);
         _alerts.Remove(alert);
     }
 
     private async Task ClearAllAlerts()
     {
         EnsureUserSet();
-        await DataService.DeleteAllAlerts(User.OrganizationID, User.UserName);
+        await alertService.DeleteAllAlertsForUser(User.OrganizationID, User.UserName);
         _alerts.Clear();
     }
 
@@ -84,7 +84,7 @@
     {
         EnsureUserSet();
         _alerts.Clear();
-        var alerts = DataService.GetAlerts(User.Id);
+        var alerts = alertService.GetAlerts(User.Id);
         if (alerts.Any())
         {
             _alerts.AddRange(alerts);

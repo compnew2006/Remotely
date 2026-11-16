@@ -11,14 +11,14 @@ namespace Remotely.Server.Tests;
 public class KeyboardSettingsTests
 {
     private TestData _testData = null!;
-    private IDataService _dataService = null!;
+    private IDeviceService _deviceService = null!;
 
     [TestInitialize]
     public async Task Init()
     {
         _testData = new TestData();
         await _testData.Init();
-        _dataService = IoCActivator.ServiceProvider.GetRequiredService<IDataService>();
+        _deviceService = IoCActivator.ServiceProvider.GetRequiredService<IDeviceService>();
     }
 
     [TestMethod]
@@ -35,7 +35,7 @@ public class KeyboardSettingsTests
     [TestMethod]
     public async Task UpdateKeyboardSettings_StoresWhetherPasswordsAreShown()
     {
-        Assert.IsTrue((await _dataService.UpdateKeyboardSettings(
+        Assert.IsTrue((await _deviceService.UpdateKeyboardSettings(
             _testData.Org1Device1.ID,
             true,
             500,
@@ -43,11 +43,11 @@ public class KeyboardSettingsTests
             null,
             true)).IsSuccess);
 
-        var deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        var deviceResult = await _deviceService.GetDevice(_testData.Org1Device1.ID);
         Assert.IsTrue(deviceResult.IsSuccess);
         Assert.IsTrue(deviceResult.Value!.KeyboardShowPasswords);
 
-        Assert.IsTrue((await _dataService.UpdateKeyboardSettings(
+        Assert.IsTrue((await _deviceService.UpdateKeyboardSettings(
             _testData.Org1Device1.ID,
             true,
             500,
@@ -55,7 +55,7 @@ public class KeyboardSettingsTests
             null,
             false)).IsSuccess);
 
-        deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        deviceResult = await _deviceService.GetDevice(_testData.Org1Device1.ID);
         Assert.IsTrue(deviceResult.IsSuccess);
         Assert.IsFalse(deviceResult.Value!.KeyboardShowPasswords);
     }
@@ -73,21 +73,21 @@ public class KeyboardSettingsTests
             new Remotely.Shared.Models.ScreenshotPauseWindow(22, 7)
         });
 
-        Assert.IsTrue((await _dataService.UpdateScreenshotSettings(
+        Assert.IsTrue((await _deviceService.UpdateScreenshotSettings(
             _testData.Org1Device1.ID,
             screenshotDirectory,
             11,
             42,
             screenshotPauseWindows)).IsSuccess);
 
-        Assert.IsTrue((await _dataService.UpdateKeyboardSettings(
+        Assert.IsTrue((await _deviceService.UpdateKeyboardSettings(
             _testData.Org1Device1.ID,
             true,
             321,
             72,
             keyboardPauseWindows)).IsSuccess);
 
-        var deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        var deviceResult = await _deviceService.GetDevice(_testData.Org1Device1.ID);
         Assert.IsTrue(deviceResult.IsSuccess);
 
         var device = deviceResult.Value!;
@@ -103,13 +103,13 @@ public class KeyboardSettingsTests
     [TestMethod]
     public async Task UpdateKeyboardSettings_ClampsRetentionToSupportedLimits()
     {
-        Assert.IsTrue((await _dataService.UpdateKeyboardSettings(
+        Assert.IsTrue((await _deviceService.UpdateKeyboardSettings(
             _testData.Org1Device1.ID,
             false,
             99999,
             9000)).IsSuccess);
 
-        var deviceResult = await _dataService.GetDevice(_testData.Org1Device1.ID);
+        var deviceResult = await _deviceService.GetDevice(_testData.Org1Device1.ID);
 
         Assert.IsTrue(deviceResult.IsSuccess);
         Assert.AreEqual(20000, deviceResult.Value!.KeyboardRetentionCount);
@@ -121,7 +121,7 @@ public class KeyboardSettingsTests
     {
         var tooLong = new string('x', 501);
 
-        var result = await _dataService.UpdateKeyboardSettings(
+        var result = await _deviceService.UpdateKeyboardSettings(
             _testData.Org1Device1.ID,
             false,
             10,

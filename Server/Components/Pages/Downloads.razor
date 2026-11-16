@@ -3,7 +3,7 @@
 @using Microsoft.Extensions.Logging 
 
 @inject IAuthService Auth
-@inject IDataService DataService
+@inject IOrganizationService organizationService
 @inject UserManager<RemotelyUser> UserManager
 @inject IWebHostEnvironment HostEnv
 @inject NavigationManager NavManager
@@ -374,7 +374,7 @@
         }
         else
         {
-            var orgResult = await DataService.GetDefaultOrganization();
+            var orgResult = await organizationService.GetDefaultOrganization();
             if (orgResult.IsSuccess)
             {
                 _organizationId = orgResult.Value.ID;

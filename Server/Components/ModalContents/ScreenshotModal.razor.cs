@@ -41,7 +41,7 @@ public partial class ScreenshotModal : AuthComponentBase, IDisposable
     public required ICircuitConnection CircuitConnection { get; init; }
 
     [Inject]
-    public required IDataService DataService { get; init; }
+    public required IDeviceService deviceService { get; init; }
 
     [Inject]
     public required IScreenshotService ScreenshotService { get; init; }
@@ -126,7 +126,7 @@ public partial class ScreenshotModal : AuthComponentBase, IDisposable
 
     private async Task<Device?> GetDevice()
     {
-        var result = await DataService.GetDevice(DeviceId);
+        var result = await deviceService.GetDevice(DeviceId);
         return result.IsSuccess ? result.Value : null;
     }
 

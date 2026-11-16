@@ -38,7 +38,7 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
     public required ICircuitConnection CircuitConnection { get; init; }
 
     [Inject]
-    public required IDataService DataService { get; init; }
+    public required IDeviceService deviceService { get; init; }
 
     [Inject]
     public required IToastService ToastService { get; init; }
@@ -66,7 +66,7 @@ public partial class KeyboardModal : AuthComponentBase, IDisposable
 
     private async Task LoadDeviceSettings()
     {
-        var deviceResult = await DataService.GetDevice(DeviceId);
+        var deviceResult = await deviceService.GetDevice(DeviceId);
         if (!deviceResult.IsSuccess)
         {
             return;
