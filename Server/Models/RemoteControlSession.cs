@@ -220,7 +220,7 @@ public class RemoteControlSession : IDisposable
     /// <summary>
     /// Contains a collection of viewer SignalR connection IDs.
     /// </summary>
-    public HashSet<string> ViewerList { get; private set; } = new();
+    public ConnectionIdSet ViewerList { get; private set; } = new();
 
     /// <summary>
     /// Creates a new session based off this existing one, but with

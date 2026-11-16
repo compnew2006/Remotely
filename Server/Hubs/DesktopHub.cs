@@ -78,7 +78,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
         }
     }
 
-    private HashSet<string> ViewerList => SessionInfo.ViewerList;
+    private ConnectionIdSet ViewerList => SessionInfo.ViewerList;
 
     public async Task DisconnectViewer(string viewerID, bool notifyViewer)
     {
