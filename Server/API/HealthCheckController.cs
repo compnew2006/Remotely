@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Remotely.Server.Auth;
-using Remotely.Server.Services;
+using Remotely.Server.HealthChecks;
 
 namespace Remotely.Server.API;
 
@@ -14,17 +15,25 @@ namespace Remotely.Server.API;
 [ServiceFilter(typeof(LocalOnlyFilter))]
 public class HealthCheckController : ControllerBase
 {
-    private readonly IOrganizationService _organizationService;
+    private readonly HealthCheckService _healthCheckService;
 
-    public HealthCheckController(IOrganizationService organizationService)
+    public HealthCheckController(HealthCheckService healthCheckService)
     {
-        _organizationService = organizationService;
+        _healthCheckService = healthCheckService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-         _ = await _organizationService.GetOrganizationCountAsync();
-        return NoContent();
+        var report = await _healthCheckService.CheckHealthAsync(
+            registration => registration.Name == DatabaseHealthCheck.Name,
+            cancellationToken);
+
+        // The container healthcheck runs "curl -f", so a database that cannot
+        // be reached has to answer with a failing status code; otherwise the
+        // container stays "healthy" while the server cannot serve anything.
+        return report.Status == HealthStatus.Healthy
+            ? Ok()
+            : StatusCode(StatusCodes.Status503ServiceUnavailable);
     }
 }

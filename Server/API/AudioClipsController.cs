@@ -115,6 +115,7 @@ public class AudioClipsController : ControllerBase
     /// was requested in.
     /// </summary>
     [HttpPost("{deviceId}/upload")]
+    [InternallyAuthorized]
     [RequestSizeLimit(AudioService.MaxClipBytes)]
     public async Task<ActionResult> Upload(
         string deviceId,

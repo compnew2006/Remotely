@@ -29,4 +29,12 @@ public class ApplicationOptions
     public bool AllowDbAutoMigration { get; set; } = true;
 
     public string? DockerGatewayIp { get; set; }
+
+    /// <summary>
+    /// Emit a Content-Security-Policy header.  On by default.  The policy
+    /// allows scripts only from this origin and forbids framing.  A deployment
+    /// that introduces a third-party or inline script must extend the policy,
+    /// not disable it.
+    /// </summary>
+    public bool EnableContentSecurityPolicy { get; set; } = true;
 }

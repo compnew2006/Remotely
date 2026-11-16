@@ -63,6 +63,7 @@ public class RemoteControlController : ControllerBase
     }
 
     [HttpPost]
+    [InternallyAuthorized]
     [Obsolete("This method is deprecated. Use the GET method along with API keys instead.")]
     public async Task<IActionResult> Post([FromBody] RemoteControlRequest rcRequest)
     {

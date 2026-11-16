@@ -115,6 +115,7 @@ public class CamerasController : ControllerBase
     /// was requested in.
     /// </summary>
     [HttpPost("{deviceId}/upload")]
+    [InternallyAuthorized]
     [RequestSizeLimit(CameraService.MaxClipBytes)]
     public async Task<ActionResult> Upload(
         string deviceId,

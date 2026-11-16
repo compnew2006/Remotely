@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Remotely.Server.Auth;
@@ -25,6 +26,8 @@ using Serilog;
 using System.Net;
 using RatePolicyNames = Remotely.Server.RateLimiting.PolicyNames;
 using Remotely.Server.Filters;
+using Remotely.Server.HealthChecks;
+using Remotely.Server.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
@@ -254,6 +257,9 @@ services.AddRateLimiter(options =>
 });
 services.AddHttpClient();
 services.AddLogging();
+services
+    .AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>(DatabaseHealthCheck.Name);
 services.AddScoped<IEmailSender, EmailSender>();
 if (builder.Environment.IsDevelopment())
 {
@@ -280,6 +286,7 @@ services.AddSingleton<ISharedFileService, SharedFileService>();
 services.AddSingleton<IDeviceListingService, DeviceListingService>();
 services.AddSingleton<IDeviceGroupMembershipService, DeviceGroupMembershipService>();
 services.AddSingleton<IMaintenanceService, MaintenanceService>();
+services.AddSingleton<ServerMetrics>();
 services.AddScoped<ApiAuthorizationFilter>();
 services.AddScoped<LocalOnlyFilter>();
 services.AddScoped<ExpiringTokenFilter>();
@@ -330,6 +337,11 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
+// The correlation id has to wrap the whole pipeline so that every log line
+// of one request carries the same id.
+app.UseCorrelationId();
+app.UseRequestMetrics(app.Services.GetRequiredService<ServerMetrics>());
+
 app.UseRateLimiter();
 
 if (settings.UseHttpLogging)
@@ -364,6 +376,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Security headers apply to every response, including static assets and error
+// pages, so they are registered before the static-file middleware.
+app.UseSecurityHeaders(appOptions);
+
 ConfigureStaticFiles();
 
 app.UseRouting();
@@ -381,6 +397,16 @@ app.MapHub<DesktopHub>("/hubs/desktop");
 app.MapHub<ViewerHub>("/hubs/viewer");
 app.MapHub<AgentHub>("/hubs/service");
 app.MapControllers();
+
+// The counters of the running process, in the Prometheus text format.  The
+// endpoint is restricted to local callers, the same way the readiness probe
+// is.
+app.MapMetrics(app.Services.GetRequiredService<ServerMetrics>());
+
+// The readiness probe is the existing /api/healthcheck endpoint
+// (Server/API/HealthCheckController.cs).  It is restricted to local callers by
+// LocalOnlyFilter, so the Docker HEALTHCHECK, systemd, and an operator on the
+// host can use it while anonymous remote callers cannot drive database work.
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

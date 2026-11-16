@@ -39,12 +39,14 @@ public class ClientDownloadsController : ControllerBase
     }
 
     [HttpGet("desktop/{platformID}")]
+    [InternallyAuthorized]
     public async Task<IActionResult> GetDesktop(string platformID)
     {
         return await GetDesktopInternal(platformID, null);
     }
 
     [HttpGet("desktop/{platformId}/{organizationId}")]
+    [InternallyAuthorized]
     public async Task<IActionResult> GetDesktop(string platformId, string organizationId)
     {
         return await GetDesktopInternal(platformId, organizationId);
