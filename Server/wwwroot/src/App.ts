@@ -83,3 +83,11 @@ export const ViewerApp = {
 }
 
 window["ViewerApp"] = ViewerApp;
+
+// The viewer page used to boot the app from an inline <script> block.  That
+// block is forbidden by the Content-Security-Policy, so the boot call lives
+// here instead.  A module executes after the document is parsed and before
+// `load` fires, so the listener is always registered in time.
+window.addEventListener("load", () => {
+    ViewerApp.Init();
+});

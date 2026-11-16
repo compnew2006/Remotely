@@ -9,7 +9,49 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
+
+    <!--
+      The compiled browser client lives in wwwroot/src, next to its sources,
+      and it is committed to the repository.  That makes the files an output
+      of the TypeScript build AND a required static web asset of the server.
+
+      A clean removes the files that the TypeScript build produced, and the
+      "no incremental" build option runs one before the build.  When the
+      compile is skipped afterwards, the static web assets manifest fails
+      with "No file exists for the asset at ... wwwroot/src/App.js" and the
+      build stops with the compiled client missing from the working tree.
+
+      With the incremental build of the TypeScript compiler turned off, the
+      compile always runs and puts the files back, so the build cannot fail
+      on a missing asset and the committed client is always regenerated from
+      the committed sources.
+    -->
+    <TypeScriptEnableIncrementalMSBuild>false</TypeScriptEnableIncrementalMSBuild>
   </PropertyGroup>
+
+  <!--
+    The compiled browser client lives in wwwroot/src, next to its sources,
+    and it is committed to the repository.  That makes the files an output of
+    the TypeScript build AND a required static web asset of the server.
+
+    A clean removes the files that the TypeScript build produced, and the
+    "no incremental" build option runs one before the build.  When the
+    compile is skipped afterwards, the static web assets manifest fails with
+    "No file exists for the asset at ... wwwroot/src/App.js" and the build
+    stops with the compiled client missing from the working tree.
+
+    This target puts the client back before the manifest is written.  It only
+    runs when a file is really missing, so the normal build is not affected.
+  -->
+  <Target Name="RestoreCompiledBrowserClient"
+          BeforeTargets="ResolveProjectStaticWebAssets"
+          Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\src\App.js')">
+
+    <Message Importance="high"
+             Text="The compiled browser client is missing; it is compiled again before the build continues." />
+
+    <Exec Command="node &quot;$(TSJavaScriptFile)&quot; --project &quot;$(MSBuildProjectDirectory)\wwwroot\src\tsconfig.json&quot;" />
+  </Target>
 
 
   <ItemGroup>
