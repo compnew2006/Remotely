@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -8,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -24,6 +26,7 @@ public class UpdateSigningServiceTests
 {
     private string _contentRoot = string.Empty;
     private string _webRoot = string.Empty;
+    private IWebHostEnvironment _hostEnvironment = null!;
     private UpdateSigningService _signingService = null!;
 
     [TestInitialize]
@@ -44,6 +47,8 @@ public class UpdateSigningServiceTests
         var hostEnvironment = new Mock<IWebHostEnvironment>();
         hostEnvironment.Setup(x => x.ContentRootPath).Returns(_contentRoot);
         hostEnvironment.Setup(x => x.WebRootPath).Returns(_webRoot);
+
+        _hostEnvironment = hostEnvironment.Object;
 
         _signingService = new UpdateSigningService(
             hostEnvironment.Object,
@@ -180,6 +185,76 @@ public class UpdateSigningServiceTests
         Assert.AreEqual(UpdateVerificationFailure.UnknownKeyId, result.Failure);
     }
 
+    [TestMethod]
+    public async Task SignIfChangedAsync_PublishesNothingWhenTheResultDoesNotVerify()
+    {
+        CreatePackage("Remotely-Win-x64.zip");
+
+        var service = new FailingVerificationSigningService(
+            _hostEnvironment,
+            NullLogger<UpdateSigningService>.Instance);
+
+        var signed = await service.SignIfChangedAsync("x64", default);
+
+        Assert.IsFalse(signed);
+
+        var contentDirectory = Path.Combine(_webRoot, "Content");
+
+        // A manifest that the agents would refuse must never reach the disk.
+        Assert.IsFalse(
+            File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json")),
+            "The manifest was published even though it does not verify.");
+        Assert.IsFalse(
+            File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.sig")),
+            "The signature was published even though it does not verify.");
+    }
+
+    [TestMethod]
+    public async Task SignIfChangedAsync_RemovesTheManifestOfThePreviousContentWhenTheResultDoesNotVerify()
+    {
+        CreatePackage("Remotely-Win-x64.zip");
+
+        Assert.IsTrue(await _signingService.SignIfChangedAsync("x64", default));
+
+        var contentDirectory = Path.Combine(_webRoot, "Content");
+        Assert.IsTrue(File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json")));
+
+        // The package changes and the new manifest does not verify.  The old
+        // manifest describes a package that is no longer on disk, so it must
+        // not be served next to the new one.
+        CreatePackage("Remotely-Win-x64.zip", "second");
+
+        var service = new FailingVerificationSigningService(
+            _hostEnvironment,
+            NullLogger<UpdateSigningService>.Instance);
+
+        Assert.IsFalse(await service.SignIfChangedAsync("x64", default));
+
+        Assert.IsFalse(
+            File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.json")),
+            "The stale manifest is still published.");
+        Assert.IsFalse(
+            File.Exists(Path.Combine(contentDirectory, "Remotely-Win-x64.zip.manifest.sig")),
+            "The stale signature is still published.");
+    }
+
+    [TestMethod]
+    public async Task SignIfChangedAsync_TriesAgainAfterAFailedVerification()
+    {
+        CreatePackage("Remotely-Win-x64.zip");
+
+        var service = new FailingVerificationSigningService(
+            _hostEnvironment,
+            NullLogger<UpdateSigningService>.Instance);
+
+        await service.SignIfChangedAsync("x64", default);
+        await service.SignIfChangedAsync("x64", default);
+
+        // The failure must not be remembered as "already signed", otherwise
+        // the server would never sign this package again.
+        Assert.AreEqual(2, service.VerificationAttempts);
+    }
+
     private string CreatePackage(string fileName, string content = "first")
     {
         var path = Path.Combine(_webRoot, "Content", fileName);
@@ -198,5 +273,37 @@ public class UpdateSigningServiceTests
         }
 
         return path;
+    }
+
+    /// <summary>
+    /// A signing service whose verification always fails, so that the
+    /// behaviour of the server when a manifest does not verify can be
+    /// observed.
+    /// </summary>
+    private sealed class FailingVerificationSigningService : UpdateSigningService
+    {
+        public FailingVerificationSigningService(
+            IWebHostEnvironment hostEnvironment,
+            ILogger<UpdateSigningService> logger)
+            : base(hostEnvironment, logger)
+        {
+        }
+
+        public int VerificationAttempts { get; private set; }
+
+        protected override UpdateVerificationResult VerifyManifest(
+            byte[] manifestBytes,
+            string signatureBase64,
+            byte[] packageBytes,
+            byte[]? installerBytes,
+            string keyId,
+            ECDsa key)
+        {
+            VerificationAttempts++;
+
+            return UpdateVerificationResult.Fail(
+                UpdateVerificationFailure.InvalidSignature,
+                "Refused on purpose by the test.");
+        }
     }
 }

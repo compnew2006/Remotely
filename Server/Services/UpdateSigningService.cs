@@ -127,6 +127,36 @@ public class UpdateSigningService : IUpdateSigningService
             });
 
             var signature = key.SignData(manifestBytes, HashAlgorithmName.SHA256);
+            var signatureText = Convert.ToBase64String(signature);
+
+            // Verify the result with the same code the agents use, before it
+            // is written anywhere.  A manifest that the agent would refuse
+            // must never reach the disk, and the failure must not be
+            // remembered: the next tick has to try again.
+            var verification = VerifyManifest(
+                manifestBytes,
+                signatureText,
+                packageBytes,
+                installerBytes,
+                keyId,
+                key);
+
+            if (!verification.Success)
+            {
+                _logger.LogError(
+                    "The client package for {platform} was signed, but the result does not verify: {failure} {detail}.  " +
+                    "The agents would refuse the update.",
+                    platform,
+                    verification.Failure,
+                    verification.Detail);
+
+                // The manifest of the previous content describes a package
+                // that is no longer on disk.  Serving it would hand the
+                // agents a pair that can never match, so it is removed.
+                RemovePublishedManifest(packagePath);
+
+                return false;
+            }
 
             await File.WriteAllBytesAsync(
                 packagePath + ManifestSuffix,
@@ -135,9 +165,12 @@ public class UpdateSigningService : IUpdateSigningService
 
             await File.WriteAllTextAsync(
                 packagePath + SignatureSuffix,
-                Convert.ToBase64String(signature),
+                signatureText,
                 cancellationToken);
 
+            // Only now the content counts as signed.  Recording it earlier
+            // would make every later call skip the signing because the
+            // hashes match, and the failure would never be reported again.
             _signedHashes[platform] = signedIdentity;
 
             _logger.LogInformation(
@@ -156,6 +189,65 @@ public class UpdateSigningService : IUpdateSigningService
         finally
         {
             _signLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Checks the manifest with the same code the agents use.
+    /// <para>
+    /// The version is 0.0.0.0 on purpose: the server does not know which
+    /// version the agents already run, so it cannot judge a rollback.  The
+    /// agent does that comparison itself.
+    /// </para>
+    /// <para>
+    /// The method is virtual so that a test can make the check fail and
+    /// observe what the server publishes when it does.
+    /// </para>
+    /// </summary>
+    protected virtual UpdateVerificationResult VerifyManifest(
+        byte[] manifestBytes,
+        string signatureBase64,
+        byte[] packageBytes,
+        byte[]? installerBytes,
+        string keyId,
+        ECDsa key)
+    {
+        return UpdatePackageVerifier.Verify(
+            manifestBytes,
+            signatureBase64,
+            packageBytes,
+            installerBytes,
+            new Version(0, 0, 0, 0),
+            new Dictionary<string, string> { [keyId] = Convert.ToBase64String(key.ExportSubjectPublicKeyInfo()) });
+    }
+
+    /// <summary>
+    /// Removes the published manifest and signature of a package.  They are
+    /// removed together: a signature without its manifest, and the other way
+    /// round, are both worse than nothing.
+    /// </summary>
+    private void RemovePublishedManifest(string packagePath)
+    {
+        try
+        {
+            var manifestPath = packagePath + ManifestSuffix;
+            var signaturePath = packagePath + SignatureSuffix;
+
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            if (File.Exists(signaturePath))
+            {
+                File.Delete(signaturePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "The manifest of the client package could not be removed.");
         }
     }
 
