@@ -297,3 +297,10 @@ Server.Installer/Properties/launchSettings.json
 !/.vscode/tasks.json
 /Server/appsettings.Development.json
 /Server/AppData
+
+# Generated structural maps (graphify).  They are rebuilt from the source and
+# are not part of the product; the status of the project lives in
+# GATE-REGISTER.md, not in these files.
+EGM.md
+**/EGM.md
+
