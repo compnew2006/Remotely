@@ -60,13 +60,30 @@ public class ViewerHub : Hub<IViewerHubClient>
         }
     }
 
+    /// <summary>
+    /// The access mode this viewer was granted when it attached.  It can only
+    /// narrow the session's mode, never widen it.
+    /// <para>
+    /// Fail closed (SPEC-001 / FR-003): when no decision has been recorded for
+    /// this connection, the viewer is treated as View Only.  A missing or
+    /// corrupt value must never grant control.
+    /// </para>
+    /// </summary>
     private bool ViewerViewOnly
     {
-        get => Context.Items.TryGetValue(nameof(ViewerViewOnly), out var stored) &&
-            stored is bool isViewOnly &&
+        get => !Context.Items.TryGetValue(nameof(ViewerViewOnly), out var stored) ||
+            stored is not bool isViewOnly ||
             isViewOnly;
         set => Context.Items[nameof(ViewerViewOnly)] = value;
     }
+
+    /// <summary>
+    /// Whether this specific viewer may relay device-modifying messages.
+    /// Both the session's server-owned mode and this viewer's own mode are
+    /// consulted; either one being View Only is enough to refuse.
+    /// </summary>
+    private bool ViewerMayRelayControl =>
+        !SessionInfo.ViewOnly && !ViewerViewOnly;
 
     private RemoteControlSession SessionInfo
     {
@@ -99,10 +116,10 @@ public class ViewerHub : Hub<IViewerHubClient>
             // SPEC-001 / FR-010, FR-011, FR-015 (OD-11 audit R-A): changing the
             // target Windows session is a control action authorized per viewer,
             // not per session. This re-evaluates the session mode, the viewer's
-            // authentication, and the device-group basis at every invocation —
-            // a second, unauthenticated viewer on a FullControl session is
-            // refused even though the session itself carries FullControl.
-            if (!(await ViewerMayControl()))
+            // authentication, the device-group basis, and the decision recorded
+            // when this viewer attached — a viewer narrowed at attach stays
+            // narrowed even if the session itself carries FullControl.
+            if (ViewerViewOnly || !(await ViewerMayControl()))
             {
                 LogPrivilegeRefused(nameof(ChangeWindowsSession));
                 await Clients.Caller.ShowMessage("Not permitted: control authority is not held for this session.");
@@ -203,10 +220,8 @@ public class ViewerHub : Hub<IViewerHubClient>
         // THIS viewer's effective access mode — the session's server-owned mode
         // narrowed by the per-attach control evaluation recorded at
         // SendScreenCastRequestToDevice time. The viewer's link and URL
-        // parameters are never consulted.
-        var viewerViewOnly = Context.Items.ContainsKey(nameof(ViewerViewOnly))
-            ? ViewerViewOnly
-            : SessionInfo.ViewOnly;
+        // parameters are never consulted, and an unrecorded mode fails closed.
+        var viewerViewOnly = SessionInfo.ViewOnly || ViewerViewOnly;
 
         return new RemoteControlViewerOptions()
         {
@@ -221,8 +236,9 @@ public class ViewerHub : Hub<IViewerHubClient>
         {
             // SPEC-001 / FR-010, FR-011, FR-015 (OD-11 audit R-A): Ctrl+Alt+Del
             // is a control action authorized per viewer, not per session — same
-            // gate and re-evaluation as ChangeWindowsSession.
-            if (!(await ViewerMayControl()))
+            // gate and re-evaluation as ChangeWindowsSession.  A viewer narrowed
+            // at attach stays narrowed.
+            if (ViewerViewOnly || !(await ViewerMayControl()))
             {
                 LogPrivilegeRefused(nameof(InvokeCtrlAltDel));
                 await Clients.Caller.ShowMessage("Not permitted: control authority is not held for this session.");
@@ -258,12 +274,14 @@ public class ViewerHub : Hub<IViewerHubClient>
             return;
         }
 
-        // SPEC-001 / FR-010, FR-011, FR-012: every remote-control message is
-        // authorized against the server-owned access mode of the session before
-        // it is forwarded. FullControl sessions are forwarded untouched (no
-        // parsing overhead); View Only sessions are inspected and any
-        // device-modifying message is refused here, at the server, and recorded.
-        if (SessionInfo.ViewOnly)
+        // SPEC-001 / FR-010, FR-011, FR-012, FR-015: every remote-control message
+        // is authorized per viewer before it is forwarded.  The session's
+        // server-owned mode is not enough on its own: two viewers can be
+        // attached to the same FullControl session with different modes, and the
+        // narrower one must not borrow the wider one's authority.  View Only
+        // viewers are inspected and any device-modifying message is refused
+        // here, at the server, and recorded.
+        if (!ViewerMayRelayControl)
         {
             if (!TryGetDtoType(dtoWrapper, out var dtoType))
             {
@@ -280,9 +298,9 @@ public class ViewerHub : Hub<IViewerHubClient>
                 // FR-011: make the refusal observable to the viewer/administrator
                 // UI, but only once per connection so input-frequency messages do
                 // not flood the channel.
-                if (!_viewOnlyRefusalNotified)
+                if (!ViewOnlyRefusalNotified)
                 {
-                    _viewOnlyRefusalNotified = true;
+                    MarkViewOnlyRefusalNotified();
                     await Clients.Caller.ShowMessage("Input blocked: session is View Only.");
                 }
 
@@ -295,7 +313,18 @@ public class ViewerHub : Hub<IViewerHubClient>
             .SendDtoToClient(dtoWrapper, Context.ConnectionId);
     }
 
-    private bool _viewOnlyRefusalNotified;
+    /// <summary>
+    /// Whether the "input blocked" notice has already been sent on this
+    /// connection.  SignalR creates a new hub instance for every invocation, so
+    /// an instance field would forget the flag between messages and the notice
+    /// would be sent for every input event.  It lives with the connection's
+    /// other state instead.
+    /// </summary>
+    private bool ViewOnlyRefusalNotified =>
+        Context.Items.ContainsKey(nameof(ViewOnlyRefusalNotified));
+
+    private void MarkViewOnlyRefusalNotified() =>
+        Context.Items[nameof(ViewOnlyRefusalNotified)] = true;
 
     /// <summary>
     /// SPEC-001 / FR-008, FR-009, FR-029: record each refused privilege
