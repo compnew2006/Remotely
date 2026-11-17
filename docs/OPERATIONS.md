@@ -96,7 +96,36 @@ docker exec remotely sh -c "ls -l /app/AppData/Remotely.db*"
 
 ⇒ CI أخضر **ليس** اجتياز بوابة إطلاق. إجراء اجتياز البوابات في `RELEASE-CHECKLIST.md`.
 
-## 8. حدود معروفة
+## 9. هوية الأجهزة (credential)
+
+كل جهاز يحمل **بيانات اعتماد (credential)** تُخزَّن في `ConnectionInfo.json` على الجهاز نفسه، والسيرفر لا يحفظ منها إلا **بصمتها (SHA-256)**. معرّفة الجهاز ومنظمة الجهاز وحدهما لا يكفيان: من يعرفهما يستطيع ادّعاء أنه هذا الجهاز.
+
+- الوكيل يقدّم الـcredential في ترويسة `X-Remotely-Device-Token` عند كل تسجيل، والترويسة تُقرأ في كل اتصال تلقائي.
+- أول تسجيل يربط الـcredential بجهاز جديد؛ بعده لا يُقبل إلا نفس الـcredential (أو credential مطابق لبصمته).
+- الـcredential يتجدّد تلقائيًا بعد 30 يومًا، فـcredential مسرَّب لا يبقى صالحًا للأبد.
+- **التسجيل ما زال مفتوحًا**: جهاز جديد يُقبل مع أي منظمة معروفة ⇒，这条 الفجوة (نصف G4) ما زالت مفتوحة.
+
+### كم جهازًا بلا credential؟
+
+المقياس `remotely_devices_without_credential` في `/metrics`، والسجلّ ينبّه عند تغيّر العدد. الجهاز الذي بلا credential ما زال قابلًا للادّعاء من أول من يسجّله.
+
+الاستعلام لكل مزوّد (نفس النص لكل الثلاثة):
+
+```sql
+SELECT ID, DeviceName, OrganizationID
+FROM Devices
+WHERE ServerVerificationToken IS NULL OR ServerVerificationToken = '';
+```
+
+- **SQLite**: الملف في `AppData/Remotely.db` — `sqlite3 Remotely.db "SELECT ..."`.
+- **SQL Server**: `sqlcmd -S <server> -d Remotely -Q "SELECT ..."`.
+- **PostgreSQL**: `psql -d Remotely -c "SELECT ..."`.
+
+### جهاز رفضه السيرفر
+
+لو رفض السيرفر تسجيل جهاز فالـcredential المخزَّن لا يطابق ما في السجل (مثلًا بعد استعادة نسخة احتياطية). الحل: امسح `ServerVerificationToken` من `ConnectionInfo.json` على الجهاز وأعد تشغيل الوكيل — سيُسجَّل من جديد وتُربط بصمته.
+
+## 10. حدود معروفة
 
 - **نسخة واحدة فقط**: لا يوجد SignalR backplane (Redis/Azure SignalR)، فتوسيع الخادم إلى أكثر من نسخة لا يوزّع الجلسات. الخادم يأخذ **عُقدة (lease)** على قاعدة البيانات، ويكتب في السجل وفي `remotely_instance_conflict` عندما يجد نسخة أخرى على نفس القاعدة — تحذير لا يمنع الإقلاع.
 - **مفتاح التوقيع على Linux غير مشفّر**: DPAPI متاح على Windows فقط؛ على Linux يُخزَّن المفتاح بلا حماية على مستوى الملف.

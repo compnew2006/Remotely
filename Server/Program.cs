@@ -330,6 +330,7 @@ services.AddSingleton<IMaintenanceService, MaintenanceService>();
 services.AddSingleton<ServerMetrics>();
 services.AddSingleton<IInstanceLeaseService, InstanceLeaseService>();
 services.AddHostedService<InstanceLeaseHostedService>();
+services.AddHostedService<DeviceCredentialAuditHostedService>();
 services.AddScoped<ApiAuthorizationFilter>();
 services.AddScoped<LocalOnlyFilter>();
 services.AddScoped<ExpiringTokenFilter>();

@@ -22,6 +22,7 @@ public sealed class ServerMetrics
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private int _instanceConflict;
     private int _remoteControlAuthenticationRequired = 1;
+    private int _devicesWithoutCredential;
 
     /// <summary>
     /// Counts one handled HTTP request.
@@ -73,6 +74,20 @@ public sealed class ServerMetrics
     public void RecordRemoteControlAuthenticationRequired(bool required)
     {
         Volatile.Write(ref _remoteControlAuthenticationRequired, required ? 1 : 0);
+    }
+
+    /// <summary>
+    /// How many devices have no credential bound yet.  A device without a
+    /// credential can still be claimed by the first caller that registers it.
+    /// </summary>
+    public int DevicesWithoutCredential => Volatile.Read(ref _devicesWithoutCredential);
+
+    /// <summary>
+    /// Records how many devices have no credential bound yet.
+    /// </summary>
+    public void RecordDevicesWithoutCredential(int count)
+    {
+        Volatile.Write(ref _devicesWithoutCredential, count);
     }
 
     /// <summary>
@@ -130,6 +145,12 @@ public sealed class ServerMetrics
         builder.AppendLine("# TYPE remotely_remote_control_auth_required gauge");
         builder.Append("remotely_remote_control_auth_required ")
             .Append(RemoteControlAuthenticationRequired ? "1" : "0")
+            .AppendLine();
+
+        builder.AppendLine("# HELP remotely_devices_without_credential Devices that have no credential bound yet.");
+        builder.AppendLine("# TYPE remotely_devices_without_credential gauge");
+        builder.Append("remotely_devices_without_credential ")
+            .Append(DevicesWithoutCredential.ToString(CultureInfo.InvariantCulture))
             .AppendLine();
 
         builder.AppendLine("# HELP remotely_build_info Version of the running server.");

@@ -12,6 +12,15 @@ public class AppConstants
     public const string ExpiringTokenHeaderName = "X-Expiring-Token";
 
     /// <summary>
+    /// The header an agent presents when it opens its hub connection, carrying
+    /// the verification token that is bound to its device record.  The server
+    /// refuses to register a device when the presented token does not match,
+    /// so knowing a device ID and an organization ID is not enough to
+    /// impersonate the device.
+    /// </summary>
+    public const string DeviceVerificationTokenHeaderName = "X-Remotely-Device-Token";
+
+    /// <summary>
     /// The header that a device uses to authenticate a camera clip upload
     /// with the access key of its session.
     /// </summary>

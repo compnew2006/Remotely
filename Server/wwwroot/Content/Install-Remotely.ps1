@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
    Installs the Remotely Client.
 .DESCRIPTION
@@ -277,9 +277,14 @@ function Install-Remotely {
 	if ((Test-Path -Path "$InstallPath") -and (Test-Path -Path "$InstallPath\ConnectionInfo.json")) {
 		$ConnectionInfo = Get-Content -Path "$InstallPath\ConnectionInfo.json" | ConvertFrom-Json
 		if ($ConnectionInfo) {
+			# The credential is the identity of this device, and it belongs to
+			# the device, not to the server it happens to talk to.  It is never
+			# cleared here: a server that does not know the device binds the
+			# credential that is presented, and a server that knows it accepts
+			# it.  Clearing it would only leave the device unable to register
+			# against a server that already holds it.
 			$ConnectionInfo.Host = $HostName
 			$ConnectionInfo.OrganizationID = $Organization
-			$ConnectionInfo.ServerVerificationToken = ""
 		}
 	}
 	else {
@@ -301,7 +306,6 @@ function Install-Remotely {
 					$ConnectionInfo = $Candidate
 					$ConnectionInfo.Host = $HostName
 					$ConnectionInfo.OrganizationID = $Organization
-					$ConnectionInfo.ServerVerificationToken = ""
 					Write-Log "Found existing agent install; reusing its DeviceID."
 					break
 				}

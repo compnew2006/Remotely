@@ -7,6 +7,7 @@ using Remotely.Shared;
 using Remotely.Shared.Dtos;
 using Remotely.Shared.Entities;
 using Remotely.Shared.Enums;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Interfaces;
 using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
@@ -66,7 +67,11 @@ public class AgentHub : Hub<IAgentHubClient>
     {
         get
         {
-            if (Context.Items["Device"] is Device device)
+            // TryGetValue, not the indexer: an unregistered connection has no
+            // "Device" entry, and the indexer throws KeyNotFoundException.
+            // The hub's own guard (and SetServerVerificationToken, which any
+            // connection can call) expects a null here.
+            if (Context.Items.TryGetValue("Device", out var stored) && stored is Device device)
             {
                 return device;
             }
@@ -205,11 +210,34 @@ public class AgentHub : Hub<IAgentHubClient>
 
             using var deviceLock = await _serviceSessionCache.AcquireDeviceLockAsync(device.ID);
 
+            var presentedToken = GetPresentedDeviceToken();
+
+            // G4 / device identity: a registration proves that it holds the
+            // token bound to the device record.  A device ID and an
+            // organization ID alone are not an identity; without this check
+            // anyone who knows them can claim the device and receive its
+            // session traffic.
+            if (!await VerifyDeviceIdentity(device.ID, presentedToken))
+            {
+                return false;
+            }
+
             var result = await _deviceService.AddOrUpdateDevice(device);
             if (!result.IsSuccess)
             {
                 // Organization wasn't found.
                 return false;
+            }
+
+            // A record that was just created has no token yet.  Bind the
+            // token this registration presented right away, so the identity
+            // is established on the first registration instead of staying
+            // unbound (and claimable) until the device reconnects.
+            if (!string.IsNullOrWhiteSpace(presentedToken) &&
+                string.IsNullOrWhiteSpace(result.Value.ServerVerificationToken))
+            {
+                _deviceService.SetServerVerificationToken(result.Value.ID, presentedToken);
+                result.Value.ServerVerificationToken = DeviceCredential.Fingerprint(presentedToken);
             }
 
             Device = result.Value;
@@ -334,6 +362,10 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public string GetServerVerificationToken()
     {
+        // The fingerprint of the credential, never the credential itself.
+        // The agent compares it with the fingerprint of the credential it
+        // holds, which proves that both sides talk to the same device
+        // without the server ever knowing the credential.
         return $"{Device?.ServerVerificationToken}";
     }
 
@@ -429,7 +461,12 @@ public class AgentHub : Hub<IAgentHubClient>
         {
             return;
         }
-        Device.ServerVerificationToken = verificationToken;
+
+        // Only a connection that registered successfully reaches this method,
+        // so the caller has already proved that it holds the credential.  It
+        // may therefore rotate it.
+        var fingerprint = DeviceCredential.Fingerprint(verificationToken);
+        Device.ServerVerificationToken = fingerprint;
         _deviceService.SetServerVerificationToken(Device.ID, verificationToken);
     }
 
@@ -437,6 +474,37 @@ public class AgentHub : Hub<IAgentHubClient>
     {
         var message = new TransferCompleteMessage(transferId);
         return _messenger.Send(message, requesterId);
+    }
+
+    /// <summary>
+    /// The device verification token presented on this connection's HTTP
+    /// request, or an empty string when the agent did not send one.
+    /// </summary>
+    private string GetPresentedDeviceToken() =>
+        Context.GetHttpContext()?
+            .Request
+            .Headers[AppConstants.DeviceVerificationTokenHeaderName]
+            .ToString() ?? string.Empty;
+
+    /// <summary>
+    /// Proves that this connection holds the verification token bound to the
+    /// device record it is registering.  The token is sent as a connection
+    /// header, so it is available before the first hub invocation.
+    /// </summary>
+    private async Task<bool> VerifyDeviceIdentity(string deviceId, string presentedToken)
+    {
+        if (await _deviceService.VerifyDeviceVerificationToken(deviceId, presentedToken))
+        {
+            return true;
+        }
+
+        _logger.LogWarning(
+            "Device registration refused: the presented verification token does not match the token bound to the device.  " +
+            "Device ID: {deviceId}.  Remote IP: {remoteIp}.",
+            deviceId,
+            Context.GetHttpContext()?.Connection.RemoteIpAddress);
+
+        return false;
     }
 
     private async Task<bool> CheckForDeviceBan(params string[] deviceIdNameOrIPs)

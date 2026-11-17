@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -15,6 +15,7 @@ using Remotely.Server.Data;
 using Remotely.Server.Services;
 using Remotely.Shared.Dtos;
 using Remotely.Shared.Entities;
+using Remotely.Shared.Helpers;
 
 namespace Remotely.Server.Tests;
 
@@ -208,6 +209,155 @@ public class DeviceServiceTests
 
         Assert.AreEqual(1, deviceService.GetDeviceCount());
         Assert.AreEqual(1, deviceService.GetTotalDevices());
+    }
+
+    [TestMethod]
+    public async Task VerifyDeviceVerificationToken_AllowsAnUnknownDevice()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+
+        Assert.IsTrue(await deviceService.VerifyDeviceVerificationToken("device-new", null));
+        Assert.IsTrue(await deviceService.VerifyDeviceVerificationToken("device-new", "any-token"));
+    }
+
+    [TestMethod]
+    public async Task VerifyDeviceVerificationToken_RequiresTheBoundToken()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-token",
+            OrganizationID = OrganizationId
+        });
+        deviceService.SetServerVerificationToken("device-token", "bound-token");
+
+        Assert.IsTrue(await deviceService.VerifyDeviceVerificationToken("device-token", "bound-token"));
+        Assert.IsFalse(await deviceService.VerifyDeviceVerificationToken("device-token", "wrong-token"));
+        Assert.IsFalse(await deviceService.VerifyDeviceVerificationToken("device-token", ""));
+        Assert.IsFalse(await deviceService.VerifyDeviceVerificationToken("device-token", null));
+    }
+
+    [TestMethod]
+    public async Task VerifyDeviceVerificationToken_BindsTheTokenPresentedForAnUnboundDevice()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-unbound",
+            OrganizationID = OrganizationId
+        });
+
+        // The record predates token binding; the token the agent already holds
+        // becomes the identity that later registrations must present.
+        Assert.IsTrue(await deviceService.VerifyDeviceVerificationToken("device-unbound", "agent-token"));
+
+        await using var context = CreateContext();
+        var stored = await context.Devices.AsNoTracking().SingleAsync(x => x.ID == "device-unbound");
+
+        // Only the fingerprint of the credential is kept.  The credential
+        // itself never reaches the database, so a copy of it cannot be used to
+        // impersonate the device.
+        Assert.AreEqual(
+            DeviceCredential.Fingerprint("agent-token"),
+            stored.ServerVerificationToken);
+        Assert.AreNotEqual("agent-token", stored.ServerVerificationToken);
+
+        Assert.IsTrue(await deviceService.VerifyDeviceVerificationToken("device-unbound", "agent-token"));
+        Assert.IsFalse(await deviceService.VerifyDeviceVerificationToken("device-unbound", "other-token"));
+    }
+
+    [TestMethod]
+    public async Task VerifyDeviceVerificationToken_StoresOnlyTheFingerprintOfTheCredential()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-fingerprint",
+            OrganizationID = OrganizationId
+        });
+
+        deviceService.SetServerVerificationToken("device-fingerprint", "the-secret");
+
+        await using var context = CreateContext();
+        var stored = await context.Devices.AsNoTracking().SingleAsync(x => x.ID == "device-fingerprint");
+
+        Assert.AreEqual(
+            DeviceCredential.Fingerprint("the-secret"),
+            stored.ServerVerificationToken);
+        Assert.IsFalse(
+            stored.ServerVerificationToken!.Contains("the-secret"),
+            "The credential must not be readable in the database.");
+    }
+
+    [TestMethod]
+    public async Task VerifyDeviceVerificationToken_AcceptsAndUpgradesALegacyCredentialInTheClear()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-legacy",
+            OrganizationID = OrganizationId
+        });
+
+        // A record that was written before the fingerprinting holds the
+        // credential itself.  It has to be accepted, and replaced.
+        await using (var context = CreateContext())
+        {
+            var device = await context.Devices.SingleAsync(x => x.ID == "device-legacy");
+            device.ServerVerificationToken = "legacy-secret";
+            await context.SaveChangesAsync();
+        }
+
+        Assert.IsTrue(
+            await deviceService.VerifyDeviceVerificationToken("device-legacy", "legacy-secret"),
+            "A record that predates the fingerprinting must still be accepted.");
+        Assert.IsFalse(
+            await deviceService.VerifyDeviceVerificationToken("device-legacy", "other-secret"));
+
+        await using var contextAfter = CreateContext();
+        var stored = await contextAfter.Devices.AsNoTracking().SingleAsync(x => x.ID == "device-legacy");
+
+        Assert.AreEqual(
+            DeviceCredential.Fingerprint("legacy-secret"),
+            stored.ServerVerificationToken,
+            "The credential in the clear is replaced by its fingerprint.");
+    }
+
+    [TestMethod]
+    public async Task GetDevicesWithoutCredentialCountAsync_CountsOnlyTheUnboundDevices()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-unbound-count",
+            OrganizationID = OrganizationId
+        });
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-bound-count",
+            OrganizationID = OrganizationId
+        });
+        deviceService.SetServerVerificationToken("device-bound-count", "a-secret");
+
+        Assert.AreEqual(1, await deviceService.GetDevicesWithoutCredentialCountAsync());
+        Assert.AreEqual(
+            1,
+            await deviceService.GetDevicesWithoutCredentialCountAsync(OrganizationId));
+        Assert.AreEqual(
+            0,
+            await deviceService.GetDevicesWithoutCredentialCountAsync("another-organization"));
     }
 
     private DeviceService CreateDeviceService()

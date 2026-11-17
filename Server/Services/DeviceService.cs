@@ -1,8 +1,9 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Remotely.Server.Data;
 using Remotely.Server.Extensions;
 using Remotely.Shared.Dtos;
 using Remotely.Shared.Entities;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Models;
 
 namespace Remotely.Server.Services;
@@ -41,6 +42,35 @@ public interface IDeviceService
     void SetServerVerificationToken(string deviceId, string verificationToken);
 
     Task<Result<Device>> UpdateDevice(DeviceSetupOptions deviceOptions, string organizationId);
+
+    /// <summary>
+    /// Verifies that the caller registering as <paramref name="deviceId"/> holds
+    /// the credential bound to that device record.
+    /// <para>
+    /// A device record with no credential is trusted on first use: the
+    /// credential the caller presents is bound to the record, and every later
+    /// registration must present it.  A device record that already has a
+    /// credential accepts only an exact match.
+    /// </para>
+    /// <para>
+    /// The record holds the fingerprint of the credential, never the
+    /// credential itself.  A record that was written before the
+    /// fingerprinting still holds the credential in the clear; it is accepted
+    /// and replaced by its fingerprint at the first registration that
+    /// presents it.
+    /// </para>
+    /// </summary>
+    Task<bool> VerifyDeviceVerificationToken(string deviceId, string? presentedToken);
+
+    /// <summary>
+    /// How many devices of this organization have no credential bound yet.
+    /// <para>
+    /// Such a device can still be claimed by the first caller that registers
+    /// it, so the count is what the operator needs to see to know how much of
+    /// the fleet is protected.
+    /// </para>
+    /// </summary>
+    Task<int> GetDevicesWithoutCredentialCountAsync(string? organizationId = null);
 
     Task UpdateDevice(string deviceId, string? tag, string? alias, string? deviceGroupId, string? notes);
 
@@ -285,6 +315,85 @@ public class DeviceService : IDeviceService
         await dbContext.SaveChangesAsync();
     }
 
+    public async Task<bool> VerifyDeviceVerificationToken(string deviceId, string? presentedToken)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        var device = await dbContext.Devices.FindAsync(deviceId);
+
+        if (device is null)
+        {
+            // This device has never been registered.  There is no identity to
+            // prove yet; the registration that follows creates the record and
+            // binds the credential that every later registration must present.
+            return true;
+        }
+
+        var storedValue = device.ServerVerificationToken;
+
+        if (string.IsNullOrWhiteSpace(storedValue))
+        {
+            if (!string.IsNullOrWhiteSpace(presentedToken))
+            {
+                // A device whose record predates the credential binding (or
+                // whose record was restored) binds the credential it already
+                // holds.  This does not widen authority: an unbound record
+                // could be claimed by the first caller either way.
+                await BindCredentialAsync(dbContext, device, presentedToken, deviceId);
+            }
+
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(presentedToken))
+        {
+            return false;
+        }
+
+        if (!DeviceCredential.Matches(presentedToken, storedValue))
+        {
+            return false;
+        }
+
+        if (!DeviceCredential.IsFingerprint(storedValue))
+        {
+            // The record still holds the credential in the clear.  Now that
+            // the caller has proved that it holds it, only the fingerprint is
+            // kept from now on.
+            await BindCredentialAsync(dbContext, device, presentedToken, deviceId);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Binds the fingerprint of the credential to the device record.  The
+    /// credential itself is never written to the database.
+    /// </summary>
+    private async Task BindCredentialAsync(
+        AppDb dbContext,
+        Device device,
+        string credential,
+        string deviceId)
+    {
+        device.ServerVerificationToken = DeviceCredential.Fingerprint(credential);
+        await dbContext.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Bound the device credential on the registration.  Device ID: {deviceId}.",
+            deviceId);
+    }
+
+    public async Task<int> GetDevicesWithoutCredentialCountAsync(string? organizationId = null)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        return await dbContext.Devices
+            .Where(x => x.ServerVerificationToken == null || x.ServerVerificationToken == string.Empty)
+            .Where(x => organizationId == null || x.OrganizationID == organizationId)
+            .CountAsync();
+    }
+
     public void SetServerVerificationToken(string deviceID, string verificationToken)
     {
         using var dbContext = _appDbFactory.GetContext();
@@ -292,7 +401,10 @@ public class DeviceService : IDeviceService
         var device = dbContext.Devices.Find(deviceID);
         if (device != null)
         {
-            device.ServerVerificationToken = verificationToken;
+            // Only the fingerprint is kept.  The credential itself stays on
+            // the device, so a copy of the database cannot be used to
+            // impersonate a device.
+            device.ServerVerificationToken = DeviceCredential.Fingerprint(verificationToken);
             dbContext.SaveChanges();
         }
     }
