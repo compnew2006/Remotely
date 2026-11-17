@@ -1,5 +1,4 @@
 using Remotely.Server.Enums;
-using Remotely.Server.Filters;
 using Remotely.Server.Models;
 using Remotely.Server.Services;
 using Remotely.Shared.Interfaces;
@@ -11,7 +10,10 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace Remotely.Server.Hubs;
 
-[ServiceFilter(typeof(ViewerAuthorizationFilter))]
+// Authorization is enforced by ViewerHubAuthorizationFilter, registered
+// through AddRemotelyHubs().  [ServiceFilter] is an MVC attribute and never
+// ran on a SignalR hub, so the filter that protected the viewer page did not
+// protect /hubs/viewer.
 public class ViewerHub : Hub<IViewerHubClient>
 {
     private readonly IHubContext<DesktopHub, IDesktopHubClient> _desktopHub;

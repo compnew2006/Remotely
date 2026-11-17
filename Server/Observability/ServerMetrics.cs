@@ -21,6 +21,7 @@ public sealed class ServerMetrics
     private readonly ConcurrentDictionary<string, long> _healthChecks = new();
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private int _instanceConflict;
+    private int _remoteControlAuthenticationRequired = 1;
 
     /// <summary>
     /// Counts one handled HTTP request.
@@ -53,6 +54,25 @@ public sealed class ServerMetrics
     public void RecordInstanceConflict(bool conflict)
     {
         Volatile.Write(ref _instanceConflict, conflict ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Whether the server requires authentication for remote control.
+    /// <para>
+    /// A server that does not require it lets anyone who knows a session id
+    /// or an access key watch and control a device.  The operator has to be
+    /// able to see that from the outside, without reading the log.
+    /// </para>
+    /// </summary>
+    public bool RemoteControlAuthenticationRequired =>
+        Volatile.Read(ref _remoteControlAuthenticationRequired) == 1;
+
+    /// <summary>
+    /// Records whether the server requires authentication for remote control.
+    /// </summary>
+    public void RecordRemoteControlAuthenticationRequired(bool required)
+    {
+        Volatile.Write(ref _remoteControlAuthenticationRequired, required ? 1 : 0);
     }
 
     /// <summary>
@@ -104,6 +124,12 @@ public sealed class ServerMetrics
         builder.AppendLine("# TYPE remotely_instance_conflict gauge");
         builder.Append("remotely_instance_conflict ")
             .Append(InstanceConflict ? "1" : "0")
+            .AppendLine();
+
+        builder.AppendLine("# HELP remotely_remote_control_auth_required 1 when remote control requires authentication.");
+        builder.AppendLine("# TYPE remotely_remote_control_auth_required gauge");
+        builder.Append("remotely_remote_control_auth_required ")
+            .Append(RemoteControlAuthenticationRequired ? "1" : "0")
             .AppendLine();
 
         builder.AppendLine("# HELP remotely_build_info Version of the running server.");

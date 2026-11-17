@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -150,6 +151,19 @@ var settings = await appDb.GetAppSettings();
 
 ConfigureSerilog(builder, settings);
 
+// A server that does not require authentication for remote control lets
+// anyone who knows a session id or an access key watch and control a device,
+// and the viewer hub accepts a connection that carries no credential at all.
+// The operator has to know that, so it is said out loud at startup and shown
+// in the metrics.
+if (!settings.RemoteControlRequiresAuthentication)
+{
+    Console.WriteLine(
+        "WARNING: remote control does not require authentication.  Anyone who " +
+        "knows a session id or an access key can watch and control a device, " +
+        "and the viewer hub accepts connections that carry no credential.");
+}
+
 builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 
 if (OperatingSystem.IsWindows() && settings.EnableWindowsEventLog)
@@ -265,7 +279,7 @@ services.AddSignalR(options =>
     {
         options.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
     })
-    .AddMessagePackProtocol();
+    .AddRemotelyHubs();
 
 services.AddRateLimiter(options =>
 {
@@ -349,6 +363,7 @@ services.AddScoped<IThemeProvider, ThemeProvider>();
 services.AddScoped<IChatSessionStore, ChatSessionStore>();
 services.AddScoped<ITerminalStore, TerminalStore>();
 services.AddScoped<ViewerAuthorizationFilter>();
+services.AddScoped<ViewerHubAuthorizationFilter>();
 services.AddSingleton(WeakReferenceMessenger.Default);
 services.AddSingleton<ISessionRecordingSink, SessionRecordingSink>();
 services.AddSingleton<IDesktopStreamCache, DesktopStreamCache>();
@@ -363,6 +378,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.Services
+    .GetRequiredService<ServerMetrics>()
+    .RecordRemoteControlAuthenticationRequired(settings.RemoteControlRequiresAuthentication);
 
 app.UseForwardedHeaders();
 

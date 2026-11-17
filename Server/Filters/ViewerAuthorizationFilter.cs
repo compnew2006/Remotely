@@ -1,42 +1,26 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Remotely.Server.Auth;
 using Remotely.Server.Services;
 
 namespace Remotely.Server.Filters;
 
 internal class ViewerAuthorizationFilter(
     ISettingsService _settingsService,
-    IOtpProvider _otpProvider):  IAsyncAuthorizationFilter
+    IOtpProvider _otpProvider) : IAsyncAuthorizationFilter
 {
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
-        if (await IsAuthorized(context))
+        // The policy redeems a one-time password and writes the admission
+        // ticket that admits the hub connection of the same browser.
+        if (await ViewerAdmissionPolicy.AuthorizePageRequest(
+            context.HttpContext,
+            _settingsService,
+            _otpProvider))
         {
             return;
         }
 
         context.Result = new RedirectResult("/Account/Login");
-    }
-
-    private async Task<bool> IsAuthorized(AuthorizationFilterContext context)
-    {
-        var settings = await _settingsService.GetSettings();
-        if (!settings.RemoteControlRequiresAuthentication)
-        {
-            return true;
-        }
-
-        if (context.HttpContext.User.Identity?.IsAuthenticated == true)
-        {
-            return true;
-        }
-
-        if (context.HttpContext.Request.Query.TryGetValue("otp", out var otp) &&
-            _otpProvider.Exists($"{otp}"))
-        {
-            return true;
-        }
-
-        return false;
     }
 }
