@@ -35,6 +35,34 @@ the status of the gates lives in `GATE-REGISTER.md`.
 - An API key only writes to the database after a successful authentication.
 - The API script result cache is bounded and registered in the container.
 - The set of viewer connection ids is thread safe.
+- The viewer hub is admitted like the viewer page.  `[ServiceFilter]` is an
+  MVC attribute and never ran on a SignalR hub, so `/hubs/viewer` was open to
+  anybody who knew the protocol, even with remote control set to require
+  authentication.  The admission lives in one policy now, and the hub is
+  protected by a filter that SignalR runs.
+- The one-time password of a remote control link is used once.  It is
+  exchanged for an admission ticket in an HttpOnly cookie, so the credential
+  no longer travels in a URL that ends up in the access log of every proxy on
+  the way.  A password that stayed valid for its whole minute could be
+  replayed from such a log.
+- The control path re-evaluates the device-group basis of the viewer, so a
+  membership that was withdrawn stops the input without waiting for a
+  reconnect.
+- A device proves that it is that device with a credential that only it knows.
+  The server keeps the fingerprint of it, so a copy of the database cannot be
+  used to impersonate a device.  The credential is replaced after thirty days,
+  and the installer never clears it.
+- A server that does not require authentication for remote control says so at
+  startup and shows it in the metrics.
+
+### Known limitations
+
+- The desktop hub is still open: the desktop client connects without any
+  credential, and a caller can plant a session that binds to its connection.
+  Closing it needs a credential that the server can verify, and an updated
+  desktop client on every device.
+- The registration of a device is still open: a device that does not exist
+  yet is accepted against any organization whose id the caller knows.
 
 ### Foundation
 

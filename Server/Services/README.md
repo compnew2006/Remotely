@@ -2,11 +2,19 @@
 
 ## Overview
 
-The server's application service layer: data access and retention (`DataService`, capture services, cleanup), authentication and ephemeral tokens (`AuthService`, `OtpProvider`, `ExpiringTokenService`), SignalR session/circuit state (`CircuitManager`, `AgentHubSessionCache`, `DesktopStreamCache`, `RemoteControlSessionCache` + cleaner/reconnector background services), Script scheduling (`ScriptScheduler` → `ScriptScheduleDispatcher`), emails, logs, client update signing, file/JS UI helpers, JSON naming (`PascalCasePolicy`), timezone display (`LoaderService`, `ModalService`, `ToastService`, `ThemeProvider`), and Blazor-circuit stores under `./Stores`.
+The server's application service layer: data access and retention (the narrow domain services listed below, capture services, cleanup), authentication and ephemeral tokens (`AuthService`, `OtpProvider`, `ExpiringTokenService`), SignalR session/circuit state (`CircuitManager`, `AgentHubSessionCache`, `DesktopStreamCache`, `RemoteControlSessionCache` + cleaner/reconnector background services), Script scheduling (`ScriptScheduler` → `ScriptScheduleDispatcher`), emails, logs, client update signing, file/JS UI helpers, JSON naming (`PascalCasePolicy`), timezone display (`LoaderService`, `ModalService`, `ToastService`, `ThemeProvider`), and Blazor-circuit stores under `./Stores`.
 
 ## Interface
 
-- `IDataService` / `DataService` — central data API: devices, groups, users, organizations, invites, alerts, API tokens, settings, branding, saved scripts and schedules, script runs/results, shared files, and per-device capture settings (screenshot / camera / audio / keyboard). User/device authorization is enforced here (`DoesUserHaveAccessToDevice`, `FilterDeviceIdsByUserPermission`). Lifetime: `Transient` (`Program.cs`) — a fresh instance is resolved on every injection point, even within the same request scope.
+- The data layer has no god interface any more. `IDataService` / `DataService` were removed on 2026-11-16; every operation lives behind a narrow domain interface in this folder, and a caller injects the one it uses:
+  - `ISettingsService` / `SettingsService` — the settings row. A singleton: the read-modify-write of the row is serialized by one gate.
+  - `IDeviceService` / `DeviceService` — registration, updates, the online state, the media and keyboard settings, and the credential of a device (`VerifyDeviceVerificationToken`). User/device authorization is enforced here (`DoesUserHaveAccessToDevice`, `FilterUsersByDevicePermission`).
+  - `IDeviceListingService`, `IDeviceGroupService`, `IDeviceGroupMembershipService` — the listings, the groups and their members.
+  - `IUserService` / `IInviteService` / `IOrganizationService` — the users, the invitation links and the organizations with their branding.
+  - `IAlertService` / `IApiTokenService` — the alerts and the API keys.
+  - `ISavedScriptService` / `IScriptScheduleService` / `IScriptResultService` — the scripts, their schedules and their runs.
+  - `ISharedFileService` / `IMaintenanceService` — the shared files and the cleanup of the old records.
+  - All of them take `IAppDbFactory` and are registered as singletons (`Program.cs`); a fresh `AppDb` is created per operation, so no service holds a context across a request.
 - Capture + retention services — `IAudioService` / `AudioService`, `ICameraService` / `CameraService`, `IScreenshotService` / `ScreenshotService`, `IKeyboardLogService` / `KeyboardLogService`:
   - Clip/file layout on disk under `AppData/{Audio,Camera,Screenshots}/<DeviceID>` (custom directory per device is honored).
   - Chunked uploads (`BeginUpload` / `AppendChunk` / `CompleteUpload` / `SaveClip` / `SaveClipFromFile`) keep upload state in static shared dictionaries; safe file name checks prevent path escape.
@@ -26,7 +34,7 @@ The server's application service layer: data access and retention (`DataService`
 - `ILogsManager` / `LogsManager` — reads/zips/deletes `AppData/logs`, with message and level (`[VRB]`/`[DBG]`/`[INF]`/`[WRN]`/`[ERR]`/`[FTL]`) filtering.
 - `IUpdateSigningService` / `UpdateSigningService` + `UpdatePackageSigningService` — ECDSA signing of published client packages every 30 s (manifest `.manifest.json` + `.manifest.sig`, SHA-256 of package and installer), DPAPI-protected key outside the web root, public keys served to the agent over the hub.
 - `IUpgradeService` / `UpgradeService` — reads the server assembly version; checks GitHub latest release.
-- `IAuthService` / `AuthService` — Blazor auth-state wrapper around `IDataService`.
+- `IAuthService` / `AuthService` — Blazor auth-state wrapper over `IUserService`.
 - `IExpiringTokenService` — 36-character secrets cached with an expiration timestamp.
 - `IOtpProvider` — 16-character device OTPs with a 1-minute TTL.
 - `ILoaderService`, `IModalService`, `IToastService`, `IThemeProvider`, `IJsInterop`, `PascalCasePolicy`, `ISessionRecordingSink` — UI/JS helpers: loader overlays, modal state (serialized by `SemaphoreSlim`), toasts with auto-expiry timers, theme resolution (user option → server theme), JS interop bridge (`remotelyAudio` chunk playback), JSON `PascalCasePolicy`, webm session recording sink.
@@ -34,10 +42,10 @@ The server's application service layer: data access and retention (`DataService`
 
 ## Invariants
 
-- A fresh `DataService` is resolved on every injection point (Transient lifetime); per-device capture settings always round-trip through `DataService` (updates include screenshot/camera/audio/keyboard retention plus pause windows).
+- Per-device capture settings always round-trip through `IDeviceService` (updates include screenshot/camera/audio/keyboard retention plus pause windows).
 - Upload/session state that spans hub invocations lives in static shared dictionaries with explicit locks — never per-instance state.
 - Capture monitoring sessions (`IsMonitoring`, `IsCameraMonitoring`, `IsKeyboardCapture`) are exempt from automatic expiry and must be stopped explicitly.
-- Per-device and user visibility is always filtered through the device-group membership in `DataService`; volume (200/500) defaults are overridden per device when set in the database.
+- Per-device and user visibility is always filtered through the device-group membership in `IDeviceService`; volume (200/500) defaults are overridden per device when set in the database.
 - File writes outside the device's audio/camera/screenshot directory bind to safe file names only; private content of an operation is never placed on the web root.
 
 ## Side Effects
