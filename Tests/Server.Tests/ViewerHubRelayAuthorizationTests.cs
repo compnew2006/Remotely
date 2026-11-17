@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -40,6 +41,7 @@ public class ViewerHubRelayAuthorizationTests
     // keys are live, so a rename cannot make these tests silently vacuous.
     private const string SessionInfoKey = "SessionInfo";
     private const string ViewerViewOnlyKey = "ViewerViewOnly";
+    private const string ControlAuthorizationCheckedAtKey = "ControlAuthorizationCheckedAt";
 
     private Mock<IRemoteControlSessionCache> _sessionCache = null!;
     private Mock<IDesktopStreamCache> _streamCache = null!;
@@ -155,12 +157,32 @@ public class ViewerHubRelayAuthorizationTests
     }
 
     [TestMethod]
-    [Description("Regression guard: a FullControl viewer keeps relaying control DTOs.")]
+    [Description("Regression guard: a FullControl viewer with a valid basis keeps relaying control DTOs.")]
     public async Task FullControlViewer_CanRelayControlDto()
     {
+        var session = NewSession(RemoteAccessMode.FullControl);
+        AllowControlBasis(session);
+
         var hub = CreateHub(
-            session: NewSession(RemoteAccessMode.FullControl),
-            viewerViewOnly: false);
+            session: session,
+            viewerViewOnly: false,
+            authenticated: true);
+
+        await hub.SendDtoToClient(Serialize(DtoType.MouseMove));
+
+        AssertDesktopReceivedDto();
+    }
+
+    [TestMethod]
+    [Description(
+        "OD-13: the control path re-evaluation must not change the consent basis of " +
+        "an attended session, where an unauthenticated viewer may hold FullControl.")]
+    public async Task AttendedFullControlViewer_CanRelayControlDto()
+    {
+        var session = NewSession(RemoteAccessMode.FullControl);
+        session.Mode = RemoteControlMode.Attended;
+
+        var hub = CreateHub(session, viewerViewOnly: false);
 
         await hub.SendDtoToClient(Serialize(DtoType.MouseMove));
 
@@ -265,6 +287,126 @@ public class ViewerHubRelayAuthorizationTests
             "A control viewer with a valid basis should reach the device.");
     }
 
+    [TestMethod]
+    [Description(
+        "FR-015: withdrawing the device-group membership of an attached viewer must " +
+        "stop control. The relay re-evaluates the basis, so the next control message " +
+        "is refused instead of waiting for a reconnect.")]
+    public async Task ControlViewer_WithdrawnMembership_CannotRelayControlDto()
+    {
+        var session = NewSession(RemoteAccessMode.FullControl);
+
+        AllowControlBasis(session);
+        var firstInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await firstInvocation.SendDtoToClient(Serialize(DtoType.MouseMove));
+        AssertDesktopReceivedDto();
+
+        // The user is removed from the device group while the session is open.
+        _userService
+            .Setup(x => x.DoesUserHaveAccessToDevice(session.DeviceId, It.IsAny<RemotelyUser>()))
+            .Returns(false);
+
+        // The per-connection recheck cache has a short window; expire it so the
+        // next message performs the evaluation.
+        _items[ControlAuthorizationCheckedAtKey] = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        var nextInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await nextInvocation.SendDtoToClient(Serialize(DtoType.KeyDown));
+
+        AssertDesktopReceivedDtoTimes(1);
+        _caller.Verify(
+            x => x.ShowMessage("Input blocked: control authority was withdrawn."),
+            Times.Once,
+            "The viewer must be told that control authority was withdrawn.");
+    }
+
+    [TestMethod]
+    [Description(
+        "Withdrawing control authority stops input but keeps the visual stream, " +
+        "so the viewer can still see the device it is watching.")]
+    public async Task ControlViewer_WithdrawnMembership_CanStillRelayViewTraffic()
+    {
+        var session = NewSession(RemoteAccessMode.FullControl);
+
+        AllowControlBasis(session);
+        var firstInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await firstInvocation.SendDtoToClient(Serialize(DtoType.MouseMove));
+
+        _userService
+            .Setup(x => x.DoesUserHaveAccessToDevice(session.DeviceId, It.IsAny<RemotelyUser>()))
+            .Returns(false);
+        _items[ControlAuthorizationCheckedAtKey] = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        var nextInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await nextInvocation.SendDtoToClient(Serialize(DtoType.KeyDown));
+        await nextInvocation.SendDtoToClient(Serialize(DtoType.ScreenData));
+
+        // One control message before the withdrawal, then only the view traffic.
+        AssertDesktopReceivedDtoTimes(2);
+    }
+
+    [TestMethod]
+    [Description(
+        "The control basis is not queried for every input event: the short " +
+        "per-connection cache keeps the relay off the database on the hot path.")]
+    public async Task ControlBasis_IsNotQueriedForEveryMessage()
+    {
+        var session = NewSession(RemoteAccessMode.FullControl);
+
+        AllowControlBasis(session);
+
+        var firstInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await firstInvocation.SendDtoToClient(Serialize(DtoType.MouseMove));
+
+        var secondInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await secondInvocation.SendDtoToClient(Serialize(DtoType.MouseMove));
+
+        _userService.Verify(
+            x => x.DoesUserHaveAccessToDevice(session.DeviceId, It.IsAny<RemotelyUser>()),
+            Times.Once,
+            "Two messages inside the cache window must share one evaluation.");
+        AssertDesktopReceivedDtoTimes(2);
+    }
+
+    [TestMethod]
+    [Description(
+        "Once the control basis is withdrawn for a connection, restoring the " +
+        "membership must not restore control: the narrowing is permanent for " +
+        "the lifetime of that connection, and the notice is sent only once.")]
+    public async Task ControlViewer_RevokedBasis_StaysRevokedWhenMembershipReturns()
+    {
+        var session = NewSession(RemoteAccessMode.FullControl);
+
+        AllowControlBasis(session);
+        var firstInvocation = CreateHub(session, viewerViewOnly: false, authenticated: true);
+        await firstInvocation.SendDtoToClient(Serialize(DtoType.MouseMove));
+
+        _userService
+            .Setup(x => x.DoesUserHaveAccessToDevice(session.DeviceId, It.IsAny<RemotelyUser>()))
+            .Returns(false);
+        _items[ControlAuthorizationCheckedAtKey] = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        var revocationInvocation = CreateHub(session, viewerViewOnly: null, authenticated: true);
+        await revocationInvocation.SendDtoToClient(Serialize(DtoType.KeyDown));
+
+        // The membership is granted again while the connection stays open.
+        _userService
+            .Setup(x => x.DoesUserHaveAccessToDevice(session.DeviceId, It.IsAny<RemotelyUser>()))
+            .Returns(true);
+        _items[ControlAuthorizationCheckedAtKey] = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        var afterRestore = CreateHub(session, viewerViewOnly: null, authenticated: true);
+        await afterRestore.SendDtoToClient(Serialize(DtoType.KeyDown));
+        await afterRestore.SendDtoToClient(Serialize(DtoType.MouseMove));
+
+        // Only the message before the withdrawal reached the device.
+        AssertDesktopReceivedDtoTimes(1);
+        _caller.Verify(
+            x => x.ShowMessage("Input blocked: control authority was withdrawn."),
+            Times.Once,
+            "The withdrawal notice must be sent once, not for every blocked message.");
+    }
+
     private void AllowControlBasis(RemoteControlSession session)
     {
         var user = new RemotelyUser { UserName = "admin@test.com" };
@@ -335,6 +477,14 @@ public class ViewerHubRelayAuthorizationTests
             x => x.SendDtoToClient(It.IsAny<byte[]>(), It.IsAny<string>()),
             Times.Once,
             "The device should have received the relayed DTO.");
+    }
+
+    private void AssertDesktopReceivedDtoTimes(int times)
+    {
+        _desktopHubFixture.SingleClientProxyMock.Verify(
+            x => x.SendDtoToClient(It.IsAny<byte[]>(), It.IsAny<string>()),
+            Times.Exactly(times),
+            "The device should have received exactly the permitted DTOs.");
     }
 
     private void AssertDesktopDidNotReceiveDto(string? detail = null)

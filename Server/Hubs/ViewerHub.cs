@@ -16,6 +16,17 @@ namespace Remotely.Server.Hubs;
 // protect /hubs/viewer.
 public class ViewerHub : Hub<IViewerHubClient>
 {
+    /// <summary>
+    /// How often the control authority basis is re-evaluated for a viewer that
+    /// is actively sending input.  Input messages arrive at input frequency,
+    /// so an uncached evaluation would query the database for every mouse
+    /// move.  Two seconds keeps a revoked membership from outliving the next
+    /// couple of input events without turning the relay into a database load.
+    /// </summary>
+    private static readonly TimeSpan ControlAuthorizationRecheckInterval = TimeSpan.FromSeconds(2);
+
+    private const string ControlAuthorizationCheckedAtKey = "ControlAuthorizationCheckedAt";
+
     private readonly IHubContext<DesktopHub, IDesktopHubClient> _desktopHub;
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHub;
     private readonly ISettingsService _settingsService;
@@ -283,19 +294,18 @@ public class ViewerHub : Hub<IViewerHubClient>
         // narrower one must not borrow the wider one's authority.  View Only
         // viewers are inspected and any device-modifying message is refused
         // here, at the server, and recorded.
+        var isClassifiable = TryGetDtoType(dtoWrapper, out var dtoType);
+
+        // A malformed message cannot be classified, so it cannot be proven to
+        // be view-only traffic. It is treated as control traffic and refused
+        // for a viewer that may not control (FR-009).
+        var isControlTraffic = !isClassifiable || dtoType.IsControlMessage();
+
         if (!ViewerMayRelayControl)
         {
-            if (!TryGetDtoType(dtoWrapper, out var dtoType))
+            if (isControlTraffic)
             {
-                // A malformed message cannot be classified, so it cannot be
-                // proven to be view-only traffic. Fail closed (FR-009).
-                LogPrivilegeRefused("UnparsableDto");
-                return;
-            }
-
-            if (dtoType.IsControlMessage())
-            {
-                LogPrivilegeRefused(dtoType.ToString());
+                LogPrivilegeRefused(isClassifiable ? dtoType.ToString() : "UnparsableDto");
 
                 // FR-011: make the refusal observable to the viewer/administrator
                 // UI, but only once per connection so input-frequency messages do
@@ -308,6 +318,24 @@ public class ViewerHub : Hub<IViewerHubClient>
 
                 return;
             }
+        }
+        else if (isControlTraffic && !await ControlBasisStillHolds())
+        {
+            // FR-015: the device-group basis that granted control can be
+            // withdrawn while the session is still attached (the user was
+            // removed from the device's group).  The control path re-evaluates
+            // that basis, so the next input event is refused instead of
+            // waiting for a reconnect.  The visual stream is left running.
+            LogPrivilegeRefused(isClassifiable ? dtoType.ToString() : "UnparsableDto");
+
+            if (!ViewOnlyRefusalNotified)
+            {
+                MarkViewOnlyRefusalNotified();
+                await Clients.Caller.ShowMessage(
+                    "Input blocked: control authority was withdrawn.");
+            }
+
+            return;
         }
 
         await _desktopHub.Clients
@@ -366,6 +394,41 @@ public class ViewerHub : Hub<IViewerHubClient>
             // to be view-only traffic. Fail closed (FR-009).
             return false;
         }
+    }
+
+    /// <summary>
+    /// Re-evaluates <see cref="ViewerMayControl"/> on the control path, at most
+    /// once per <see cref="ControlAuthorizationRecheckInterval"/> for this
+    /// connection.  A failed evaluation narrows this viewer permanently for
+    /// the lifetime of the connection; the session and the other viewers keep
+    /// their own authority.
+    /// </summary>
+    private async Task<bool> ControlBasisStillHolds()
+    {
+        if (ViewerViewOnly)
+        {
+            return false;
+        }
+
+        if (Context.Items.TryGetValue(ControlAuthorizationCheckedAtKey, out var cached) &&
+            cached is DateTimeOffset checkedAt &&
+            DateTimeOffset.UtcNow - checkedAt < ControlAuthorizationRecheckInterval)
+        {
+            return true;
+        }
+
+        if (await ViewerMayControl())
+        {
+            // The timestamp is recorded only after a successful evaluation, so
+            // an evaluation that throws leaves no grace window behind: the next
+            // control message evaluates again and the caller stays refused
+            // until the basis is proven.
+            Context.Items[ControlAuthorizationCheckedAtKey] = DateTimeOffset.UtcNow;
+            return true;
+        }
+
+        ViewerViewOnly = true;
+        return false;
     }
 
     /// <summary>
