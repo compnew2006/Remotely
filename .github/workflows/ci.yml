@@ -118,8 +118,13 @@ jobs:
           MSSQL_SA_PASSWORD: 'Remotely!Passw0rd'
         ports:
           - 1433:1433
+        # sqlcmd 18 validates TLS by default; the container uses a
+        # self-signed certificate, so trust it for this local health probe.
+        # The older tools path stays as the fallback: an image without
+        # tools18 would otherwise never become healthy, and the migration
+        # job would fail after twenty attempts with a confusing error.
         options: >-
-          --health-cmd "bash -c '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"Remotely!Passw0rd\" -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"Remotely!Passw0rd\" -Q \"SELECT 1\"'"
+          --health-cmd "bash -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"Remotely!Passw0rd\" -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"Remotely!Passw0rd\" -Q \"SELECT 1\"'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 30
