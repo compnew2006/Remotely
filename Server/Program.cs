@@ -35,6 +35,19 @@ var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
 var services = builder.Services;
 
+// MapStaticAssets resolves every file through the static web assets manifest,
+// and the generic host loads that manifest only in the Development
+// environment.  A source run under any other environment (for example
+// `dotnet run --no-launch-profile` against the build output) then answers 500
+// for /_framework/blazor.web.js and for the scoped-CSS bundle, and the whole
+// UI renders unstyled.  The manifest is never copied into a published
+// deployment (CopyToPublishDirectory="Never"), so this line is a no-op there
+// and the published app keeps serving its assets from wwwroot.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseStaticWebAssets();
+}
+
 // Let the in-flight requests and the open SignalR sessions finish when the
 // server is stopped, instead of cutting them off in the middle.
 services.Configure<HostOptions>(options =>

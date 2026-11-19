@@ -41,6 +41,12 @@ public interface IDeviceService
 
     void SetServerVerificationToken(string deviceId, string verificationToken);
 
+    /// <summary>
+    /// Stores the token of an agent that predates the credential header, in
+    /// the clear, so that agent keeps verifying against this server.
+    /// </summary>
+    void SetLegacyServerVerificationToken(string deviceId, string verificationToken);
+
     Task<Result<Device>> UpdateDevice(DeviceSetupOptions deviceOptions, string organizationId);
 
     /// <summary>
@@ -58,6 +64,13 @@ public interface IDeviceService
     /// fingerprinting still holds the credential in the clear; it is accepted
     /// and replaced by its fingerprint at the first registration that
     /// presents it.
+    /// </para>
+    /// <para>
+    /// An agent that predates the credential header presents nothing.  Such a
+    /// registration is accepted only while the record still holds its token in
+    /// the clear, which is the state the agent needs, and the record is left
+    /// alone so the agent keeps verifying.  A record that holds a fingerprint
+    /// still refuses a registration without the credential.
     /// </para>
     /// </summary>
     Task<bool> VerifyDeviceVerificationToken(string deviceId, string? presentedToken);
@@ -347,7 +360,15 @@ public class DeviceService : IDeviceService
 
         if (string.IsNullOrWhiteSpace(presentedToken))
         {
-            return false;
+            // Agents that predate the credential header send no token at all.
+            // A record that still holds the credential in the clear is exactly
+            // such an agent: the server returns that same value to it on
+            // demand, and the agent compares it with the GUID it holds.  The
+            // record is accepted without being upgraded, because the
+            // fingerprint would break the agent that owns it.  A record that
+            // holds a fingerprint has no such agent behind it, so a
+            // registration without a credential is still refused.
+            return !DeviceCredential.IsFingerprint(storedValue);
         }
 
         if (!DeviceCredential.Matches(presentedToken, storedValue))
@@ -388,10 +409,16 @@ public class DeviceService : IDeviceService
     {
         using var dbContext = _appDbFactory.GetContext();
 
-        return await dbContext.Devices
-            .Where(x => x.ServerVerificationToken == null || x.ServerVerificationToken == string.Empty)
+        var storedValues = await dbContext.Devices
+            .AsNoTracking()
             .Where(x => organizationId == null || x.OrganizationID == organizationId)
-            .CountAsync();
+            .Select(x => x.ServerVerificationToken)
+            .ToListAsync();
+
+        // A token in the clear belongs to an agent that predates the
+        // credential header.  It is no more of an identity than an empty
+        // record, so it is counted the same way.
+        return storedValues.Count(x => !DeviceCredential.IsFingerprint(x));
     }
 
     public void SetServerVerificationToken(string deviceID, string verificationToken)
@@ -405,6 +432,29 @@ public class DeviceService : IDeviceService
             // the device, so a copy of the database cannot be used to
             // impersonate a device.
             device.ServerVerificationToken = DeviceCredential.Fingerprint(verificationToken);
+            dbContext.SaveChanges();
+        }
+    }
+
+    /// <summary>
+    /// Stores the token of an agent that predates the credential header, in
+    /// the clear.
+    /// <para>
+    /// Such an agent compares the value the server returns with the GUID it
+    /// holds, so a fingerprint would lock it out of the server it belongs to.
+    /// Only a connection that presented no credential reaches this path; see
+    /// <see cref="VerifyDeviceVerificationToken"/>.  Every agent that presents
+    /// a credential keeps the fingerprint-only record.
+    /// </para>
+    /// </summary>
+    public void SetLegacyServerVerificationToken(string deviceID, string verificationToken)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        var device = dbContext.Devices.Find(deviceID);
+        if (device != null)
+        {
+            device.ServerVerificationToken = verificationToken;
             dbContext.SaveChanges();
         }
     }

@@ -465,6 +465,17 @@ public class AgentHub : Hub<IAgentHubClient>
         // Only a connection that registered successfully reaches this method,
         // so the caller has already proved that it holds the credential.  It
         // may therefore rotate it.
+        if (string.IsNullOrWhiteSpace(GetPresentedDeviceToken()))
+        {
+            // This agent predates the credential header, so it just generated
+            // the GUID it will present on every later connection, and it
+            // compares that GUID with whatever the server returns.  Keeping
+            // the fingerprint would lock it out of this server.
+            Device.ServerVerificationToken = verificationToken;
+            _deviceService.SetLegacyServerVerificationToken(Device.ID, verificationToken);
+            return;
+        }
+
         var fingerprint = DeviceCredential.Fingerprint(verificationToken);
         Device.ServerVerificationToken = fingerprint;
         _deviceService.SetServerVerificationToken(Device.ID, verificationToken);

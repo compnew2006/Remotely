@@ -334,7 +334,68 @@ public class DeviceServiceTests
     }
 
     [TestMethod]
-    public async Task GetDevicesWithoutCredentialCountAsync_CountsOnlyTheUnboundDevices()
+    public async Task VerifyDeviceVerificationToken_AcceptsAnAgentThatPresentsNoCredentialWhenTheRecordIsLegacy()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-legacy-agent",
+            OrganizationID = OrganizationId
+        });
+
+        // An agent that predates the credential header sends nothing.  Its
+        // record holds the GUID the server hands back to it, so the record has
+        // to stay in the clear or the agent stops verifying.
+        await using (var context = CreateContext())
+        {
+            var device = await context.Devices.SingleAsync(x => x.ID == "device-legacy-agent");
+            device.ServerVerificationToken = "1d7edc2a-0000-0000-0000-000000000000";
+            await context.SaveChangesAsync();
+        }
+
+        Assert.IsTrue(
+            await deviceService.VerifyDeviceVerificationToken("device-legacy-agent", null),
+            "A legacy agent presents no credential and must still register.");
+        Assert.IsTrue(
+            await deviceService.VerifyDeviceVerificationToken("device-legacy-agent", ""),
+            "A legacy agent presents no credential and must still register.");
+        Assert.IsFalse(
+            await deviceService.VerifyDeviceVerificationToken("device-legacy-agent", "another-token"),
+            "A presented credential still has to match.");
+
+        await using var contextAfter = CreateContext();
+        var stored = await contextAfter.Devices.AsNoTracking().SingleAsync(x => x.ID == "device-legacy-agent");
+
+        Assert.AreEqual(
+            "1d7edc2a-0000-0000-0000-000000000000",
+            stored.ServerVerificationToken,
+            "The legacy record keeps the value the agent compares, or the agent locks itself out.");
+    }
+
+    [TestMethod]
+    public async Task SetLegacyServerVerificationToken_KeepsTheTokenInTheClear()
+    {
+        await MigrateAndSeedOrganizationAsync();
+
+        var deviceService = CreateDeviceService();
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-legacy-rotate",
+            OrganizationID = OrganizationId
+        });
+
+        deviceService.SetLegacyServerVerificationToken("device-legacy-rotate", "a-legacy-guid");
+
+        await using var context = CreateContext();
+        var stored = await context.Devices.AsNoTracking().SingleAsync(x => x.ID == "device-legacy-rotate");
+
+        Assert.AreEqual("a-legacy-guid", stored.ServerVerificationToken);
+    }
+
+    [TestMethod]
+    public async Task GetDevicesWithoutCredentialCountAsync_CountsTheUnboundAndLegacyDevices()
     {
         await MigrateAndSeedOrganizationAsync();
 
@@ -351,9 +412,23 @@ public class DeviceServiceTests
         });
         deviceService.SetServerVerificationToken("device-bound-count", "a-secret");
 
-        Assert.AreEqual(1, await deviceService.GetDevicesWithoutCredentialCountAsync());
+        await deviceService.AddOrUpdateDevice(new DeviceClientDto
+        {
+            ID = "device-legacy-count",
+            OrganizationID = OrganizationId
+        });
+        await using (var context = CreateContext())
+        {
+            var device = await context.Devices.SingleAsync(x => x.ID == "device-legacy-count");
+            device.ServerVerificationToken = "a-legacy-guid";
+            await context.SaveChangesAsync();
+        }
+
+        // The legacy record is an identity in the clear, which is no identity
+        // at all, so it is counted with the unbound devices.
+        Assert.AreEqual(2, await deviceService.GetDevicesWithoutCredentialCountAsync());
         Assert.AreEqual(
-            1,
+            2,
             await deviceService.GetDevicesWithoutCredentialCountAsync(OrganizationId));
         Assert.AreEqual(
             0,
