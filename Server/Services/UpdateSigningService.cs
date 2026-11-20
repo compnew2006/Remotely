@@ -34,6 +34,14 @@ public interface IUpdateSigningService
     /// true when the package was signed.
     /// </summary>
     Task<bool> SignIfChangedAsync(string platform, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Signs the desktop client that the agents download on demand, when its
+    /// content has changed since the last time it was signed.  The desktop
+    /// client is not part of the agent package, so it has a manifest of its
+    /// own.
+    /// </summary>
+    Task<bool> SignDesktopIfChangedAsync(string platform, CancellationToken cancellationToken);
 }
 
 public class UpdateSigningService : IUpdateSigningService
@@ -45,6 +53,16 @@ public class UpdateSigningService : IUpdateSigningService
     // file must be written with the same name, or every update fails
     // closed when the download 404s.
     private const string SignatureSuffix = ".manifest.sig";
+
+    // The desktop client of every platform that the agents can start.  The
+    // key is the folder of the content directory, the value is the name of
+    // the executable inside it.
+    private static readonly Dictionary<string, string> _desktopExecutables = new()
+    {
+        ["Win-x64"] = "Remotely_Desktop.exe",
+        ["Win-x86"] = "Remotely_Desktop.exe",
+        ["Linux-x64"] = "Remotely_Desktop"
+    };
 
     private readonly IWebHostEnvironment _hostEnvironment;
     private readonly ILogger<UpdateSigningService> _logger;
@@ -90,96 +108,18 @@ public class UpdateSigningService : IUpdateSigningService
             }
 
             var packageBytes = await File.ReadAllBytesAsync(packagePath, cancellationToken);
-            var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes));
 
             var installerBytes = File.Exists(installerPath) ?
                 await File.ReadAllBytesAsync(installerPath, cancellationToken) :
                 null;
 
-            var installerHash = installerBytes is null ?
-                string.Empty :
-                Convert.ToHexString(SHA256.HashData(installerBytes));
-
-            // The manifest covers both the package and the installer. An
-            // installer-only change (e.g. a hardened stop order) must
-            // re-sign too, or the agents reject every update with
-            // InstallerHashMismatch against the stale manifest.
-            var signedIdentity = packageHash + ":" + installerHash;
-
-            if (_signedHashes.TryGetValue(platform, out var signedHash) &&
-                string.Equals(signedHash, signedIdentity, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var (keyId, _, key) = LoadOrCreateKey();
-
-            var manifest = new UpdateManifest(
-                $"Remotely-Win-{platform}.zip",
-                ReadPackageVersion(packagePath),
-                packageHash,
-                installerHash,
-                keyId);
-
-            var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-
-            var signature = key.SignData(manifestBytes, HashAlgorithmName.SHA256);
-            var signatureText = Convert.ToBase64String(signature);
-
-            // Verify the result with the same code the agents use, before it
-            // is written anywhere.  A manifest that the agent would refuse
-            // must never reach the disk, and the failure must not be
-            // remembered: the next tick has to try again.
-            var verification = VerifyManifest(
-                manifestBytes,
-                signatureText,
-                packageBytes,
-                installerBytes,
-                keyId,
-                key);
-
-            if (!verification.Success)
-            {
-                _logger.LogError(
-                    "The client package for {platform} was signed, but the result does not verify: {failure} {detail}.  " +
-                    "The agents would refuse the update.",
-                    platform,
-                    verification.Failure,
-                    verification.Detail);
-
-                // The manifest of the previous content describes a package
-                // that is no longer on disk.  Serving it would hand the
-                // agents a pair that can never match, so it is removed.
-                RemovePublishedManifest(packagePath);
-
-                return false;
-            }
-
-            await File.WriteAllBytesAsync(
-                packagePath + ManifestSuffix,
-                manifestBytes,
-                cancellationToken);
-
-            await File.WriteAllTextAsync(
-                packagePath + SignatureSuffix,
-                signatureText,
-                cancellationToken);
-
-            // Only now the content counts as signed.  Recording it earlier
-            // would make every later call skip the signing because the
-            // hashes match, and the failure would never be reported again.
-            _signedHashes[platform] = signedIdentity;
-
-            _logger.LogInformation(
-                "The client package for {platform} was signed.  Key ID: {keyId}.  Version: {version}.",
+            return await SignAndPublishAsync(
                 platform,
-                keyId,
-                manifest.Version);
-
-            return true;
+                packagePath,
+                packageBytes,
+                ReadPackageVersion(packagePath),
+                installerBytes,
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -190,6 +130,155 @@ public class UpdateSigningService : IUpdateSigningService
         {
             _signLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Signs the desktop client of a platform.  The agents download it when a
+    /// session needs it, and they only accept it when the signature of the
+    /// manifest and the hash of the download match.
+    /// </summary>
+    public async Task<bool> SignDesktopIfChangedAsync(string platform, CancellationToken cancellationToken)
+    {
+        await _signLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (!_desktopExecutables.TryGetValue(platform, out var executableName))
+            {
+                return false;
+            }
+
+            var desktopPath = Path.Combine(
+                _hostEnvironment.WebRootPath,
+                "Content",
+                platform,
+                executableName);
+
+            if (!File.Exists(desktopPath))
+            {
+                return false;
+            }
+
+            var desktopBytes = await File.ReadAllBytesAsync(desktopPath, cancellationToken);
+
+            return await SignAndPublishAsync(
+                "desktop:" + platform,
+                desktopPath,
+                desktopBytes,
+                ReadDesktopVersion(desktopPath),
+                installerBytes: null,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while signing the desktop client.");
+            return false;
+        }
+        finally
+        {
+            _signLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Signs the content and publishes the manifest and the signature next to
+    /// it.  The manifest is verified with the same code the agents use before
+    /// it is written anywhere.
+    /// </summary>
+    private async Task<bool> SignAndPublishAsync(
+        string cacheKey,
+        string packagePath,
+        byte[] packageBytes,
+        string version,
+        byte[]? installerBytes,
+        CancellationToken cancellationToken)
+    {
+        var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes));
+
+        var installerHash = installerBytes is null ?
+            string.Empty :
+            Convert.ToHexString(SHA256.HashData(installerBytes));
+
+        // The manifest covers both the package and the installer. An
+        // installer-only change (e.g. a hardened stop order) must
+        // re-sign too, or the agents reject every update with
+        // InstallerHashMismatch against the stale manifest.
+        var signedIdentity = packageHash + ":" + installerHash;
+
+        if (_signedHashes.TryGetValue(cacheKey, out var signedHash) &&
+            string.Equals(signedHash, signedIdentity, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var (keyId, _, signingKey) = LoadOrCreateKey();
+
+        var manifest = new UpdateManifest(
+            Path.GetFileName(packagePath),
+            version,
+            packageHash,
+            installerHash,
+            keyId);
+
+        var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        var signature = signingKey.SignData(manifestBytes, HashAlgorithmName.SHA256);
+        var signatureText = Convert.ToBase64String(signature);
+
+        // Verify the result with the same code the agents use, before it
+        // is written anywhere.  A manifest that the agent would refuse
+        // must never reach the disk, and the failure must not be
+        // remembered: the next tick has to try again.
+        var verification = VerifyManifest(
+            manifestBytes,
+            signatureText,
+            packageBytes,
+            installerBytes,
+            keyId,
+            signingKey);
+
+        if (!verification.Success)
+        {
+            _logger.LogError(
+                "The client package for {platform} was signed, but the result does not verify: {failure} {detail}.  " +
+                "The agents would refuse the update.",
+                cacheKey,
+                verification.Failure,
+                verification.Detail);
+
+            // The manifest of the previous content describes a package
+            // that is no longer on disk.  Serving it would hand the
+            // agents a pair that can never match, so it is removed.
+            RemovePublishedManifest(packagePath);
+
+            return false;
+        }
+
+        await File.WriteAllBytesAsync(
+            packagePath + ManifestSuffix,
+            manifestBytes,
+            cancellationToken);
+
+        await File.WriteAllTextAsync(
+            packagePath + SignatureSuffix,
+            signatureText,
+            cancellationToken);
+
+        // Only now the content counts as signed.  Recording it earlier
+        // would make every later call skip the signing because the
+        // hashes match, and the failure would never be reported again.
+        _signedHashes[cacheKey] = signedIdentity;
+
+        _logger.LogInformation(
+            "The client package for {platform} was signed.  Key ID: {keyId}.  Version: {version}.",
+            cacheKey,
+            keyId,
+            manifest.Version);
+
+        return true;
     }
 
     /// <summary>
@@ -249,6 +338,50 @@ public class UpdateSigningService : IUpdateSigningService
                 ex,
                 "The manifest of the client package could not be removed.");
         }
+    }
+
+    /// <summary>
+    /// Reads the version of the published desktop client.  The publish script
+    /// writes it next to the file, because a single-file build of a Linux
+    /// executable carries no version resource.  The version of a Windows
+    /// build is read from its version resource.
+    /// </summary>
+    private static string ReadDesktopVersion(string desktopPath)
+    {
+        try
+        {
+            var sidecarPath = desktopPath + ".version";
+
+            if (File.Exists(sidecarPath))
+            {
+                var version = File.ReadAllText(sidecarPath).Trim();
+
+                if (!string.IsNullOrWhiteSpace(version))
+                {
+                    return version;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // The version resource is used below.
+        }
+
+        try
+        {
+            var version = System.Diagnostics.FileVersionInfo.GetVersionInfo(desktopPath).FileVersion;
+
+            if (!string.IsNullOrWhiteSpace(version))
+            {
+                return version;
+            }
+        }
+        catch (Exception)
+        {
+            // The version stays unknown.
+        }
+
+        return "0.0.0.0";
     }
 
     /// <summary>

@@ -78,6 +78,39 @@ public class Program
 
         // TODO: Move this to a BackgroundService.
         await services.GetRequiredService<IUpdater>().BeginChecking();
+
+        // The desktop client is not part of the agent package anymore.  It is
+        // downloaded from the server in the background, so the first remote
+        // control session does not have to wait for it.
+        PrepareDesktopClient(services, logger);
+    }
+
+    private static void PrepareDesktopClient(IServiceProvider services, ILogger logger)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var installer = services.GetRequiredService<IDesktopPackageInstaller>();
+                var result = await installer.EnsureInstalledAsync();
+
+                if (result.Success)
+                {
+                    logger.LogInformation("The desktop client is available at {path}.", result.ExecutablePath);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "The desktop client could not be prepared ({failure}): {detail}",
+                        result.Failure,
+                        result.Detail);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error while preparing the desktop client.");
+            }
+        });
     }
 
     private static void RegisterServices(IServiceCollection services)
@@ -103,6 +136,20 @@ public class Program
         services.AddSingleton<IScriptExecutor, ScriptExecutor>();
         services.AddSingleton<IProcessInvoker, ProcessInvoker>();
         services.AddSingleton<IUpdateDownloader, UpdateDownloader>();
+        services.AddSingleton<IPackageContentFetcher, PackageContentFetcher>();
+        services.AddSingleton<IDesktopPackageInstaller>(services =>
+        {
+            var configService = services.GetRequiredService<IConfigService>();
+            var fetcher = services.GetRequiredService<IPackageContentFetcher>();
+            var host = configService.GetConnectionInfo().Host;
+            var options = string.IsNullOrWhiteSpace(host)
+                ? null
+                : DesktopPackageOptionsFactory.Create(host);
+
+            return options is null
+                ? new UnavailableDesktopPackageInstaller()
+                : new DesktopPackageInstaller(fetcher, options);
+        });
         services.AddSingleton<IFileLogsManager, FileLogsManager>();
         services.AddSingleton<IScriptingShellFactory, ScriptingShellFactory>();
 

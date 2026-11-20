@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Remotely.Agent.Interfaces;
 using Remotely.Agent.Models;
 using Remotely.Shared.Models;
+using Remotely.Shared.Services;
 using Remotely.Shared.Utilities;
 using System;
 using System.Diagnostics;
@@ -24,25 +25,30 @@ public class AppLauncherWin : IAppLauncher
     private readonly ConnectionInfo _connectionInfo;
     private readonly ILogger<AppLauncherWin> _logger;
     private readonly IDesktopProcessSupervisor _desktopProcessSupervisor;
-    private readonly string _rcBinaryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Desktop", EnvironmentHelper.DesktopExecutableFileName);
+    private readonly IDesktopPackageInstaller _desktopPackageInstaller;
 
     public AppLauncherWin(
         IConfigService configService,
         ILogger<AppLauncherWin> logger,
-        IDesktopProcessSupervisor desktopProcessSupervisor)
+        IDesktopProcessSupervisor desktopProcessSupervisor,
+        IDesktopPackageInstaller desktopPackageInstaller)
     {
         _connectionInfo = configService.GetConnectionInfo();
         _logger = logger;
         _desktopProcessSupervisor = desktopProcessSupervisor;
+        _desktopPackageInstaller = desktopPackageInstaller;
     }
 
     public async Task<int> LaunchChatService(string pipeName, string userConnectionId, string requesterName, string orgName, string orgId, HubConnection hubConnection)
     {
         try
         {
-            if (!File.Exists(_rcBinaryPath))
+            var desktop = await _desktopPackageInstaller.EnsureInstalledAsync();
+
+            if (!desktop.Success || desktop.ExecutablePath is null)
             {
-                await hubConnection.SendAsync("DisplayMessage", "Chat executable not found on target device.", "Executable not found on device.", "bg-danger", userConnectionId);
+                await hubConnection.SendAsync("DisplayMessage", "Chat executable not found on target device.", $"The desktop client could not be prepared ({desktop.Failure}): {desktop.Detail}", "bg-danger", userConnectionId);
+                return -1;
             }
 
 
@@ -57,7 +63,7 @@ public class AppLauncherWin : IAppLauncher
                 $" --org-name \"{orgName}\"" +
                 $" --org-id \"{orgId}\"";
 
-            var processId = LaunchDesktopProcess(arguments, targetSessionId: -1, ChatRole);
+            var processId = LaunchDesktopProcess(desktop.ExecutablePath, arguments, targetSessionId: -1, ChatRole);
 
             if (processId <= 0)
             {
@@ -86,11 +92,13 @@ public class AppLauncherWin : IAppLauncher
     {
         try
         {
-            if (!File.Exists(_rcBinaryPath))
+            var desktop = await _desktopPackageInstaller.EnsureInstalledAsync();
+
+            if (!desktop.Success || desktop.ExecutablePath is null)
             {
                 await hubConnection.SendAsync("DisplayMessage",
                     "Remote control executable not found on target device.",
-                    "Executable not found on device.",
+                    $"The desktop client could not be prepared ({desktop.Failure}): {desktop.Detail}",
                     "bg-danger",
                     userConnectionId);
                 return;
@@ -119,7 +127,7 @@ public class AppLauncherWin : IAppLauncher
             // characters that the client captures are the ones of the user.
             ApplyForegroundKeyboardLayout();
 
-            var processId = LaunchDesktopProcess(arguments, targetSessionId, UnattendedRole);
+            var processId = LaunchDesktopProcess(desktop.ExecutablePath, arguments, targetSessionId, UnattendedRole);
 
             if (processId <= 0)
             {
@@ -146,6 +154,25 @@ public class AppLauncherWin : IAppLauncher
         {
             // Start Desktop app.
             _logger.LogInformation("Restarting screen caster.");
+
+            var desktop = await _desktopPackageInstaller.EnsureInstalledAsync();
+
+            if (!desktop.Success || desktop.ExecutablePath is null)
+            {
+                _logger.LogError(
+                    "The desktop client could not be prepared ({failure}): {detail}",
+                    desktop.Failure,
+                    desktop.Detail);
+
+                await hubConnection.SendAsync("SendConnectionFailedToViewers", viewerIds);
+                await hubConnection.SendAsync("DisplayMessage",
+                    "Remote control failed to start on target device.",
+                    $"The desktop client could not be prepared ({desktop.Failure}): {desktop.Detail}",
+                    "bg-danger",
+                    userConnectionId);
+                return;
+            }
+
             if (WindowsIdentity.GetCurrent().IsSystem)
             {
                 // Give a little time for session changing, etc.
@@ -170,7 +197,7 @@ public class AppLauncherWin : IAppLauncher
                 arguments += $" --viewers {string.Join(",", viewerIds)}";
             }
 
-            var processId = LaunchDesktopProcess(arguments, targetSessionID, UnattendedRole);
+            var processId = LaunchDesktopProcess(desktop.ExecutablePath, arguments, targetSessionID, UnattendedRole);
 
             if (processId <= 0)
             {
@@ -240,13 +267,13 @@ public class AppLauncherWin : IAppLauncher
     /// Starts the desktop client and hands the process over to the supervisor, so that it is
     /// started again if it is terminated while the session is still active.
     /// </summary>
-    private int LaunchDesktopProcess(string arguments, int targetSessionId, string role)
+    private int LaunchDesktopProcess(string executablePath, string arguments, int targetSessionId, string role)
     {
         int processId;
 
         if (WindowsIdentity.GetCurrent().IsSystem)
         {
-            var commandLine = _rcBinaryPath + arguments;
+            var commandLine = executablePath + arguments;
 
             if (!Win32Interop.CreateInteractiveSystemProcess(
                     commandLine,
@@ -261,7 +288,7 @@ public class AppLauncherWin : IAppLauncher
         }
         else
         {
-            var process = Process.Start(_rcBinaryPath, arguments);
+            var process = Process.Start(executablePath, arguments);
 
             if (process is null)
             {
@@ -271,12 +298,12 @@ public class AppLauncherWin : IAppLauncher
             processId = process.Id;
         }
 
-        TrackDesktopProcess(processId, targetSessionId, role, arguments);
+        TrackDesktopProcess(processId, targetSessionId, role, arguments, executablePath);
 
         return processId;
     }
 
-    private void TrackDesktopProcess(int processId, int targetSessionId, string role, string arguments)
+    private void TrackDesktopProcess(int processId, int targetSessionId, string role, string arguments, string executablePath)
     {
         var resolvedSessionId = (int)Win32Interop.ResolveWindowsSession(targetSessionId);
 
@@ -285,7 +312,7 @@ public class AppLauncherWin : IAppLauncher
             ProcessId = processId,
             TargetSessionId = resolvedSessionId,
             Role = role,
-            ExecutablePath = _rcBinaryPath,
+            ExecutablePath = executablePath,
             Arguments = arguments
         });
     }

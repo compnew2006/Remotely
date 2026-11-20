@@ -275,6 +275,105 @@ public class UpdateSigningServiceTests
         return path;
     }
 
+    [TestMethod]
+    public async Task SignDesktopIfChangedAsync_WritesAManifestAndASignature()
+    {
+        CreateDesktopClient("Win-x64", "Remotely_Desktop.exe");
+
+        var signed = await _signingService.SignDesktopIfChangedAsync("Win-x64", default);
+
+        Assert.IsTrue(signed);
+
+        var folder = Path.Combine(_webRoot, "Content", "Win-x64");
+        Assert.IsTrue(File.Exists(Path.Combine(folder, "Remotely_Desktop.exe.manifest.json")));
+        Assert.IsTrue(File.Exists(Path.Combine(folder, "Remotely_Desktop.exe.manifest.sig")));
+    }
+
+    [TestMethod]
+    public async Task SignDesktopIfChangedAsync_ProducesAManifestThatVerifies()
+    {
+        var desktopPath = CreateDesktopClient("Win-x64", "Remotely_Desktop.exe");
+
+        await _signingService.SignDesktopIfChangedAsync("Win-x64", default);
+
+        var folder = Path.Combine(_webRoot, "Content", "Win-x64");
+        var manifestBytes = File.ReadAllBytes(
+            Path.Combine(folder, "Remotely_Desktop.exe.manifest.json"));
+        var signature = File.ReadAllText(
+            Path.Combine(folder, "Remotely_Desktop.exe.manifest.sig"));
+
+        var trustedKeys = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            _signingService.GetTrustedKeysJson())!;
+
+        // The agents download the client without an installer, so the
+        // installer hash of the manifest is not checked here.
+        var result = UpdatePackageVerifier.Verify(
+            manifestBytes,
+            signature,
+            File.ReadAllBytes(desktopPath),
+            null,
+            new Version(0, 0, 0, 0),
+            trustedKeys);
+
+        Assert.IsTrue(result.Success, result.Detail);
+    }
+
+    [TestMethod]
+    public async Task SignDesktopIfChangedAsync_UsesTheVersionNextToTheClient()
+    {
+        CreateDesktopClient("Win-x64", "Remotely_Desktop.exe", "2026.11.19.1208");
+
+        await _signingService.SignDesktopIfChangedAsync("Win-x64", default);
+
+        var folder = Path.Combine(_webRoot, "Content", "Win-x64");
+        var manifest = JsonSerializer.Deserialize<UpdateManifest>(
+            File.ReadAllText(Path.Combine(folder, "Remotely_Desktop.exe.manifest.json")));
+
+        Assert.IsNotNull(manifest);
+        Assert.AreEqual("2026.11.19.1208", manifest!.Version);
+        Assert.AreEqual("Remotely_Desktop.exe", manifest.Package);
+    }
+
+    [TestMethod]
+    public async Task SignDesktopIfChangedAsync_OnlySignsWhenTheClientChanged()
+    {
+        CreateDesktopClient("Win-x64", "Remotely_Desktop.exe");
+
+        Assert.IsTrue(await _signingService.SignDesktopIfChangedAsync("Win-x64", default));
+        Assert.IsFalse(await _signingService.SignDesktopIfChangedAsync("Win-x64", default));
+
+        CreateDesktopClient("Win-x64", "Remotely_Desktop.exe", "2026.11.19.1208", "second");
+        Assert.IsTrue(await _signingService.SignDesktopIfChangedAsync("Win-x64", default));
+    }
+
+    [TestMethod]
+    public async Task SignDesktopIfChangedAsync_DoesNothingWhenTheClientIsNotPublished()
+    {
+        var signed = await _signingService.SignDesktopIfChangedAsync("Win-x64", default);
+
+        Assert.IsFalse(signed);
+    }
+
+    /// <summary>
+    /// Publishes the desktop client the way the publish script does, with the
+    /// version of the build next to it.
+    /// </summary>
+    private string CreateDesktopClient(
+        string platform,
+        string fileName,
+        string version = "2026.11.19.1208",
+        string content = "desktop-client")
+    {
+        var folder = Path.Combine(_webRoot, "Content", platform);
+        Directory.CreateDirectory(folder);
+
+        var path = Path.Combine(folder, fileName);
+        File.WriteAllText(path, content);
+        File.WriteAllText(path + ".version", version);
+
+        return path;
+    }
+
     /// <summary>
     /// A signing service whose verification always fails, so that the
     /// behaviour of the server when a manifest does not verify can be

@@ -21,20 +21,18 @@ public class AppLauncherLinux : IAppLauncher
     private readonly ConnectionInfo _connectionInfo;
     private readonly ILogger<AppLauncherLinux> _logger;
     private readonly IProcessInvoker _processInvoker;
-
-    private readonly string _rcBinaryPath = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, 
-        "Desktop", 
-        EnvironmentHelper.DesktopExecutableFileName);
+    private readonly IDesktopPackageInstaller _desktopPackageInstaller;
 
     public AppLauncherLinux(
         IConfigService configService,
         IProcessInvoker processInvoker,
-        ILogger<AppLauncherLinux> logger)
+        ILogger<AppLauncherLinux> logger,
+        IDesktopPackageInstaller desktopPackageInstaller)
     {
         _processInvoker = processInvoker;
         _connectionInfo = configService.GetConnectionInfo();
         _logger = logger;
+        _desktopPackageInstaller = desktopPackageInstaller;
     }
 
 
@@ -42,20 +40,23 @@ public class AppLauncherLinux : IAppLauncher
     {
         try
         {
-            if (!File.Exists(_rcBinaryPath))
+            var desktop = await _desktopPackageInstaller.EnsureInstalledAsync();
+
+            if (!desktop.Success || desktop.ExecutablePath is null)
             {
                 await hubConnection.SendAsync("DisplayMessage",
                     "Chat executable not found on target device.",
-                    "Executable not found on device.",
+                    $"The desktop client could not be prepared ({desktop.Failure}): {desktop.Detail}",
                     "bg-danger",
                     userConnectionId);
+                return -1;
             }
 
 
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
             var args =
-                _rcBinaryPath +
+                desktop.ExecutablePath +
                 $" --mode Chat" +
                 $" --host \"{_connectionInfo.Host}\"" +
                 $" --pipe-name {pipeName}" +
@@ -76,11 +77,13 @@ public class AppLauncherLinux : IAppLauncher
     {
         try
         {
-            if (!File.Exists(_rcBinaryPath))
+            var desktop = await _desktopPackageInstaller.EnsureInstalledAsync();
+
+            if (!desktop.Success || desktop.ExecutablePath is null)
             {
                 await hubConnection.SendAsync("DisplayMessage",
                     "Remote control executable not found on target device.",
-                    "Executable not found on device.",
+                    $"The desktop client could not be prepared ({desktop.Failure}): {desktop.Detail}",
                     "bg-danger",
                     userConnectionId);
                 return;
@@ -90,7 +93,7 @@ public class AppLauncherLinux : IAppLauncher
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", "Starting remote control.", "Starting remote control.", "bg-success", userConnectionId);
             var args =
-                _rcBinaryPath +
+                desktop.ExecutablePath +
                 $" --mode Unattended" +
                 $" --host {_connectionInfo.Host}" +
                 $" --requester-name \"{requesterName}\"" +
@@ -111,8 +114,21 @@ public class AppLauncherLinux : IAppLauncher
     {
         try
         {
+            var desktop = await _desktopPackageInstaller.EnsureInstalledAsync();
+
+            if (!desktop.Success || desktop.ExecutablePath is null)
+            {
+                _logger.LogError(
+                    "The desktop client could not be prepared ({failure}): {detail}",
+                    desktop.Failure,
+                    desktop.Detail);
+
+                await hubConnection.SendAsync("SendConnectionFailedToViewers", viewerIds);
+                return;
+            }
+
             var args =
-                _rcBinaryPath +
+                desktop.ExecutablePath +
                 $" --mode Unattended" +
                 $" --host {_connectionInfo.Host}" +
                 $" --requester-name \"{requesterName}\"" +

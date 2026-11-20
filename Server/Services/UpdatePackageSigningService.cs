@@ -11,6 +11,10 @@ public class UpdatePackageSigningService : BackgroundService
 {
     private static readonly string[] _platforms = ["x64", "x86"];
 
+    // The desktop clients are downloaded by the agents on demand, and each
+    // one of them has a signed manifest of its own.
+    private static readonly string[] _desktopPlatforms = ["Win-x64", "Win-x86", "Linux-x64"];
+
     private readonly IUpdateSigningService _signingService;
     private readonly ILogger<UpdatePackageSigningService> _logger;
 
@@ -53,6 +57,18 @@ public class UpdatePackageSigningService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while signing the client package for {platform}.", platform);
+            }
+        }
+
+        foreach (var platform in _desktopPlatforms)
+        {
+            try
+            {
+                await _signingService.SignDesktopIfChangedAsync(platform, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while signing the desktop client for {platform}.", platform);
             }
         }
     }

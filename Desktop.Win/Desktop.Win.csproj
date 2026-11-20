@@ -39,7 +39,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio" Version="2.2.1" />
+    <!--
+      Only the core types and the Wasapi/MMF layer are used.  The NAudio
+      metapackage also brings NAudio.WinForms, which declares a framework
+      reference to Microsoft.WindowsDesktop.App and adds the WinForms
+      assemblies to the publish output for nothing.
+    -->
+    <PackageReference Include="NAudio.Core" Version="2.2.1" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <!--
+      SystemEvents (session switch and display change notifications) used to
+      arrive with the Microsoft.WindowsDesktop.App framework, which NAudio
+      pulled in.  It is referenced explicitly now that the framework
+      reference is gone.
+    -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.15" />
     <PackageReference Include="SharpDX" Version="4.2.0" />
     <PackageReference Include="SharpDX.Direct3D11" Version="4.2.0" />
     <PackageReference Include="SharpDX.DXGI" Version="4.2.0" />
@@ -70,6 +84,17 @@
     <Resource Include="Assets\favicon.ico" />
     <EmbeddedResource Include="Assets\Remotely_Icon.png" />
   </ItemGroup>
+
+  <!--
+    ScreenRecorderLib ships a 15 MB pdb next to its assembly, and reference
+    resolution copies it into the publish output.  The symbols of a
+    third-party package are not needed on the device, and every device
+    downloads this package.  The pdb files of this repository's own
+    assemblies are kept, because the agent writes stack traces to its log.
+  -->
+  <Target Name="RemoveThirdPartySymbols" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)ScreenRecorderLib.pdb" Condition="Exists('$(PublishDir)ScreenRecorderLib.pdb')" />
+  </Target>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="if $(SolutionDir) == *Undefined* (&#xD;&#xA;  exit 0&#xD;&#xA;)&#xD;&#xA;if $(ConfigurationName) == Debug (&#xD;&#xA;  if $(PlatformName) == AnyCPU (&#xD;&#xA;      md &quot;$(SolutionDir)Agent\bin\Debug\net10.0\Desktop\&quot;&#xD;&#xA;      xcopy &quot;$(TargetDir)*&quot; &quot;$(SolutionDir)Agent\bin\Debug\net10.0\Desktop\&quot; /y /e /i&#xD;&#xA;  )&#xD;&#xA;  if $(PlatformName) == x64 (&#xD;&#xA;      md &quot;$(SolutionDir)Agent\bin\x64\Debug\net10.0\Desktop\&quot;&#xD;&#xA;      xcopy &quot;$(TargetDir)*&quot; &quot;$(SolutionDir)Agent\bin\x64\Debug\net10.0\Desktop\&quot; /y /e /i&#xD;&#xA;  )&#xD;&#xA;  if $(PlatformName) == x86 (&#xD;&#xA;      md &quot;$(SolutionDir)Agent\bin\x86\Debug\net10.0\Desktop\&quot;&#xD;&#xA;      xcopy &quot;$(TargetDir)*&quot; &quot;$(SolutionDir)Agent\bin\x86\Debug\net10.0\Desktop\&quot; /y /e /i&#xD;&#xA;  )&#xD;&#xA;)" />

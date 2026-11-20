@@ -199,4 +199,70 @@ public class UpdatePackageVerifierTests
         Assert.IsFalse(result.Success);
         Assert.AreEqual(UpdateVerificationFailure.UnknownKeyId, result.Failure);
     }
+
+    [TestMethod]
+    public void VerifyManifestSignature_ASignedManifest_ReturnsTheManifest()
+    {
+        var (key, publicKey) = GenerateKey();
+        var manifest = BuildManifestJson("2.0.0", "aa", string.Empty, "test-2026-11");
+        var signature = Convert.ToBase64String(key.SignData(manifest, HashAlgorithmName.SHA256));
+
+        var result = UpdatePackageVerifier.VerifyManifestSignature(
+            manifest,
+            signature,
+            new Dictionary<string, string> { ["test-2026-11"] = publicKey });
+
+        Assert.IsTrue(result.Success, result.Detail);
+        Assert.IsNotNull(result.Manifest);
+        Assert.AreEqual("2.0.0", result.Manifest!.Version);
+        Assert.AreEqual("aa", result.Manifest.Sha256);
+    }
+
+    [TestMethod]
+    public void VerifyManifestSignature_AnUnknownKey_Fails()
+    {
+        var (key, publicKey) = GenerateKey();
+        var manifest = BuildManifestJson("2.0.0", "aa", string.Empty, "rogue-key");
+        var signature = Convert.ToBase64String(key.SignData(manifest, HashAlgorithmName.SHA256));
+
+        var result = UpdatePackageVerifier.VerifyManifestSignature(
+            manifest,
+            signature,
+            new Dictionary<string, string> { ["test-2026-11"] = publicKey });
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual(UpdateVerificationFailure.UnknownKeyId, result.Failure);
+        Assert.IsNull(result.Manifest);
+    }
+
+    [TestMethod]
+    public void VerifyManifestSignature_ATamperedManifest_Fails()
+    {
+        var (key, publicKey) = GenerateKey();
+        var manifest = BuildManifestJson("2.0.0", "aa", string.Empty, "test-2026-11");
+        var signature = Convert.ToBase64String(key.SignData(manifest, HashAlgorithmName.SHA256));
+        var tampered = BuildManifestJson("2.0.1", "aa", string.Empty, "test-2026-11");
+
+        var result = UpdatePackageVerifier.VerifyManifestSignature(
+            tampered,
+            signature,
+            new Dictionary<string, string> { ["test-2026-11"] = publicKey });
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual(UpdateVerificationFailure.InvalidSignature, result.Failure);
+    }
+
+    [TestMethod]
+    public void VerifyManifestSignature_AMalformedManifest_Fails()
+    {
+        var (_, publicKey) = GenerateKey();
+
+        var result = UpdatePackageVerifier.VerifyManifestSignature(
+            Encoding.UTF8.GetBytes("this is not json {}"),
+            Convert.ToBase64String(new byte[64]),
+            new Dictionary<string, string> { ["test-2026-11"] = publicKey });
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual(UpdateVerificationFailure.ManifestMalformed, result.Failure);
+    }
 }

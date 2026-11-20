@@ -277,6 +277,9 @@ Server/wwwroot/Downloads/Win-x86/*
 /Server/wwwroot/Content/Remotely_Desktop
 Server/wwwroot/Content/Win-x64/*
 Server/wwwroot/Content/Win-x86/*
+Server/wwwroot/Content/Linux-x64/*
+Server/wwwroot/Content/MacOS-x64/*
+Server/wwwroot/Content/MacOS-arm64/*
 /Server/wwwroot/Content/*.exe
 /Server/wwwroot/Content/*.zip
 /Server/wwwroot/Content/*.appimage
@@ -293,6 +296,10 @@ Server/.config/dotnet-tools.json
 Server.Installer/Properties/launchSettings.json
 .DS_Store
 /Server/wwwroot/Content/Linux-x64/Remotely_Desktop
+# The version of a published desktop client, written next to it so the
+# server can put it in the signed manifest.
+Server/wwwroot/Content/*/Remotely_Desktop.exe.version
+Server/wwwroot/Content/*/Remotely_Desktop.version
 !/.vscode/launch.json
 !/.vscode/tasks.json
 /Server/appsettings.Development.json

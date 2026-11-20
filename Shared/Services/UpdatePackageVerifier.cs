@@ -43,6 +43,24 @@ public sealed record UpdateVerificationResult(
 }
 
 /// <summary>
+/// The result of a signature-only manifest check.  The manifest is returned
+/// when it is authentic, so the caller can read the version and the package
+/// hash without downloading the package itself.
+/// </summary>
+public sealed record UpdateManifestVerificationResult(
+    bool Success,
+    UpdateVerificationFailure Failure,
+    string Detail,
+    UpdateManifest? Manifest)
+{
+    public static UpdateManifestVerificationResult Pass(UpdateManifest manifest) =>
+        new(true, UpdateVerificationFailure.None, string.Empty, manifest);
+
+    public static UpdateManifestVerificationResult Fail(UpdateVerificationFailure failure, string detail) =>
+        new(false, failure, detail, null);
+}
+
+/// <summary>
 /// Verifies a signed update manifest and its package before anything is
 /// executed or extracted (G2 — signed and verified client updates).
 ///
@@ -84,12 +102,19 @@ public static class UpdatePackageVerifier
         return keys;
     }
 
-    public static UpdateVerificationResult Verify(
+    /// <summary>
+    /// Checks the authenticity of a manifest and its signature, without looking
+    /// at the package it describes.
+    /// <para>
+    /// The agent uses this to find out whether the server publishes a newer
+    /// package than the one it has, without downloading the package itself.
+    /// The hash of the package is in the manifest, so a client that trusts the
+    /// manifest also trusts the hash it carries.
+    /// </para>
+    /// </summary>
+    public static UpdateManifestVerificationResult VerifyManifestSignature(
         byte[] manifestBytes,
         string signatureBase64,
-        byte[] packageBytes,
-        byte[]? installerBytes,
-        Version currentVersion,
         IReadOnlyDictionary<string, string> trustedKeys)
     {
         UpdateManifest manifest;
@@ -102,7 +127,7 @@ public static class UpdatePackageVerifier
         }
         catch (Exception ex)
         {
-            return UpdateVerificationResult.Fail(
+            return UpdateManifestVerificationResult.Fail(
                 UpdateVerificationFailure.ManifestMalformed,
                 $"Manifest could not be parsed: {ex.Message}");
         }
@@ -112,7 +137,7 @@ public static class UpdatePackageVerifier
             string.IsNullOrWhiteSpace(manifest.Sha256) ||
             string.IsNullOrWhiteSpace(manifest.KeyId))
         {
-            return UpdateVerificationResult.Fail(
+            return UpdateManifestVerificationResult.Fail(
                 UpdateVerificationFailure.ManifestMalformed,
                 "Manifest is missing required fields.");
         }
@@ -121,7 +146,7 @@ public static class UpdatePackageVerifier
         if (!trustedKeys.TryGetValue(manifest.KeyId, out var publicKeyBase64) ||
             string.IsNullOrWhiteSpace(publicKeyBase64))
         {
-            return UpdateVerificationResult.Fail(
+            return UpdateManifestVerificationResult.Fail(
                 UpdateVerificationFailure.UnknownKeyId,
                 $"Key ID '{manifest.KeyId}' is not trusted.");
         }
@@ -134,17 +159,37 @@ public static class UpdatePackageVerifier
             var signature = Convert.FromBase64String(signatureBase64);
             if (!ecdsa.VerifyData(manifestBytes, signature, HashAlgorithmName.SHA256))
             {
-                return UpdateVerificationResult.Fail(
+                return UpdateManifestVerificationResult.Fail(
                     UpdateVerificationFailure.InvalidSignature,
                     "Manifest signature is invalid.");
             }
         }
         catch (Exception ex)
         {
-            return UpdateVerificationResult.Fail(
+            return UpdateManifestVerificationResult.Fail(
                 UpdateVerificationFailure.InvalidSignature,
                 $"Signature check failed: {ex.Message}");
         }
+
+        return UpdateManifestVerificationResult.Pass(manifest);
+    }
+
+    public static UpdateVerificationResult Verify(
+        byte[] manifestBytes,
+        string signatureBase64,
+        byte[] packageBytes,
+        byte[]? installerBytes,
+        Version currentVersion,
+        IReadOnlyDictionary<string, string> trustedKeys)
+    {
+        var manifestResult = VerifyManifestSignature(manifestBytes, signatureBase64, trustedKeys);
+
+        if (!manifestResult.Success || manifestResult.Manifest is null)
+        {
+            return UpdateVerificationResult.Fail(manifestResult.Failure, manifestResult.Detail);
+        }
+
+        var manifest = manifestResult.Manifest;
 
         // 3. The package must match the signed hash, before it is ever extracted.
         var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes));
