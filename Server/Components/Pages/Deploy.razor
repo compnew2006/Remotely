@@ -20,6 +20,13 @@
 <p class="text-info mb-3">
     Copy and paste on a remote computer to install the agent.
 </p>
+<p class="text-muted mb-3">
+    This installs one program (the agent). The attended support client
+    (Remotely_Desktop.exe) is downloaded by the agent in the background and
+    verified against the signed package manifest, so there is no second
+    program to install by hand. Run the command in an elevated PowerShell
+    prompt; it will ask for administrator approval otherwise.
+</p>
 
 <div class="row">
 
@@ -242,16 +249,6 @@
         Toasts.ShowToast2("Failed to set clipboard content", ToastType.Error);
     }
 
-    private string GetLinuxScript(string platformId)
-    {
-        return
-            $"sudo rm -f /tmp/Install-Remotely.sh && " +
-            $"sudo wget -q -O /tmp/Install-Remotely.sh {NavMan.BaseUri}api/ClientDownloads/{platformId}/{_organizationId} && " +
-            $"sudo chmod +x /tmp/Install-Remotely.sh && " +
-            $"sudo /tmp/Install-Remotely.sh";
-    }
-
-
     private async Task HandleWin64FileChanged(InputFileChangeEventArgs ev)
     {
         await TrySaveFile(_winX64File, ev);
@@ -281,12 +278,11 @@
 
     private void SetScriptContent()
     {
-        _windowsScript =
-            $"irm '{NavMan.BaseUri}api/ClientDownloads/WindowsInstaller/{_organizationId}'|iex";
+        _windowsScript = DeployCommandBuilder.BuildWindowsCommand(NavMan.BaseUri, _organizationId);
 
-        _ubuntuScript = GetLinuxScript("UbuntuInstaller-x64");
+        _ubuntuScript = DeployCommandBuilder.BuildLinuxCommand(NavMan.BaseUri, _organizationId, "Install-Ubuntu-x64.sh");
 
-        _manjaroScript = GetLinuxScript("ManjaroInstaller-x64");
+        _manjaroScript = DeployCommandBuilder.BuildLinuxCommand(NavMan.BaseUri, _organizationId, "Install-Manjaro-x64.sh");
     }
 
     private async Task TrySaveFile(IFileInfo? fileInfo, InputFileChangeEventArgs ev)

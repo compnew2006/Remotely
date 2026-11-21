@@ -73,6 +73,12 @@
         <p class="rm-lead">
             Installable background agents that provide unattended access and remote scripting.
         </p>
+        <p class="rm-note">
+            The agent packages contain the agent only. The attended support client
+            (Remotely_Desktop.exe) is downloaded by the agent in the background and
+            verified against the signed package manifest, so there is no second
+            program to install by hand.
+        </p>
 
         @if (!_isAuthenticated)
         {
@@ -178,71 +184,59 @@
                 <article class="rm-panel">
                     <h3 class="rm-panel-title">Windows 10 / 11</h3>
 
-                    <p class="rm-label">Example quiet install</p>
-                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
--install
--quiet
--organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
--serverurl "https://remotely.mytechshop.com"</pre>
+                    <p class="rm-label">Example install</p>
+                    <pre class="rm-code">@_windowsInstallScript</pre>
 
-                    <p class="rm-label mt-3">Example quiet uninstall</p>
-                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F Install-Remotely.ps1 -uninstall -quiet</pre>
+                    <p class="rm-label mt-3">Example quiet install</p>
+                    <pre class="rm-code">@_windowsQuietInstallScript</pre>
 
-                    <p class="rm-label mt-3">Example local install</p>
-                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
--install
--quiet
--organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
--serverurl "https://remotely.mytechshop.com"
--path "[path]\Remotely-Win-x64.zip"</pre>
+                    <p class="rm-label mt-3">Example local install (agent zip already downloaded)</p>
+                    <pre class="rm-code">@_windowsLocalInstallScript</pre>
+
+                    <p class="rm-label mt-3">Example uninstall</p>
+                    <pre class="rm-code">@_windowsUninstallScript</pre>
 
                     <p class="rm-label mt-3">All override options</p>
-                    <pre class="rm-code">powershell.exe -ExecutionPolicy Bypass -F {path}\Install-Remotely.ps1
--install -quiet -supportshortcut
--organizationid "0b3d706b-9c5d-41e6-8ae9-5720d16324e6"
--serverurl "https://remotely.mytechshop.com"
--devicegroup "Customer Group 1"
--devicealias "Front Desk"
--deviceuuid "eebb4d87-5459-4976-989e-a7876dffc69c"</pre>
+                    <pre class="rm-code">@_windowsOverrideScript</pre>
                 </article>
 
                 <article class="rm-panel">
                     <h3 class="rm-panel-title">Linux 64-Bit</h3>
 
                     <p class="rm-label">Example install</p>
-                    <pre class="rm-code">sudo [path]/Install-Ubuntu-x64.sh</pre>
+                    <pre class="rm-code">@_linuxInstallScript</pre>
 
-                    <p class="rm-label mt-3">Example local install</p>
-                    <pre class="rm-code">sudo [path]/Install-Ubuntu-x64.sh --path [path]/Remotely-Linux.zip</pre>
+                    <p class="rm-label mt-3">Example local install (agent zip already downloaded)</p>
+                    <pre class="rm-code">@_linuxLocalInstallScript</pre>
 
                     <p class="rm-label mt-3">Uninstall</p>
-                    <pre class="rm-code">sudo [path]/Install-Ubuntu-x64.sh --uninstall</pre>
+                    <pre class="rm-code">@_linuxUninstallScript</pre>
                 </article>
 
                 <article class="rm-panel">
                     <h3 class="rm-panel-title">macOS x64 (10.12 - 10.15)</h3>
 
                     <p class="rm-label">Example install</p>
-                    <pre class="rm-code">sudo [path]/Install-MacOS-x64.sh</pre>
+                    <pre class="rm-code">@_macOSInstallScript</pre>
 
-                    <p class="rm-label mt-3">Example local install</p>
-                    <pre class="rm-code">sudo [path]/Install-MacOS-x64.sh --path [path]/Remotely-MacOS-x64.zip</pre>
+                    <p class="rm-label mt-3">Example local install (agent zip already downloaded)</p>
+                    <pre class="rm-code">@_macOSLocalInstallScript</pre>
 
                     <p class="rm-label mt-3">Example uninstall</p>
-                    <pre class="rm-code">sudo [path]/Install-MacOS-x64.sh --uninstall</pre>
+                    <pre class="rm-code">@_macOSUninstallScript</pre>
                 </article>
 
                 <article class="rm-panel">
                     <h3 class="rm-panel-title">macOS arm64</h3>
 
                     <p class="rm-label">Example install</p>
-                    <pre class="rm-code">sudo [path]/Install-MacOS-arm64.sh</pre>
+                    <pre class="rm-code">@_macOSArm64InstallScript</pre>
 
-                    <p class="rm-label mt-3">Example local install</p>
-                    <pre class="rm-code">sudo [path]/Install-MacOS-arm64.sh --path [path]/Remotely-MacOS-arm64.zip</pre>
+                    <p class="rm-label mt-3">Example local install (agent zip already downloaded)</p>
+                    <pre class="rm-code">@_macOSArm64LocalInstallScript</pre>
 
                     <p class="rm-label mt-3">Example uninstall</p>
-                    <pre class="rm-code">sudo [path]/Install-MacOS-arm64.sh --uninstall</pre>
+                    <pre class="rm-code">@_macOSArm64UninstallScript</pre>
                 </article>
             </div>
         </section>
@@ -266,7 +260,9 @@
                 </div>
                 <pre class="rm-code">@_installAgentScript</pre>
                 <p class="rm-note">
-                    Downloads the installer for this server, installs the persistent agent, and registers Remotely_Service.
+                    Copy the whole line and paste it in one go into an elevated PowerShell prompt. It downloads
+                    the installer for this server, installs the persistent agent, and registers Remotely_Service.
+                    The attended support client is then downloaded in the background by the agent.
                 </p>
             </article>
 
@@ -283,7 +279,8 @@
                 <p class="rm-note">
                     Gives the service a clear name, restarts it automatically when it fails, registers a SYSTEM watchdog
                     that restarts it within a minute, and parks a stray portable Quick Support copy. It never touches
-                    <code>Remotely\Desktop\Remotely_Desktop.exe</code>, which the agent needs for unattended control.
+                    <code>Remotely\Desktop\&lt;version&gt;\Remotely_Desktop.exe</code>, which the agent downloads
+                    and uses for unattended control.
                 </p>
             </article>
 
@@ -306,13 +303,6 @@
 </div>
 
 @code {
-    private const string InstallAgentScriptTemplate = """
-        $script = "$env:TEMP\Install-Remotely.ps1"
-        irm '__SERVER_URL__/Content/Install-Remotely.ps1' -OutFile $script
-        powershell.exe -ExecutionPolicy Bypass -File $script `
-          -ServerUrl '__SERVER_URL__' `
-          -OrganizationId '__ORGANIZATION_ID__'
-        """;
 
     private const string ProtectServiceScript = """
         $serviceName = 'Remotely_Service'
@@ -336,9 +326,10 @@
         Start-Service $serviceName -ErrorAction SilentlyContinue
 
         # Park a stray portable "Quick Support" copy, if one was placed in the
-        # install folder.  This is NOT the unattended app: the agent launches
-        # "$env:ProgramFiles\Remotely\Desktop\Remotely_Desktop.exe" for every
-        # remote control session, so that file must never be moved or renamed.
+        # install folder.  This is NOT the unattended app: the agent downloads
+        # "$env:ProgramFiles\Remotely\Desktop\<version>\Remotely_Desktop.exe"
+        # and launches it for every remote control session, so that folder must
+        # never be moved or renamed.
         $portableExe = Join-Path $env:ProgramFiles 'Remotely\Remotely_Desktop.exe'
         if (Test-Path $portableExe) { Move-Item $portableExe "$portableExe.disabled" -Force }
 
@@ -357,6 +348,20 @@
     private string? _organizationId;
     private bool _isAuthenticated;
     private string _installAgentScript = string.Empty;
+    private string _windowsInstallScript = string.Empty;
+    private string _windowsQuietInstallScript = string.Empty;
+    private string _windowsLocalInstallScript = string.Empty;
+    private string _windowsUninstallScript = string.Empty;
+    private string _windowsOverrideScript = string.Empty;
+    private string _linuxInstallScript = string.Empty;
+    private string _linuxLocalInstallScript = string.Empty;
+    private string _linuxUninstallScript = string.Empty;
+    private string _macOSInstallScript = string.Empty;
+    private string _macOSLocalInstallScript = string.Empty;
+    private string _macOSUninstallScript = string.Empty;
+    private string _macOSArm64InstallScript = string.Empty;
+    private string _macOSArm64LocalInstallScript = string.Empty;
+    private string _macOSArm64UninstallScript = string.Empty;
     private string _protectServiceScript = ProtectServiceScript;
     private string _undoProtectionScript = UndoProtectionScript;
 
@@ -382,9 +387,27 @@
         }
 
         var serverUrl = NavManager.BaseUri.TrimEnd('/');
-        _installAgentScript = InstallAgentScriptTemplate
-            .Replace("__SERVER_URL__", serverUrl)
-            .Replace("__ORGANIZATION_ID__", _organizationId ?? string.Empty);
+        var organizationId = _organizationId ?? string.Empty;
+
+        _installAgentScript = DeployCommandBuilder.BuildWindowsCommand(serverUrl, organizationId);
+
+        _windowsInstallScript = DeployCommandBuilder.BuildWindowsCommand(serverUrl, organizationId);
+        _windowsQuietInstallScript = DeployCommandBuilder.BuildWindowsQuietInstallCommand(serverUrl, organizationId);
+        _windowsLocalInstallScript = DeployCommandBuilder.BuildWindowsLocalInstallCommand(serverUrl, organizationId, "[path]\\Remotely-Win-x64.zip");
+        _windowsUninstallScript = DeployCommandBuilder.BuildWindowsUninstallCommand(serverUrl);
+        _windowsOverrideScript = DeployCommandBuilder.BuildWindowsOverrideCommand(serverUrl, organizationId, "Front Desk", "Customer Group 1");
+
+        _linuxInstallScript = DeployCommandBuilder.BuildLinuxCommand(serverUrl, organizationId, DeployCommandBuilder.UbuntuInstallerFileName);
+        _linuxLocalInstallScript = DeployCommandBuilder.BuildLinuxLocalInstallCommand(serverUrl, organizationId, DeployCommandBuilder.UbuntuInstallerFileName, "[path]/Remotely-Linux.zip");
+        _linuxUninstallScript = DeployCommandBuilder.BuildLinuxUninstallCommand(serverUrl, organizationId, DeployCommandBuilder.UbuntuInstallerFileName);
+
+        _macOSInstallScript = DeployCommandBuilder.BuildLinuxCommand(serverUrl, organizationId, DeployCommandBuilder.MacOSInstallerFileName);
+        _macOSLocalInstallScript = DeployCommandBuilder.BuildLinuxLocalInstallCommand(serverUrl, organizationId, DeployCommandBuilder.MacOSInstallerFileName, "[path]/Remotely-MacOS-x64.zip");
+        _macOSUninstallScript = DeployCommandBuilder.BuildLinuxUninstallCommand(serverUrl, organizationId, DeployCommandBuilder.MacOSInstallerFileName);
+
+        _macOSArm64InstallScript = DeployCommandBuilder.BuildLinuxCommand(serverUrl, organizationId, DeployCommandBuilder.MacOSArm64InstallerFileName);
+        _macOSArm64LocalInstallScript = DeployCommandBuilder.BuildLinuxLocalInstallCommand(serverUrl, organizationId, DeployCommandBuilder.MacOSArm64InstallerFileName, "[path]/Remotely-MacOS-arm64.zip");
+        _macOSArm64UninstallScript = DeployCommandBuilder.BuildLinuxUninstallCommand(serverUrl, organizationId, DeployCommandBuilder.MacOSArm64InstallerFileName);
 
         await base.OnInitializedAsync();
     }

@@ -75,7 +75,11 @@ function Is-Administrator() {
 function Run-StartupChecks {
 
 	if (!$HostName -or !$Organization) {
-		Write-Log "Required parameters are missing.  Please try downloading the installer again."
+		$Missing = @()
+		if (!$HostName) { $Missing += '-ServerUrl' }
+		if (!$Organization) { $Missing += '-OrganizationId' }
+		Write-Log "Required parameters are missing: $($Missing -join '', '').  Run the script again with them, for example:"
+		Write-Log "  powershell.exe -ExecutionPolicy Bypass -File <path>\Install-Remotely.ps1 -ServerUrl 'https://your-server' -OrganizationId '<organization id>'"
 		Do-Exit
 	}
 
@@ -83,7 +87,10 @@ function Run-StartupChecks {
 		Write-Log -Message "Install script requires elevation.  Attempting to self-elevate..."
 		Start-Sleep -Seconds 3
 
-		$Params = "-File `"$($MyInvocation.ScriptName)`"";
+		# The elevated child has to be able to run this script even when the machine
+		# blocks downloaded .ps1 files (the default execution policy on Windows
+		# clients does).
+		$Params = "-ExecutionPolicy Bypass -File `"$($MyInvocation.ScriptName)`"";
 		if ($OrganizationId) {
 			$Params += " -OrganizationId $OrganizationId"
 		}
